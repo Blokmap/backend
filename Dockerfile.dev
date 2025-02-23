@@ -1,23 +1,41 @@
 # Stage 1: Export the requirements with poetry.
-FROM python:3.12 AS builder
+FROM python:3.13-slim AS builder
 
-RUN pip install poetry-plugin-export
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y curl
 
-WORKDIR /app
+ENV PIP_NO_CACHE_DIR=false \
+    PIP_DISABLE_PIP_VERSION_CHECK=on \
+    POETRY_HOME="/opt/poetry" \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_CREATE=false
+
+ENV PATH="$POETRY_HOME/bin:$PATH"
+
+RUN curl -sSL https://install.python-poetry.org | python -
+
+RUN poetry self add poetry-plugin-export
+
+WORKDIR /blokmap-backend
 
 COPY pyproject.toml poetry.lock ./
 
 RUN poetry export --without-hashes --format=requirements.txt > requirements.txt
 
 # Stage 2: Install the requirements and run the application.
-FROM python:3.12
+FROM python:3.13-slim
 
-WORKDIR /app
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y libpq5
 
-COPY --from=builder /app/requirements.txt .
+WORKDIR /blokmap-backend
+
+COPY --from=builder /blokmap-backend/requirements.txt .
 
 RUN pip install -r requirements.txt --no-cache-dir
 
-COPY . .
+COPY ./app ./app
 
-CMD uvicorn --host 0.0.0.0 --port 8000 --reload app.main:app 
+CMD ["uvicorn", "--host", "0.0.0.0", "--port", "8000", "--reload", "app.main:app"]
