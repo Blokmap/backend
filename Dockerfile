@@ -26,6 +26,10 @@ RUN poetry export --without-hashes --format=requirements.txt > requirements.txt
 # Stage 2: Install the requirements and run the application.
 FROM python:3.13-slim
 
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+	&& apt-get install -y libpq5
+
 WORKDIR /blokmap-backend
 
 COPY --from=builder /blokmap-backend/requirements.txt .
@@ -34,4 +38,4 @@ RUN pip install -r requirements.txt --no-cache-dir
 
 COPY ./app ./app
 
-CMD ["uvicorn",  "--host", "0.0.0.0", "--port", "80", "--reload", "app.main:app"]
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:80", "app.main:app", "-k", "uvicorn.workers.UvicornWorker"]
