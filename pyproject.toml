@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "blokmap-backend"
+version = "0.1.0"
+description = "FastAPI implementation of the blokmap backend."
+authors = ["Ewout Verlinde <ewoutverlinde@hotmail.com>", "Tibo Ulens <>"]
+license = "MIT"
+readme = "README.md"
+packages = [
+    { include = "app" }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+fastapi = "^0.115.8"
+uvicorn = "^0.34.0"
+gunicorn = "^23.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.4"
+httpx = "^0.28.1"
+ruff = "^0.9.7"
+taskipy = "^1.14.1"
+
+[tool.taskipy.tasks]
+lint = "ruff check app/ test/ --fix"
+format = "ruff format app/ test/"
+test = "pytest test"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
