@@ -1,0 +1,34 @@
+name: Lint, format, and test code
+
+on:
+    push
+
+jobs:
+    lint-and-format:
+        runs-on: ubuntu-latest
+
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+
+          - name: Setup
+            uses: ./.github/actions/common
+
+          - name: Lint code
+            run: poetry run task lint
+
+          - name: Format code
+            run: poetry run task format
+
+    test:
+        runs-on: ubuntu-latest
+
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+
+          - name: Setup
+            uses: ./.github/actions/common
+
+          - name: Run tests
+            run: poetry run task test
