@@ -16,6 +16,7 @@ uvicorn = "^0.34.0"
 gunicorn = "^23.0.0"
 sqlalchemy = "^2.0.38"
 psycopg = "^3.2.5"
+alembic = "^1.14.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"

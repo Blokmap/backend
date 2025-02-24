@@ -5,11 +5,7 @@ from .model import Todo
 from .database import session
 
 
-app = FastAPI(
-    root_path="/api",
-    docs_url=None,
-    redoc_url=None
-)
+app = FastAPI(root_path="/api", docs_url=None, redoc_url=None)
 
 
 @app.get("/")
