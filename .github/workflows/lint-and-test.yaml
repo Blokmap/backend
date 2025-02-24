@@ -1,0 +1,72 @@
+name: Lint, format, and test code
+
+on:
+    push
+
+jobs:
+    lint-and-format:
+        runs-on: self-hosted
+
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+
+          - name: Setup python
+            uses: actions/setup-python@v5
+            with:
+                python-version: "3.13"
+
+          - name: Install poetry
+            uses: abatilo/actions-poetry@v4
+
+          - name: Configure poetry
+            run: |
+                poetry config virtualenvs.create true --local
+                poetry config virtualenvs.in-project true --local
+
+          - name: Setup caching
+            uses: actions/cache@v4
+            with:
+                path: ./.venv
+                key: venv-${{ hashFiles('poetry.lock') }}
+
+          - name: Install dependencies
+            run: poetry install
+
+          - name: Lint code
+            run: poetry run task lint
+
+          - name: Format code
+            run: poetry run task format
+
+    test:
+        runs-on: self-hosted
+
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+
+          - name: Setup python
+            uses: actions/setup-python@v5
+            with:
+                python-version: "3.13"
+
+          - name: Install poetry
+            uses: abatilo/actions-poetry@v4
+
+          - name: Configure poetry
+            run: |
+                poetry config virtualenvs.create true --local
+                poetry config virtualenvs.in-project true --local
+
+          - name: Setup caching
+            uses: actions/cache@v4
+            with:
+                path: ./.venv
+                key: venv-${{ hashFiles('poetry.lock') }}
+
+          - name: Install dependencies
+            run: poetry install
+
+          - name: Run tests
+            run: poetry run task test
