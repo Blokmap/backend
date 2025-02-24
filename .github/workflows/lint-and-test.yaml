@@ -11,27 +11,8 @@ jobs:
           - name: Checkout code
             uses: actions/checkout@v4
 
-          - name: Setup python
-            uses: actions/setup-python@v5
-            with:
-                python-version: "3.13"
-
-          - name: Install poetry
-            uses: abatilo/actions-poetry@v4
-
-          - name: Configure poetry
-            run: |
-                poetry config virtualenvs.create true --local
-                poetry config virtualenvs.in-project true --local
-
-          - name: Setup caching
-            uses: actions/cache@v4
-            with:
-                path: ./.venv
-                key: venv-${{ hashFiles('poetry.lock') }}
-
-          - name: Install dependencies
-            run: poetry install
+          - name: Setup
+            uses: ./.github/actions/common
 
           - name: Lint code
             run: poetry run task lint
@@ -46,27 +27,8 @@ jobs:
           - name: Checkout code
             uses: actions/checkout@v4
 
-          - name: Setup python
-            uses: actions/setup-python@v5
-            with:
-                python-version: "3.13"
-
-          - name: Install poetry
-            uses: abatilo/actions-poetry@v4
-
-          - name: Configure poetry
-            run: |
-                poetry config virtualenvs.create true --local
-                poetry config virtualenvs.in-project true --local
-
-          - name: Setup caching
-            uses: actions/cache@v4
-            with:
-                path: ./.venv
-                key: venv-${{ hashFiles('poetry.lock') }}
-
-          - name: Install dependencies
-            run: poetry install
+          - name: Setup
+            uses: ./.github/actions/common
 
           - name: Run tests
             run: poetry run task test
