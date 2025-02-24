@@ -5,7 +5,7 @@ on:
 
 jobs:
     lint-and-format:
-        runs-on: self-hosted
+        runs-on: ubuntu-latest
 
         steps:
           - name: Checkout code
@@ -21,7 +21,7 @@ jobs:
             run: poetry run task format
 
     test:
-        runs-on: self-hosted
+        runs-on: ubuntu-latest
 
         steps:
           - name: Checkout code
