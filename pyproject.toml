@@ -2,7 +2,7 @@
 name = "blokmap-backend"
 version = "0.1.0"
 description = "FastAPI implementation of the blokmap backend."
-authors = ["Ewout Verlinde <ewoutverlinde@hotmail.com>", "Tibo Ulens <>"]
+authors = ["Ewout Verlinde <ewout@gentsestudentenraad.be>", "Tibo Ulens <tibo@gentsestudentenraad.be>"]
 license = "MIT"
 readme = "README.md"
 packages = [
