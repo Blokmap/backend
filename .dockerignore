@@ -3,6 +3,8 @@ test/
 
 .dockerignore
 .gitignore
-Dockerfile
+Dockerfile.dev
+Dockerfile.prod
 LICENSE
+Makefile
 README.md

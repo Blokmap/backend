@@ -36,6 +36,9 @@ COPY --from=builder /blokmap-backend/requirements.txt .
 
 RUN pip install -r requirements.txt --no-cache-dir
 
+COPY ./alembic.ini .
+COPY ./migrations ./migrations
+
 COPY ./app ./app
 
 CMD ["gunicorn", "-w", "9", "-b", "0.0.0.0:80", "app.main:app", "-k", "uvicorn.workers.UvicornWorker"]
