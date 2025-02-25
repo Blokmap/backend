@@ -2,6 +2,7 @@ name: Lint, format, and test code
 
 on:
     push:
+        branches: ["*"]
         tags-ignore: ["v*.*.*"]
 
     workflow_call:
