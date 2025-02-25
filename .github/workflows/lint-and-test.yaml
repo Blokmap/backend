@@ -1,7 +1,11 @@
 name: Lint, format, and test code
 
 on:
-    push
+    push:
+        branches: ["**"]
+        tags-ignore: ["v*.*.*"]
+
+    workflow_call:
 
 jobs:
     lint-and-format:
