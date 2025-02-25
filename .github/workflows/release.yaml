@@ -1,11 +1,10 @@
 name: Build and release a new docker image
 
 permissions:
-  packages: write
+    packages: write
 
 on:
     push:
-        branches: [main]
         tags: ["v*"]
 
 jobs:
