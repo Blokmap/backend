@@ -24,7 +24,7 @@ def upgrade() -> None:
         sa.Column("id", sa.BigInteger, primary_key=True),
         sa.Column("username", sa.Text, nullable=False),
         sa.Column("email", sa.Text, nullable=False),
-        sa.Column("password", sa.Text, nullable=False),
+        sa.Column("hashed_password", sa.Text, nullable=False),
 
         sa.UniqueConstraint("email", name="unique_email"),
     )

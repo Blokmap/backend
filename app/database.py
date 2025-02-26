@@ -1,7 +1,6 @@
 import os
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlmodel import Session, create_engine
 
 _db_user = os.getenv("DATABASE_USER", "blokmap")
 _db_pwd = os.getenv("DATABASE_PASSWORD", "appel")
@@ -13,5 +12,7 @@ url = f"postgresql+psycopg://{_db_user}:{_db_pwd}@{_db_host}:{_db_port}/{_db_nam
 
 engine = create_engine(url)
 
-Session = sessionmaker(bind=engine)
-session = Session()
+
+def get_session():
+    with Session(engine) as session:
+        yield session
