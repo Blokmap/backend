@@ -1,13 +1,14 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import declarative_base
 
 
 Base = declarative_base()
 
 
-class Todo(Base):
-    __tablename__ = "todo"
+class User(Base):
+    __tablename__ = "user"
 
     id = Column(Integer, primary_key=True)
-    text = Column(String)
-    is_done = Column(Boolean, default=False)
+    username = Column(String, nullable=False)
+    email = Column(String, nullable=False, unique=True)
+    password = Column(String, nullable=False)
