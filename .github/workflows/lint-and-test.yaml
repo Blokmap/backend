@@ -54,7 +54,7 @@ jobs:
             uses: ./.github/actions/common
 
           - name: Run migrations
-            run: poetry env alembic upgrade head
+            run: poetry run alembic upgrade head
 
           - name: Run tests
             run: poetry run task test
