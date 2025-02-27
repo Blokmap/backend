@@ -43,3 +43,7 @@ runs:
         if: steps.cached-poetry-deps.outputs.cache-hit != 'true'
         shell: bash
         run: poetry install --no-interaction --no-root
+
+      - name: Source venv
+        shell: bash
+        run: source .venv/bin/activate
