@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 import jwt
-from fastapi import APIRouter, Depends, Form, HTTPException, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from passlib.context import CryptContext
 
@@ -86,4 +86,18 @@ async def login(
         data={"sub": str(user.id)}, expires_delta=access_token_expires
     )
 
-    return Token(access_token=access_token, token_type="bearer")
+    response = Response(status_code=status.HTTP_200_OK)
+
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        expires=datetime.now(timezone.utc)
+        + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        path="/",
+        domain="",
+        secure=True,
+        httponly=True,
+        samesite="lax",
+    )
+
+    return response

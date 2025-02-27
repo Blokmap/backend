@@ -1,8 +1,7 @@
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Cookie, Depends, HTTPException, status
 from jwt.exceptions import InvalidTokenError
 from sqlmodel import Session
 
@@ -12,13 +11,12 @@ from .models.user import User
 from .models.token import TokenData
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-TokenDep = Annotated[str, Depends(oauth2_scheme)]
-
 DbSessionDep = Annotated[Session, Depends(get_session)]
 
 
-async def get_user_session(token: TokenDep, session: DbSessionDep):
+async def get_user_session(
+    access_token: Annotated[str, Cookie()], session: DbSessionDep
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid username or password",
@@ -31,7 +29,7 @@ async def get_user_session(token: TokenDep, session: DbSessionDep):
     )
 
     try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(access_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         id = payload.get("sub")
 
         if id is None:
