@@ -12,8 +12,8 @@ runs:
       - name: Setup python
         shell: bash
         run: |
-            sudo apt build-dep python3
-            sudo apt get wget make
+            sudo apt build-dep -y python3
+            sudo apt install -y wget make
             if pushd $(mktemp -d); then
                 wget https://www.python.org/ftp/python/3.13.2/Python-3.13.2.tgz
                 tar -xvf Python-3.13.2.tgz
