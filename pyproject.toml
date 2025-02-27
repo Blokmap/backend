@@ -10,7 +10,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.12,<4.0"
+python = ">=3.11,<4.0"
 fastapi = "^0.115.8"
 uvicorn = "^0.34.0"
 gunicorn = "^23.0.0"
