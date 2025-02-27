@@ -18,29 +18,6 @@ router = APIRouter(prefix="/auth")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-@router.post("/signup", status_code=status.HTTP_201_CREATED)
-async def signup(
-    signup_data: Annotated[NewUser, Form()], session: DbSessionDep
-) -> User:
-    hashed_password = pwd_context.hash(signup_data.password)
-    new_user = User(
-        username=signup_data.username,
-        email=signup_data.email,
-        hashed_password=hashed_password,
-    )
-
-    session.add(new_user)
-    session.commit()
-    session.refresh(new_user)
-
-    new_user = User.get_by_username(session, new_user.username)
-
-    if not new_user:
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    return new_user
-
-
 def authenticate_user(
     username: str, password: str, session: DbSessionDep
 ) -> User | None:
@@ -66,6 +43,46 @@ def create_access_token(
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
     return encoded_jwt
+
+
+@router.post("/signup", status_code=status.HTTP_201_CREATED)
+async def signup(
+    signup_data: Annotated[NewUser, Form()], session: DbSessionDep, response: Response
+) -> User:
+    hashed_password = pwd_context.hash(signup_data.password)
+    new_user = User(
+        username=signup_data.username,
+        email=signup_data.email,
+        hashed_password=hashed_password,
+    )
+
+    session.add(new_user)
+    session.commit()
+    session.refresh(new_user)
+
+    new_user = User.get_by_username(session, new_user.username)
+
+    if not new_user:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(new_user.id)}, expires_delta=access_token_expires
+    )
+
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        expires=datetime.now(timezone.utc)
+        + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        path="/",
+        domain="",
+        secure=True,
+        httponly=True,
+        samesite="lax",
+    )
+
+    return new_user
 
 
 @router.post("/login")

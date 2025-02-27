@@ -20,6 +20,14 @@ def test_signup():
     assert data["username"] == "bob"
     assert data["email"] == "bob@example.com"
     assert data["hashed_password"] is not None
+    assert response.cookies.get("access_token") is not None
+
+    payload = jwt.decode(
+        response.cookies.get("access_token"), JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM]
+    )
+    id = payload.get("sub")
+
+    assert id is not None
 
 
 def test_login():
