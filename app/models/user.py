@@ -10,6 +10,13 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True)
     hashed_password: str = Field(exclude=True)
 
+    def save(self, session: Session) -> Self:
+        session.add(self)
+        session.commit()
+        session.refresh(self)
+
+        return self
+
     @staticmethod
     def get(session: Session, id: int) -> Self | None:
         return session.get(User, id)
