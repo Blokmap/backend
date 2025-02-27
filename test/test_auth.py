@@ -1,5 +1,6 @@
 import jwt
 from fastapi.testclient import TestClient
+import pytest
 
 from app.main import app
 from app.constants import JWT_ALGORITHM, JWT_SECRET_KEY
@@ -39,3 +40,24 @@ def test_login():
     id = payload.get("sub")
 
     assert id is not None
+
+
+def test_user_route():
+    response = client.post(
+        "/auth/login",
+        data={"username": "bob", "password": "appel"},
+    )
+    data = response.json()
+    access_token = data["access_token"]
+
+    response = client.get(
+        "/user/me",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    data = response.json()
+
+    assert response.status_code == 200
+    assert data["id"] is not None
+    assert data["username"] == "bob"
+    assert data["email"] == "bob@example.com"
+    assert data["hashed_password"] is not None
