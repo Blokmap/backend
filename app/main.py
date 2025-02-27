@@ -2,8 +2,6 @@ from fastapi import FastAPI
 
 from .routers import auth, user
 
-from .routers import auth, user
-
 
 app = FastAPI(root_path="/api", docs_url="/docs", redoc_url=None)
 

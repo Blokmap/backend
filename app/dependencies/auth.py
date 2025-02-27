@@ -2,16 +2,11 @@ from typing import Annotated
 
 import jwt
 from fastapi import Cookie, Depends, HTTPException, status
-from jwt.exceptions import InvalidTokenError
-from sqlmodel import Session
+from jwt import InvalidTokenError
 
-from .constants import JWT_ALGORITHM, JWT_SECRET_KEY
-from .database import get_session
-from .models.user import User
-from .models.token import TokenData
-
-
-DbSessionDep = Annotated[Session, Depends(get_session)]
+from app.constants import JWT_ALGORITHM, JWT_SECRET_KEY
+from app.dependencies.database import DbSessionDep
+from app.models.user import User
 
 
 async def get_user_session(
@@ -34,12 +29,10 @@ async def get_user_session(
 
         if id is None:
             raise credentials_exception
-
-        token_data = TokenData(id=id)
     except InvalidTokenError:
         raise malformed_token_exception
 
-    user = User.get(session, token_data.id)
+    user = User.get(session, int(id))
 
     if user is None:
         raise credentials_exception

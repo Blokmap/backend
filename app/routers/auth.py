@@ -1,55 +1,24 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
-import jwt
 from fastapi import APIRouter, Depends, Form, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
-from passlib.context import CryptContext
 
-from app.constants import ACCESS_TOKEN_EXPIRE_MINUTES, JWT_ALGORITHM, JWT_SECRET_KEY
-from app.dependencies import DbSessionDep
+from app.constants import ACCESS_TOKEN_EXPIRE_MINUTES
+from app.dependencies.database import DbSessionDep
 from app.models.user import User, NewUser
 from app.models.token import Token
+from app.services.auth import authenticate_user, create_access_token, hash_user_password
 
 
 router = APIRouter(prefix="/auth")
-
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-def authenticate_user(
-    username: str, password: str, session: DbSessionDep
-) -> User | None:
-    user = User.get_by_username(session, username)
-
-    if not user:
-        return None
-
-    if not pwd_context.verify(password, user.hashed_password):
-        return None
-
-    return user
-
-
-def create_access_token(
-    data: dict, expires_delta: timedelta = timedelta(minutes=15)
-) -> str:
-    to_encode = data.copy()
-
-    expire = datetime.now(timezone.utc) + expires_delta
-    to_encode.update({"exp": expire})
-
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
-
-    return encoded_jwt
 
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
 async def signup(
     signup_data: Annotated[NewUser, Form()], session: DbSessionDep, response: Response
 ) -> User:
-    hashed_password = pwd_context.hash(signup_data.password)
+    hashed_password = hash_user_password(signup_data.password)
     new_user = User(
         username=signup_data.username,
         email=signup_data.email,
