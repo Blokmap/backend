@@ -30,7 +30,8 @@ jobs:
         env:
             DATABASE_USER: blokmap-test
             DATABASE_PASSWORD: blokmap-test
-            DATABASE_HOST: test-database
+            # The test job doesn't run in a container and so can't use docker DNS
+            DATABASE_HOST: "127.0.0.1"
             DATABASE_NAME: blokmap-test
 
         services:
