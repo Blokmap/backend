@@ -4,17 +4,12 @@ description: Sets up python and poetry with caching
 runs:
     using: composite
     steps:
-      - name: Setup python
-        uses: actions/setup-python@v5
-        with:
-            python-version: "3.13"
-
       - name: Load cached Poetry installation
         id: cached-poetry
         uses: actions/cache@v4
         with:
             path: ~/.local
-            key: poetry-0
+            key: poetry-1
 
       - name: Install and configure Poetry
         if: steps.cached-poetry.outputs.cache-hit != 'true'
@@ -24,11 +19,13 @@ runs:
             virtualenvs-path: .venv
             virtualenvs-in-project: true
 
-      - name: Setup caching
-        uses: actions/cache@v4
-        with:
-            path: .venv
-            key: venv-${{ hashFiles('poetry.lock') }}
+      - name: Configure poetry
+        if: steps.cached-poetry.outputs.cache-hit == 'true'
+        shell: bash
+        run: |
+            poetry config virtualenvs.create true
+            poetry config virtualenvs.path .venv
+            poetry config virtualenvs.in-project true
 
       - name: Load cached venv
         id: cached-poetry-deps
@@ -41,3 +38,7 @@ runs:
         if: steps.cached-poetry-deps.outputs.cache-hit != 'true'
         shell: bash
         run: poetry install --no-interaction --no-root
+
+      - name: Source venv
+        shell: bash
+        run: source .venv/bin/activate
