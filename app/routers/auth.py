@@ -8,7 +8,7 @@ from passlib.context import CryptContext
 
 from app.constants import ACCESS_TOKEN_EXPIRE_MINUTES, JWT_ALGORITHM, JWT_SECRET_KEY
 from app.dependencies import DbSessionDep
-from app.models.user import User, NewUser
+from app.models.user import User, NewUser, InsertableUser
 from app.models.token import Token
 
 
@@ -50,24 +50,20 @@ async def signup(
     signup_data: Annotated[NewUser, Form()], session: DbSessionDep, response: Response
 ) -> User:
     hashed_password = pwd_context.hash(signup_data.password)
-    new_user = User(
+    insertable_user = InsertableUser(
         username=signup_data.username,
         email=signup_data.email,
         hashed_password=hashed_password,
     )
 
-    session.add(new_user)
-    session.commit()
-    session.refresh(new_user)
+    user = insertable_user.save(session)
 
-    new_user = User.get_by_username(session, new_user.username)
-
-    if not new_user:
+    if not user:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": str(new_user.id)}, expires_delta=access_token_expires
+        data={"sub": str(user.id)}, expires_delta=access_token_expires
     )
 
     response.set_cookie(
@@ -82,7 +78,7 @@ async def signup(
         samesite="lax",
     )
 
-    return new_user
+    return user
 
 
 @router.post("/login")
