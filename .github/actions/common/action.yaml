@@ -4,10 +4,14 @@ description: Sets up python and poetry with caching
 runs:
     using: composite
     steps:
+    #   - name: Setup python
+    #     uses: actions/setup-python@v5
+    #     with:
+    #         python-version: "3.13"
+
       - name: Setup python
-        uses: actions/setup-python@v5
-        with:
-            python-version: "3.13"
+        shell: bash
+        run: sudo apt install python3
 
       - name: Load cached Poetry installation
         id: cached-poetry
