@@ -29,7 +29,7 @@ def test_login():
     )
     data = response.json()
 
-    assert response.status_code == 201
+    assert response.status_code == 200
     assert data["token_type"] == "bearer"
     assert data["access_token"] is not None
 
