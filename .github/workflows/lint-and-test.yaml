@@ -27,6 +27,23 @@ jobs:
     test:
         runs-on: ubuntu-latest
 
+        env:
+            DATABASE_USER: blokmap-test
+            DATABASE_PASSWORD: blokmap-test
+            DATABASE_HOST: test-database
+            DATABASE_NAME: blokmap-test
+
+        services:
+            test-database:
+                image: postgres
+                env:
+                    PGUSER: blokmap-test
+                    POSTGRES_USER: blokmap-test
+                    POSTGRES_PASSWORD: blokmap-test
+                    POSTGRES_DB: blokmap-test
+                ports:
+                  - "5432:5432"
+
         steps:
           - name: Checkout code
             uses: actions/checkout@v4

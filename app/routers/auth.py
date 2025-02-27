@@ -33,6 +33,11 @@ async def signup(
     session.commit()
     session.refresh(new_user)
 
+    new_user = User.get_by_username(new_user.username)
+
+    if not new_user:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     return new_user
 
 
