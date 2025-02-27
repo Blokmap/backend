@@ -6,8 +6,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from app.constants import ACCESS_TOKEN_EXPIRE_MINUTES
 from app.dependencies.database import DbSessionDep
-from app.models.user import User, NewUser
+from app.models.user import User
 from app.models.token import Token
+from app.schemas.user import NewUser
 from app.services.auth import authenticate_user, create_access_token, hash_user_password
 
 

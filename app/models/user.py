@@ -1,6 +1,5 @@
 from typing import Self
 
-from pydantic import BaseModel
 from sqlmodel import Field, SQLModel, Session, select
 
 
@@ -26,9 +25,3 @@ class User(SQLModel, table=True):
         return session.exec(
             select(User).where(User.username == username).limit(1)
         ).first()
-
-
-class NewUser(BaseModel):
-    username: str
-    email: str
-    password: str
