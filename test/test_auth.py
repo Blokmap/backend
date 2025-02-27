@@ -16,10 +16,10 @@ def test_signup():
     data = response.json()
 
     assert response.status_code == 201
-    assert data["id"] is not None
-    assert data["username"] == "bob"
-    assert data["email"] == "bob@example.com"
-    assert data["hashed_password"] is not None
+    assert data.get("id") is not None
+    assert data.get("username") == "bob"
+    assert data.get("email") == "bob@example.com"
+    assert data.get("hashed_password") is None
     assert response.cookies.get("access_token") is not None
 
     payload = jwt.decode(
@@ -60,7 +60,7 @@ def test_user_route():
     data = response.json()
 
     assert response.status_code == 200
-    assert data["id"] is not None
-    assert data["username"] == "bob"
-    assert data["email"] == "bob@example.com"
-    assert data["hashed_password"] is not None
+    assert data.get("id") is not None
+    assert data.get("username") == "bob"
+    assert data.get("email") == "bob@example.com"
+    assert data.get("hashed_password") is None
