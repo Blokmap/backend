@@ -24,11 +24,13 @@ runs:
             virtualenvs-path: .venv
             virtualenvs-in-project: true
 
-      - name: Setup caching
-        uses: actions/cache@v4
-        with:
-            path: .venv
-            key: venv-${{ hashFiles('poetry.lock') }}
+      - name: Configure poetry
+        if: steps.cached-poetry.outputs.cache-hit == 'true'
+        shell: bash
+        run: |
+            poetry config virtualenvs.create true
+            poetry config virtualenvs.path .venv
+            poetry config virtualenvs.in-project true
 
       - name: Load cached venv
         id: cached-poetry-deps
