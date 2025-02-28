@@ -5,7 +5,7 @@ from fastapi import Cookie, Depends, HTTPException, status
 from jwt import InvalidTokenError
 
 from app.constants import JWT_ALGORITHM, JWT_SECRET_KEY
-from app.dependencies.database import DbSessionDep
+from app.deps.db import DbSessionDep
 from app.models.user import User
 
 

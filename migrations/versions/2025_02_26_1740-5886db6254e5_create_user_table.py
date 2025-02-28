@@ -8,7 +8,7 @@ Create Date: 2025-02-26 17:40:29.129307
 from typing import Sequence, Union
 
 from alembic import op
-import sqlalchemy as sa
+import sqlmodel as sa
 
 
 # revision identifiers, used by Alembic.
@@ -25,7 +25,6 @@ def upgrade() -> None:
         sa.Column("username", sa.Text, nullable=False),
         sa.Column("email", sa.Text, nullable=False),
         sa.Column("hashed_password", sa.Text, nullable=False),
-
         sa.UniqueConstraint("email", name="unique_email"),
     )
 

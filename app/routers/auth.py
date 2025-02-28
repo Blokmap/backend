@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.constants import ACCESS_TOKEN_EXPIRE_MINUTES
-from app.dependencies.database import DbSessionDep
+from app.deps.db import DbSessionDep
 from app.models.user import User
 from app.models.token import Token
 from app.schemas.user import NewUser
