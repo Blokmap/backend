@@ -43,16 +43,19 @@ def create_translation(
         Translation: The created translation object.
     """
     # If a key is not provided, generate a new one.
-    key = translation.key or key or uuid4()
+    key = translation.translation_key or key or uuid4()
 
     # Create a translation object.
     translation_object = Translation(
-        language=translation.language, key=key, content=translation.content
+        language=translation.language,
+        translation_key=key,
+        translation=translation.translation,
     )
 
     # Add the translation object to the session and commit.
     session.add(translation_object)
     session.commit()
+    session.refresh(translation_object)
 
     # Return the translation object.
     return translation_object
@@ -68,7 +71,9 @@ def get_translations(session: Session, key: str) -> list[Translation]:
         list[Translation]: A list of translation objects with the given key.
     """
     # Get all translations with the given key.
-    translations = session.exec(Translation).filter(Translation.key == key).all()
+    translations = (
+        session.exec(Translation).filter(Translation.translation_key == key).all()
+    )
 
     # Return the translations.
     return translations
@@ -87,7 +92,7 @@ def get_translation(session: Session, key: str, language: str) -> Translation:
     # Get the translation with the given key and language.
     translation = (
         session.exec(Translation)
-        .filter(Translation.key == key, Translation.language == language)
+        .filter(Translation.translation_key == key, Translation.language == language)
         .first()
     )
 
@@ -103,7 +108,9 @@ def delete_translations(session: Session, key: str) -> None:
         key (str): The key of the translations to be deleted.
     """
     # Get all translations with the given key.
-    translations = session.exec(Translation).filter(Translation.key == key).all()
+    translations = (
+        session.exec(Translation).filter(Translation.translation_key == key).all()
+    )
 
     # Delete the translations.
     for translation in translations:
@@ -124,7 +131,7 @@ def delete_translation(session: Session, key: str, language: str) -> None:
     # Get the translation with the given key and language.
     translation = (
         session.exec(Translation)
-        .filter(Translation.key == key, Translation.language == language)
+        .filter(Translation.translation_key == key, Translation.language == language)
         .first()
     )
 
