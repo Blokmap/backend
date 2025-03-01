@@ -5,10 +5,8 @@ on:
         branches: ["**"]
         tags-ignore: ["**"]
 
-    workflow_call:
-
 jobs:
-    lint-and-format:
+    lint:
         runs-on: self-hosted
 
         steps:
@@ -20,6 +18,16 @@ jobs:
 
           - name: Lint code
             run: poetry run task lint-check
+
+    format:
+        runs-on: self-hosted
+
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+
+          - name: Setup
+            uses: ./.github/actions/common
 
           - name: Format code
             run: poetry run task format-check
