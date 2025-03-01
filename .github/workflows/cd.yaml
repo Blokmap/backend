@@ -27,7 +27,7 @@ jobs:
           - name: Load docker metadata
             id: meta
             uses: docker/metadata-action@v5
-            if: steps.wait-for-status.outputs.status == "success"
+            if: ${{ steps.wait-for-status.outputs.status == "success" }}
             with:
                 images: |
                     ghcr.io/blokmap/blokmap-backend
