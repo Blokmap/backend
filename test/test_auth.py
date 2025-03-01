@@ -9,6 +9,7 @@ client = TestClient(app)
 
 
 def test_signup():
+    """Test the signup route."""
     response = client.post(
         "/auth/signup",
         data={"username": "bob", "email": "bob@example.com", "password": "appel"},
@@ -31,6 +32,7 @@ def test_signup():
 
 
 def test_login():
+    """Test the login route."""
     response = client.post(
         "/auth/login",
         data={"username": "bob", "password": "appel"},
@@ -48,6 +50,7 @@ def test_login():
 
 
 def test_user_route():
+    """Test the /user/me route."""
     response = client.post(
         "/auth/login",
         data={"username": "bob", "password": "appel"},

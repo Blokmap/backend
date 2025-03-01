@@ -1,32 +1,15 @@
+from app.security import verify_user_password
+from app.services.user import get_user_by_username
 import jwt
 from datetime import datetime, timedelta, timezone
 
-from passlib.context import CryptContext
-from sqlmodel import Session, select
+from sqlmodel import Session
 
-from app.constants import ACCESS_TOKEN_EXPIRE_MINUTES, JWT_ALGORITHM, JWT_SECRET_KEY
+from app.constants import JWT_ALGORITHM, JWT_SECRET_KEY
 from app.models.user import User
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-def hash_user_password(password: str) -> str:
-    """
-    Hashes the given user password using a secure hashing algorithm.
-
-    Args:
-        password (str): The plain text password to be hashed.
-
-    Returns:
-        str: The hashed password.
-    """
-    return pwd_context.hash(password)
-
-
-def create_access_token(
-    data: dict, expires_delta: timedelta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-) -> str:
+def create_access_token(data: dict, expires_delta: timedelta) -> str:
     """
     Creates a JSON Web Token (JWT) for the given data with an expiration time.
 
@@ -60,10 +43,10 @@ def authenticate_user(username: str, password: str, session: Session) -> User | 
     Returns:
         User | None: The authenticated user if credentials are valid, otherwise None.
     """
-    user = session.exec(select(User).where(User.username == username)).first()
+    user = get_user_by_username(session, username)
 
     if user is not None:
-        verified = pwd_context.verify(password, user.hashed_password)
+        verified = verify_user_password(password, user.hashed_password)
 
         if verified:
             return user
