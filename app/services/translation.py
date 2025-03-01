@@ -92,7 +92,9 @@ def get_translation(session: Session, key: str, language: str) -> Translation:
     # Get the translation with the given key and language.
     translation = (
         session.exec(Translation)
-        .filter(Translation.translation_key == key, Translation.language == language)
+        .filter(
+            Translation.translation_key == key, Translation.language == language
+        )
         .first()
     )
 
@@ -109,7 +111,9 @@ def delete_translations(session: Session, key: str) -> None:
     """
     # Get all translations with the given key.
     translations = (
-        session.exec(Translation).filter(Translation.translation_key == key).all()
+        session.exec(Translation)
+        .filter(Translation.translation_key == key)
+        .all()
     )
 
     # Delete the translations.
@@ -131,7 +135,9 @@ def delete_translation(session: Session, key: str, language: str) -> None:
     # Get the translation with the given key and language.
     translation = (
         session.exec(Translation)
-        .filter(Translation.translation_key == key, Translation.language == language)
+        .filter(
+            Translation.translation_key == key, Translation.language == language
+        )
         .first()
     )
 

@@ -1,7 +1,6 @@
-from app.routers import translation
 from fastapi import FastAPI
 
-from .routers import auth, user
+from app.routers import auth, user, translation
 
 
 app = FastAPI(root_path="/api", docs_url="/docs", redoc_url=None)
