@@ -2,7 +2,6 @@ from fastapi import APIRouter
 
 from app.dependencies.auth import UserSessionDep
 
-
 router = APIRouter(prefix="/user")
 
 

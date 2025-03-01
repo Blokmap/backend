@@ -3,14 +3,17 @@ from fastapi.testclient import TestClient
 
 from app.constants import JWT_ALGORITHM, JWT_SECRET_KEY
 
-
 pytest_plugins = ["test.fixtures.client"]
 
 
 def test_signup(client: TestClient):
     response = client.post(
         "/auth/signup",
-        data={"username": "bob", "email": "bob@example.com", "password": "appel"},
+        data={
+            "username": "bob",
+            "email": "bob@example.com",
+            "password": "appel",
+        },
     )
     data = response.json()
 
@@ -22,7 +25,9 @@ def test_signup(client: TestClient):
     assert response.cookies.get("access_token") is not None
 
     payload = jwt.decode(
-        response.cookies.get("access_token"), JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM]
+        response.cookies.get("access_token"),
+        JWT_SECRET_KEY,
+        algorithms=[JWT_ALGORITHM],
     )
     id = payload.get("sub")
 
@@ -32,7 +37,11 @@ def test_signup(client: TestClient):
 def test_login(client: TestClient):
     client.post(
         "/auth/signup",
-        data={"username": "bob", "email": "bob@example.com", "password": "appel"},
+        data={
+            "username": "bob",
+            "email": "bob@example.com",
+            "password": "appel",
+        },
     )
 
     response = client.post(
@@ -44,7 +53,9 @@ def test_login(client: TestClient):
     assert response.cookies.get("access_token") is not None
 
     payload = jwt.decode(
-        response.cookies.get("access_token"), JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM]
+        response.cookies.get("access_token"),
+        JWT_SECRET_KEY,
+        algorithms=[JWT_ALGORITHM],
     )
     id = payload.get("sub")
 
@@ -54,7 +65,11 @@ def test_login(client: TestClient):
 def test_user_route(client: TestClient):
     client.post(
         "/auth/signup",
-        data={"username": "bob", "email": "bob@example.com", "password": "appel"},
+        data={
+            "username": "bob",
+            "email": "bob@example.com",
+            "password": "appel",
+        },
     )
 
     response = client.post(

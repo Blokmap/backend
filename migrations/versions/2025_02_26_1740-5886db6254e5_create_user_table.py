@@ -7,14 +7,13 @@ Create Date: 2025-02-26 17:40:29.129307
 """
 from typing import Sequence, Union
 
+import sqlmodel as sa
 from alembic import op
-import sqlalchemy as sa
 
 # SQLAlchemy does not map BigInt to Int by default on the sqlite dialect.
 # It should, but it doesnt.
 from sqlalchemy import BigInteger
 from sqlalchemy.dialects import postgresql, sqlite
-
 
 BigIntType = BigInteger()
 BigIntType = BigIntType.with_variant(postgresql.BIGINT(), "postgresql")
@@ -35,7 +34,6 @@ def upgrade() -> None:
         sa.Column("username", sa.Text, nullable=False),
         sa.Column("email", sa.Text, nullable=False),
         sa.Column("hashed_password", sa.Text, nullable=False),
-
         sa.UniqueConstraint("email", name="unique_email"),
     )
 

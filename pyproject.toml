@@ -2,12 +2,13 @@
 name = "blokmap-backend"
 version = "0.1.0"
 description = "FastAPI implementation of the blokmap backend."
-authors = ["Ewout Verlinde <ewout@gentsestudentenraad.be>", "Tibo Ulens <tibo@gentsestudentenraad.be>"]
+authors = [
+    "Ewout Verlinde <ewout@gentsestudentenraad.be>",
+    "Tibo Ulens <tibo@gentsestudentenraad.be>",
+]
 license = "MIT"
 readme = "README.md"
-packages = [
-    { include = "app" }
-]
+packages = [{ include = "app" }]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
@@ -17,10 +18,10 @@ gunicorn = "^23.0.0"
 psycopg = "^3.2.5"
 alembic = "^1.14.1"
 pyjwt = "^2.10.1"
-passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 python-multipart = "^0.0.20"
 pydantic = "^2.10.6"
 sqlmodel = "^0.0.22"
+argon2-cffi = "^23.1.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
@@ -32,8 +33,19 @@ taskipy = "^1.14.1"
 lint = "ruff check app/ test/ --fix"
 lint-check = "ruff check app/ test/"
 format = "ruff format app/ test/"
-format-check = "ruff format --check app/ test/"
+format-check = "ruff check app/ test/"
 test = "pytest test"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 80
+
+[tool.ruff.lint]
+select = ["I"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
