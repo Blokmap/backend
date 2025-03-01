@@ -27,26 +27,6 @@ jobs:
     test:
         runs-on: self-hosted
 
-        env:
-            DATABASE_USER: blokmap-test
-            # Separate env var needed for alembic
-            PGPASSWORD: blokmap-test
-            DATABASE_PASSWORD: blokmap-test
-            # The test job doesn't run in a container and so can't use docker DNS
-            DATABASE_HOST: "127.0.0.1"
-            DATABASE_NAME: blokmap-test
-
-        services:
-            test-database:
-                image: postgres
-                env:
-                    PGUSER: blokmap-test
-                    POSTGRES_USER: blokmap-test
-                    POSTGRES_PASSWORD: blokmap-test
-                    POSTGRES_DB: blokmap-test
-                ports:
-                  - "5432:5432"
-
         steps:
           - name: Checkout code
             uses: actions/checkout@v4
