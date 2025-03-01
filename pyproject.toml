@@ -18,10 +18,10 @@ gunicorn = "^23.0.0"
 psycopg = "^3.2.5"
 alembic = "^1.14.1"
 pyjwt = "^2.10.1"
-passlib = { extras = ["bcrypt"], version = "^1.7.4" }
 python-multipart = "^0.0.20"
 pydantic = "^2.10.6"
 sqlmodel = "^0.0.22"
+argon2-cffi = "^23.1.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"

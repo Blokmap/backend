@@ -1,6 +1,6 @@
-from passlib.context import CryptContext
+from argon2 import PasswordHasher
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = PasswordHasher()
 
 
 def hash_user_password(password: str) -> str:

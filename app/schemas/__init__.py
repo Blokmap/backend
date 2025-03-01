@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 def to_camel(string: str) -> str:
@@ -14,6 +14,6 @@ def to_camel(string: str) -> str:
 
 
 class BaseModel(BaseModel):
-    class Config:
-        alias_generator = to_camel
-        populate_by_name = True
+    """Base Pydantic model with camel case conversion enabled."""
+
+    config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
