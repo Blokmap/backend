@@ -31,7 +31,9 @@ taskipy = "^1.14.1"
 
 [tool.taskipy.tasks]
 lint = "ruff check app/ test/ --fix"
+lint-check = "ruff check app/ test/"
 format = "ruff format app/ test/"
+format-check = "ruff check app/ test/"
 test = "pytest test"
 
 [tool.ruff]

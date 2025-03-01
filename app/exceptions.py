@@ -1,5 +1,6 @@
 from fastapi import status
 
+
 class BlokmapApiError(Exception):
     """Base exception class"""
 
