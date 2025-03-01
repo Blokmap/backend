@@ -1,8 +1,7 @@
 from typing import Annotated
 
-import jwt
 from fastapi import Cookie, Depends, HTTPException, status
-from jwt import InvalidTokenError
+from jwt import InvalidTokenError, decode
 
 from app.constants import JWT_ALGORITHM, JWT_SECRET_KEY
 from app.deps.db import DbSessionDep
@@ -12,6 +11,16 @@ from app.models.user import User
 async def get_user_session(
     access_token: Annotated[str, Cookie()], session: DbSessionDep
 ):
+    """
+    Retrieve the user session based on the provided access token.
+    Args:
+        access_token (Annotated[str, Cookie]): The access token from the user's cookies.
+        session (DbSessionDep): The database session dependency.
+    Raises:
+        HTTPException: If the access token is invalid or the user is not found.
+    Returns:
+        User: The user object corresponding to the provided access token.
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid username or password",
@@ -24,7 +33,7 @@ async def get_user_session(
     )
 
     try:
-        payload = jwt.decode(access_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        payload = decode(access_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         id = payload.get("sub")
 
         if id is None:
@@ -32,7 +41,7 @@ async def get_user_session(
     except InvalidTokenError:
         raise malformed_token_exception
 
-    user = User.get(session, int(id))
+    user = session.get(User, int(id))
 
     if user is None:
         raise credentials_exception

@@ -1,11 +1,11 @@
 from uuid import uuid4
-from app.schemas.translation import NewTranslation
-from sqlmodel import Session
+from app.schemas.translation import TranslationCreate
+from sqlmodel import Session, select
 from app.models.translation import Translation
 
 
 def create_translations(
-    session: Session, translations: list[NewTranslation], key: str = uuid4()
+    session: Session, translations: list[TranslationCreate], key: str = uuid4()
 ) -> tuple[str, list[Translation]]:
     """
     Create and store translation objects in the database.
@@ -31,7 +31,7 @@ def create_translations(
 
 
 def create_translation(
-    session: Session, translation: NewTranslation, key: str = None
+    session: Session, translation: TranslationCreate, key: str = None
 ) -> Translation:
     """
     Create and store a translation object in the database.
@@ -71,8 +71,8 @@ def get_translations(session: Session, key: str) -> list[Translation]:
         list[Translation]: A list of translation objects with the given key.
     """
     # Get all translations with the given key.
-    translations = (
-        session.exec(Translation).filter(Translation.translation_key == key).all()
+    translations = session.exec(
+        select(Translation).filter(Translation.translation_key == key)
     )
 
     # Return the translations.

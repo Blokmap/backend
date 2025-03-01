@@ -1,34 +1,41 @@
-from app.database import get_session
 from app.deps.db import DbSessionDep
-from app.models.translation import Translation
-from app.schemas.translation import NewTranslation, ResponseTranslation
+from app.schemas.translation import (
+    TranslationCreate,
+    TranslationResponse,
+    TranslationsResponse,
+)
 from app.services.translation import create_translation, get_translations
-from fastapi import APIRouter, Depends, status
-from sqlmodel import Session
+from fastapi import APIRouter, status
 
 router = APIRouter(prefix="/translation")
 
 
 @router.post(
-    "/", status_code=status.HTTP_201_CREATED, response_model=ResponseTranslation
+    "/", status_code=status.HTTP_201_CREATED, response_model=TranslationResponse
 )
-async def create_translation_route(
-    session: Session = Depends(get_session),
-    translation_data: NewTranslation = None,
+async def create_translation_rte(
+    session: DbSessionDep,
+    translation_data: TranslationCreate = None,
 ):
     translation = create_translation(
         session, translation_data, translation_data.translation_key
     )
 
-    return ResponseTranslation(
-        language=translation.language,
-        translation_key=translation.translation_key,
-        translation=translation.translation,
-        created_at=translation.created_at,
-        updated_at=translation.updated_at,
+    return TranslationResponse(
+        **translation.__dict__,
     )
 
 
-@router.get("/{key}/")
-async def get_translations_route(session: DbSessionDep, key: str):
-    return get_translations(session, key)
+@router.get(
+    "/{key}/", status_code=status.HTTP_201_CREATED, response_model=TranslationsResponse
+)
+async def get_translations_rte(session: DbSessionDep, key: str):
+    translations = get_translations(session, key)
+
+    return TranslationsResponse(
+        translation_key=key,
+        translations={
+            translation.language: translation
+            for translation in translations
+        }
+    )

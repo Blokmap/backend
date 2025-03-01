@@ -1,7 +1,9 @@
-POST https://blokmap.local/api/translation/ HTTP/1.1
-content-type: application/json
+GET https://blokmap.local/api/translation/5a0ecc18-ca8b-4159-88b7-56fc0cabce27 HTTP/1.1
 
-{
-    "language": "nl",
-    "translation": "Test Translation"
-}
+# POST https://blokmap.local/api/translation/ HTTP/1.1
+# content-type: application/json
+
+# {
+#     "language": "nl",
+#     "translation": "Test Translation"
+# }
