@@ -34,8 +34,5 @@ jobs:
           - name: Setup
             uses: ./.github/actions/common
 
-          - name: Run migrations
-            run: poetry run alembic upgrade head
-
           - name: Run tests
             run: poetry run task test
