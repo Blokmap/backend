@@ -60,7 +60,7 @@ def authenticate_user(username: str, password: str, session: Session) -> User | 
     Returns:
         User | None: The authenticated user if credentials are valid, otherwise None.
     """
-    user = session.exec(select(User).where(User.username == username))
+    user = session.exec(select(User).where(User.username == username)).first()
 
     if user is not None:
         verified = pwd_context.verify(password, user.hashed_password)

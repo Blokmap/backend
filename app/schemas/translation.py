@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 from app.schemas import BaseModel
-from pydantic import Field, ConfigDict, RootModel
+from pydantic import Field, ConfigDict
 from app.models.translation import Language
 
 
