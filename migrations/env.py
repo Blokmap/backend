@@ -24,7 +24,12 @@ target_metadata = None
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
-config.set_main_option("sqlalchemy.url", str(url))
+
+if config.get_main_option("is_testing", "false") == "true":
+    config.set_main_option("sqlalchemy.url", "sqlite://")
+else:
+    from app.database import url
+    config.set_main_option("sqlalchemy.url", str(url))
 
 
 def run_migrations_offline() -> None:
@@ -58,14 +63,26 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    connectable = config.attributes.get('connection', None)
 
-    with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+    if connectable is None:
+        connectable = engine_from_config(
+            config.get_section(config.config_ini_section, {}),
+            prefix="sqlalchemy.",
+            poolclass=pool.NullPool,
+        )
+
+        with connectable.connect() as connection:
+            context.configure(
+                connection=connection, target_metadata=target_metadata
+            )
+
+            with context.begin_transaction():
+                context.run_migrations()
+    else:
+        context.configure(
+            connection=connectable, target_metadata=target_metadata
+        )
 
         with context.begin_transaction():
             context.run_migrations()

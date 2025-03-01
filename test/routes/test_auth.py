@@ -1,15 +1,13 @@
 import jwt
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.constants import JWT_ALGORITHM, JWT_SECRET_KEY
 
 
-client = TestClient(app)
+pytest_plugins = ["test.fixtures.client"]
 
 
-def test_signup():
-    """Test the signup route."""
+def test_signup(client: TestClient):
     response = client.post(
         "/auth/signup",
         data={"username": "bob", "email": "bob@example.com", "password": "appel"},
@@ -31,8 +29,12 @@ def test_signup():
     assert id is not None
 
 
-def test_login():
-    """Test the login route."""
+def test_login(client: TestClient):
+    client.post(
+        "/auth/signup",
+        data={"username": "bob", "email": "bob@example.com", "password": "appel"},
+    )
+
     response = client.post(
         "/auth/login",
         data={"username": "bob", "password": "appel"},
@@ -49,8 +51,12 @@ def test_login():
     assert id is not None
 
 
-def test_user_route():
-    """Test the /user/me route."""
+def test_user_route(client: TestClient):
+    client.post(
+        "/auth/signup",
+        data={"username": "bob", "email": "bob@example.com", "password": "appel"},
+    )
+
     response = client.post(
         "/auth/login",
         data={"username": "bob", "password": "appel"},
