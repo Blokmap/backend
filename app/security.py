@@ -27,4 +27,4 @@ def verify_user_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         bool: True if the password matches, False otherwise.
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    return pwd_context.verify(hashed_password, plain_password)
