@@ -16,12 +16,6 @@ class TranslationBase(BaseModel):
     )
 
 
-class TranslationCreate(TranslationBase):
-    """Request model for creating a new translation"""
-
-    translation_key: Optional[UUID] = Field(None)
-
-
 class TranslationResponse(TranslationBase):
     """Response model for a single translation"""
 
@@ -31,8 +25,12 @@ class TranslationResponse(TranslationBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class TranslationsResponse(BaseModel):
-    """Response model containing multiple translations keyed by language"""
+class TranslationsCreate(BaseModel):
+    """Request model for creating a new translation"""
 
     translation_key: Optional[UUID] = Field(...)
     translations: dict[Language, TranslationResponse] = Field(...)
+
+
+class TranslationsResponse(TranslationsCreate):
+    """Response model containing multiple translations keyed by language"""

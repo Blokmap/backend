@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.main import app
-from app.dependencies.database import get_session
+from app.deps.db import get_session
 
 
 pytest_plugins = ["test.fixtures.session"]
