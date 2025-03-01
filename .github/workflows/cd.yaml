@@ -17,7 +17,7 @@ jobs:
         steps:
           - name: Wait for succesful commit
             id: wait-for-status
-            uses: WyriHaximus/github-action-wait-for-status@v2
+            uses: WyriHaximus/github-action-wait-for-status@v1.8
             with:
                 ignoreActions: release
                 checkInterval: 5
