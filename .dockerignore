@@ -1,10 +1,14 @@
-.github/
-test/
+.git/
 
 .dockerignore
+.editorconfig
 .gitignore
-Dockerfile.dev
-Dockerfile.prod
-LICENSE
-Makefile
+rustfmt.toml
+
+target/
+
+diesel.toml
+docker-compose.yaml
 README.md
+rustfmt.toml
+rust-toolchain.toml
