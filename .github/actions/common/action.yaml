@@ -33,6 +33,8 @@ runs:
         with:
             path: .venv
             key: venv-${{ hashFiles('poetry.lock') }}
+            restore-keys: |
+                venv-
 
       - name: Install dependencies
         if: steps.cached-poetry-deps.outputs.cache-hit != 'true'
