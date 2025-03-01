@@ -13,4 +13,3 @@ class UserResponse(BaseModel):
     is_active: bool = Field(...)
     created_at: str = Field(...)
     updated_at: str = Field(...)
- 

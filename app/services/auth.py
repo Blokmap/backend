@@ -1,12 +1,12 @@
-from app.security import verify_user_password
-from app.services.user import get_user_by_username
-import jwt
 from datetime import datetime, timedelta, timezone
 
+import jwt
 from sqlmodel import Session
 
 from app.constants import JWT_ALGORITHM, JWT_SECRET_KEY
 from app.models.user import User
+from app.security import verify_user_password
+from app.services.user import get_user_by_username
 
 
 def create_access_token(data: dict, expires_delta: timedelta) -> str:
@@ -31,7 +31,9 @@ def create_access_token(data: dict, expires_delta: timedelta) -> str:
     return encoded_jwt
 
 
-def authenticate_user(username: str, password: str, session: Session) -> User | None:
+def authenticate_user(
+    username: str, password: str, session: Session
+) -> User | None:
     """
     Authenticate a user by their username and password.
 

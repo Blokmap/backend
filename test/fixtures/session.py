@@ -7,7 +7,6 @@ from alembic.config import Config
 from sqlmodel import Session, create_engine
 from sqlmodel.pool import StaticPool
 
-
 # Create an sqlite connection which doesn't automatically store transactions
 engine = create_engine(
     "sqlite://",

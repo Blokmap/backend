@@ -1,7 +1,8 @@
+from sqlmodel import Session, select
+
 from app.models.user import User
 from app.schemas.user import UserCreate
 from app.security import hash_user_password
-from sqlmodel import Session, select
 
 
 def get_user_by_id(session: Session, id: int) -> User | None:
@@ -47,7 +48,9 @@ def create_user(session: Session, user: UserCreate) -> User:
     hashed_password = hash_user_password(user.password)
 
     user = User(
-        username=user.username, email=user.email, hashed_password=hashed_password
+        username=user.username,
+        email=user.email,
+        hashed_password=hashed_password,
     )
 
     session.add(user)

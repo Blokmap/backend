@@ -1,51 +1,72 @@
-import app.services.translation as trans_service
+from fastapi import APIRouter, status
 
-from app.deps.db import DbSessionDep
+import app.services.translation as trans_service
+from app.dependencies.database import DbSessionDep
 from app.schemas.translation import (
+    TranslationCreate,
     TranslationResponse,
     TranslationsCreate,
     TranslationsResponse,
 )
 
-from fastapi import APIRouter, status
-
-router = APIRouter(prefix="/translation")
+router = APIRouter(prefix="/translations")
 
 
 @router.post(
-    path="/create/",
+    path="/",
     status_code=status.HTTP_201_CREATED,
     response_model=TranslationResponse,
 )
 async def create_translation(
     session: DbSessionDep,
-    translation_data: TranslationsCreate = None,
+    translation: TranslationCreate,
 ):
-    translation = trans_service.create_translation(
+    # Create the translation.
+    _, translation = trans_service.create_translation(session, translation)
+
+    # Return the translation in the response model.
+    return TranslationResponse(**translation.__dict__)
+
+
+@router.post(
+    path="/bulk/",
+    status_code=status.HTTP_201_CREATED,
+    response_model=TranslationsResponse,
+)
+async def create_translations(
+    session: DbSessionDep,
+    translations: TranslationsCreate,
+):
+    # Create the translations.
+    key, translations = trans_service.create_translations(
         session,
-        translation_data,
-        translation_data.translation_key,
+        translations,
     )
 
-    return TranslationResponse(
-        **translation.__dict__,
+    # Return the translations in the response model.
+    return TranslationsResponse(
+        translation_key=key,
+        translations=[
+            TranslationResponse(**translation.__dict__)
+            for translation in translations
+        ],
     )
 
-@router.post()
 
-
-@router
 @router.get(
     path="/{key}/",
     status_code=status.HTTP_201_CREATED,
     response_model=TranslationsResponse,
 )
 async def get_translations(session: DbSessionDep, key: str):
+    # Get the translations.
     translations = trans_service.get_translations(session, key)
 
+    # Return the translations in the response model.
     return TranslationsResponse(
         translation_key=key,
-        translations={
-            translation.language: translation for translation in translations
-        },
+        translations=[
+            TranslationResponse(**translation.__dict__)
+            for translation in translations
+        ],
     )

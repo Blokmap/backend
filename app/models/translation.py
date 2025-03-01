@@ -1,11 +1,11 @@
 from datetime import datetime
 from enum import Enum
 from typing import Optional
-from uuid import UUID
+
 from sqlmodel import Field, SQLModel
 
 
-class Language(Enum):
+class LanguageEnum(Enum):
     NL = "nl"
     EN = "en"
     FR = "fr"
@@ -14,8 +14,8 @@ class Language(Enum):
 
 class Translation(SQLModel, table=True):
     id: Optional[int] = Field(primary_key=True)
-    language: Language = Field()
-    translation_key: UUID = Field()
+    language: LanguageEnum = Field()
+    translation_key: str = Field()
     translation: str = Field()
 
     created_at: datetime = Field(default_factory=datetime.now)

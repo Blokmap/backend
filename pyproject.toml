@@ -38,6 +38,9 @@ test = "pytest test"
 target-version = "py311"
 line-length = 80
 
+[tool.ruff.lint]
+select = ["I"]
+
 [tool.ruff.format]
 docstring-code-format = true
 

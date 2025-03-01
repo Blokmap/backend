@@ -1,7 +1,8 @@
 from typing import Optional
 
-from app.models.translation import Translation
 from sqlmodel import Field, Relationship, SQLModel
+
+from app.models.translation import Translation
 
 
 class Location(SQLModel, table=True):
@@ -15,7 +16,7 @@ class Location(SQLModel, table=True):
         sa_relationship_kwargs={
             "primaryjoin": "Location.description_key == Translation.key",
             "lazy": "joined",
-            "viewonly": True
+            "viewonly": True,
         }
     )
 
@@ -24,14 +25,14 @@ class Location(SQLModel, table=True):
         sa_relationship_kwargs={
             "primaryjoin": "Location.excerpt_key == Translation.key",
             "lazy": "joined",
-            "viewonly": True
+            "viewonly": True,
         }
     )
 
     @property
     def description(self) -> str:
         return {t.language: t.value for t in self.name_translations}
-    
+
     @property
     def excerpt(self) -> str:
         return {t.language: t.value for t in self.excerpt_translations}

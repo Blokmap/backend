@@ -5,11 +5,13 @@ Revises:
 Create Date: 2025-02-28 20:04:29.129307
 
 """
+
 from typing import Sequence, Union
-from alembic import op
-from app.models.translation import Language
+
 import sqlmodel as sm
-import sqlalchemy as sa
+from alembic import op
+
+from app.models.translation import LanguageEnum
 
 # revision identifiers, used by Alembic.
 revision: str = "b905d8434f7a"
@@ -18,7 +20,8 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 # The language enum is used in the translation table.
-language_enum = sa.Enum(Language, name="language_enum")
+language_enum = sm.Enum(LanguageEnum, name="language_enum")
+
 
 def upgrade() -> None:
     # Create the Translation table.
@@ -26,11 +29,16 @@ def upgrade() -> None:
     op.create_table(
         "translation",
         sm.Column("id", sm.Integer, primary_key=True),
-        sm.Column("language", language_enum),
-        sm.Column("translation_key", sm.UUID),
-        sm.Column("translation", sm.String),
+        sm.Column("language", language_enum, nullable=False, index=True),
+        sm.Column("translation_key", sm.String, nullable=False),
+        sm.Column("translation", sm.String, nullable=False, index=True),
         sm.Column("created_at", sm.DateTime, server_default=sm.func.now()),
-        sm.Column("updated_at", sm.DateTime, server_default=sm.func.now(), onupdate=sm.func.now()),
+        sm.Column(
+            "updated_at",
+            sm.DateTime,
+            server_default=sm.func.now(),
+            onupdate=sm.func.now(),
+        ),
         sm.UniqueConstraint("language", "translation_key"),
     )
 

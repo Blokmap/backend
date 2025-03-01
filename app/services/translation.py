@@ -1,11 +1,14 @@
 from uuid import uuid4
-from app.schemas.translation import TranslationCreate
+
 from sqlmodel import Session, select
-from app.models.translation import Translation
+
+from app.exceptions import EntityAlreadyExists, EntityDoesNotExist
+from app.models.translation import LanguageEnum, Translation
+from app.schemas.translation import TranslationCreate, TranslationsCreate
 
 
 def create_translations(
-    session: Session, translations: list[TranslationCreate], key: str = uuid4()
+    session: Session, translations: TranslationsCreate
 ) -> tuple[str, list[Translation]]:
     """
     Create and store translation objects in the database.
@@ -16,23 +19,45 @@ def create_translations(
     Returns:
         tuple[str, list[Translation]]: A tuple containing the key and the list of created translation objects.
     """
+    # Generate a new key.
+    key: str = translations.translation_key or str(uuid4())
+
+    # Check if translations for the key already exist in the database.
+    if translations.translation_key is not None:
+        languages = [t.language for t in translations.translations]
+
+        existing: list[LanguageEnum] = session.exec(
+            select(Translation.language)
+            .where(Translation.translation_key == key)
+            .where(Translation.language.in_(languages))
+        ).all()
+
+        if existing:
+            raise EntityAlreadyExists(
+                f"Translations for key '{key}' already exist in languages: {', '.join([e.value for e in existing])}"
+            )
+
     # Create translation objects.
-    translation_objects = [
-        Translation(language=language, key=key, content=content)
-        for language, content in translations.items()
+    translations = [
+        Translation(
+            language=t.language,
+            translation=t.translation,
+            translation_key=key,
+        )
+        for t in translations.translations
     ]
 
     # Perform bulk insert.
-    session.bulk_save_objects(translation_objects)
+    session.bulk_insert_mappings(Translation, translations)
     session.commit()
 
     # Return the key and the translation objects.
-    return key, translation_objects
+    return key, translations
 
 
 def create_translation(
-    session: Session, translation: TranslationCreate, key: str = None
-) -> Translation:
+    session: Session, translation: TranslationCreate
+) -> tuple[str, Translation]:
     """
     Create and store a translation object in the database.
     Args:
@@ -40,10 +65,23 @@ def create_translation(
         translation (NewTranslation): The new translation to be added.
         key (str, optional): A unique key for the translation. Defaults to None.
     Returns:
-        Translation: The created translation object.
+        tuple[str, Translation]: A tuple containing the key and the created translation object.
     """
     # If a key is not provided, generate a new one.
-    key = translation.translation_key or key or uuid4()
+    key: str = translation.translation_key or str(uuid4())
+
+    # Check if a translation for the key and language already exists in the database.
+    if translation.translation_key is not None:
+        existing = session.exec(
+            select(Translation)
+            .where(Translation.translation_key == key)
+            .where(Translation.language == translation.language)
+        ).first()
+
+        if existing:
+            raise EntityAlreadyExists(
+                f"Translation for key '{key}' and language '{translation.language.value}' already exists"
+            )
 
     # Create a translation object.
     translation_object = Translation(
@@ -58,7 +96,7 @@ def create_translation(
     session.refresh(translation_object)
 
     # Return the translation object.
-    return translation_object
+    return key, translation_object
 
 
 def get_translations(session: Session, key: str) -> list[Translation]:
@@ -73,7 +111,10 @@ def get_translations(session: Session, key: str) -> list[Translation]:
     # Get all translations with the given key.
     translations = session.exec(
         select(Translation).filter(Translation.translation_key == key)
-    )
+    ).all()
+
+    if len(translations) == 0:
+        raise EntityDoesNotExist(f"Translations with key '{key}' not found")
 
     # Return the translations.
     return translations

@@ -4,7 +4,7 @@ from fastapi import Cookie, Depends, HTTPException, status
 from jwt import InvalidTokenError, decode
 
 from app.constants import JWT_ALGORITHM, JWT_SECRET_KEY
-from app.deps.db import DbSessionDep
+from app.dependencies.database import DbSessionDep
 from app.models.user import User
 
 
@@ -33,7 +33,9 @@ async def get_user_session(
     )
 
     try:
-        payload = decode(access_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        payload = decode(
+            access_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM]
+        )
         id = payload.get("sub")
 
         if id is None:
