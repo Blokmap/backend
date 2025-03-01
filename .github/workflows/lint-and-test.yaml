@@ -19,10 +19,10 @@ jobs:
             uses: ./.github/actions/common
 
           - name: Lint code
-            run: poetry run task lint-check
+            run: poetry run task lint
 
           - name: Format code
-            run: poetry run task format-check
+            run: poetry run task format
 
     test:
         runs-on: self-hosted
