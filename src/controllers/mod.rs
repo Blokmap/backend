@@ -3,6 +3,7 @@ use axum::response::NoContent;
 use diesel::{RunQueryDsl, sql_query};
 
 pub mod profile;
+pub mod translation;
 
 use crate::DbPool;
 use crate::error::Error;

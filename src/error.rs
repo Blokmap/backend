@@ -10,6 +10,8 @@ pub enum Error {
 	InternalServerError,
 	#[error("not found")]
 	NotFound,
+	#[error("{0}")]
+	ValidationError(String),
 }
 
 impl From<InternalServerError> for Error {
@@ -17,6 +19,19 @@ impl From<InternalServerError> for Error {
 		error!("internal server error -- {value}");
 
 		Self::InternalServerError
+	}
+}
+
+impl From<validator::ValidationErrors> for Error {
+	fn from(err: validator::ValidationErrors) -> Self {
+		let errs = err.field_errors();
+		let repr = errs
+			.values()
+			.map(|v| v.iter().map(ToString::to_string).collect::<Vec<String>>().join("\n"))
+			.collect::<Vec<String>>()
+			.join("\n");
+
+		Self::ValidationError(repr)
 	}
 }
 
@@ -28,6 +43,7 @@ impl IntoResponse for Error {
 			Self::Duplicate(_) => StatusCode::CONFLICT,
 			Self::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
 			Self::NotFound => StatusCode::NOT_FOUND,
+			Self::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
 		};
 
 		(status, message).into_response()

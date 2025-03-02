@@ -21,13 +21,16 @@ argon2 = "0.5.3"
 axum = { version="0.8.1", features=["macros"] }
 chrono = { version="0.4.40", features=["serde"] }
 deadpool-diesel = { version="0.6.1", features=["postgres", "tracing"] }
-diesel = { version="2.2.7", features=["postgres", "chrono"]}
+diesel = { version="2.2.7", features=["postgres", "chrono", "uuid"]}
 diesel-derive-enum = { version="2.1.0", features=["postgres"] }
+openssl = "*"
 serde = { version="1.0.218", features=["derive"] }
 serde_json = "1.0.139"
 thiserror = "2.0.11"
-tokio = { version="1.43.0", features=["rt-multi-thread", "macros", "parking_lot", "tracing"] }
+tower-http = { version="0.6.2", features=["compression-full", "decompression-full", "timeout", "trace"] }
+tokio = { version="1.43.0", features=["macros", "parking_lot", "rt-multi-thread", "signal", "tracing"] }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
+uuid = { version="1.15.1", features=["v4", "serde"] }
 validator = "0.20.0"
 validator_derive = "0.20.0"
