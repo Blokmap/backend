@@ -12,9 +12,9 @@ use std::time::Duration;
 
 use axum::Router;
 use axum::routing::get;
+use blokmap_backend::config::Config;
 use blokmap_backend::controllers::healthcheck;
 use blokmap_backend::controllers::profile::get_all_profiles;
-use deadpool_diesel::postgres::{Manager, Pool};
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::signal::unix::SignalKind;
@@ -24,13 +24,14 @@ use tracing::Level;
 
 #[tokio::main]
 async fn main() {
+	// Set up logging.
 	tracing_subscriber::fmt().pretty().with_thread_names(true).with_max_level(Level::DEBUG).init();
 
-	let db_url = std::env::var("DATABASE_URL").unwrap();
+	// Set up the configuration.
+	let config = Config::from_env();
 
-	// set up connection pool
-	let manager = Manager::new(db_url, deadpool_diesel::Runtime::Tokio1);
-	let pool = Pool::builder(manager).build().unwrap();
+	// Set up the database connection pool.
+	let pool = config.setup_database().await;
 
 	let app = Router::new()
 		.layer(TraceLayer::new_for_http())
@@ -39,8 +40,11 @@ async fn main() {
 		.route("/profile", get(get_all_profiles))
 		.with_state(pool);
 
-	let listener = TcpListener::bind("0.0.0.0:80").await.unwrap();
-	debug!("listening on {}", listener.local_addr().unwrap());
+	// Start the server.
+	let address = format!("{}:{}", config.server_host, config.server_port);
+	let listener = TcpListener::bind(address).await.unwrap();
+
+	debug!("Listening on {}", listener.local_addr().unwrap());
 	axum::serve(listener, app).with_graceful_shutdown(shutdown_handler()).await.unwrap();
 }
 
