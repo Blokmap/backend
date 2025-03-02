@@ -1,14 +1,17 @@
 .git/
+.github/
+
+migrations/
+target/
 
 .dockerignore
 .editorconfig
 .gitignore
-rustfmt.toml
-
-target/
 
 diesel.toml
-docker-compose.yaml
+Dockerfile
+LICENSE
+Makefile
 README.md
-rustfmt.toml
 rust-toolchain.toml
+rustfmt.toml
