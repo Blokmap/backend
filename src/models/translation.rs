@@ -8,7 +8,7 @@ use crate::DbConn;
 use crate::error::Error;
 use crate::schema::translation;
 
-#[derive(Clone, DbEnum, Debug, Deserialize, Serialize)]
+#[derive(Clone, DbEnum, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[ExistingTypePath = "crate::schema::sql_types::Language"]
 pub enum Language {
 	Nl,
@@ -17,7 +17,9 @@ pub enum Language {
 	De,
 }
 
-#[derive(Clone, Debug, Identifiable, Queryable, Selectable, Serialize)]
+#[derive(
+	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
+)]
 #[diesel(table_name = translation)]
 pub struct Translation {
 	pub id:         i32,
@@ -28,13 +30,13 @@ pub struct Translation {
 	pub updated_at: NaiveDateTime,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct NewTranslations {
 	pub key:          Option<Uuid>,
 	pub translations: Vec<NewTranslation>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct NewTranslation {
 	pub language: Language,
 	pub key:      Option<Uuid>,

@@ -10,8 +10,16 @@ pub struct Config {
 }
 
 impl Config {
-	fn get_env_var(var: &str) -> String {
+	fn get_env(var: &str) -> String {
 		std::env::var(var).unwrap_or_else(|_| panic!("{var} must be set"))
+	}
+
+	fn get_env_default(var: &str, default: impl Into<String>) -> String {
+		std::env::var(var).unwrap_or_else(|_| {
+			warn!("{var} not set, using default");
+
+			default.into()
+		})
 	}
 
 	/// Create a new [`Config`] from environment variables
@@ -20,11 +28,12 @@ impl Config {
 	/// Panics if an environment variable is missing
 	#[must_use]
 	pub fn from_env() -> Self {
-		let database_url = Self::get_env_var("DATABASE_URL");
+		let database_url = Self::get_env("DATABASE_URL");
 
-		let access_token_name = Self::get_env_var("ACCESS_TOKEN_NAME");
+		let access_token_name =
+			Self::get_env_default("ACCESS_TOKEN_NAME", "access_token");
 		let access_token_lifetime = TimeDelta::minutes(
-			Self::get_env_var("ACCESS_TOKEN_LIFETIME_MINUTES")
+			Self::get_env_default("ACCESS_TOKEN_LIFETIME_MINUTES", "10")
 				.parse::<i64>()
 				.unwrap(),
 		);

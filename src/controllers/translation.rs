@@ -1,17 +1,18 @@
 use axum::Json;
 use axum::extract::{Path, State};
-use axum::response::NoContent;
-use serde::Serialize;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, NoContent};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::DbPool;
 use crate::error::Error;
 use crate::models::{Language, NewTranslation, NewTranslations, Translation};
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct CreateTranslationResponse {
-	key:         Uuid,
-	translation: Translation,
+	pub key:         Uuid,
+	pub translation: Translation,
 }
 
 /// Create and store a single translation in the database
@@ -19,19 +20,22 @@ pub struct CreateTranslationResponse {
 pub async fn create_translation(
 	State(pool): State<DbPool>,
 	Json(translation): Json<NewTranslation>,
-) -> Result<Json<CreateTranslationResponse>, Error> {
+) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
 	let translation = translation.insert(conn).await?;
 	let key = translation.key;
 
-	Ok(Json(CreateTranslationResponse { key, translation }))
+	Ok((
+		StatusCode::CREATED,
+		Json(CreateTranslationResponse { key, translation }),
+	))
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct CreateTranslationsResponse {
-	key:          Uuid,
-	translations: Vec<Translation>,
+	pub key:          Uuid,
+	pub translations: Vec<Translation>,
 }
 
 /// Create and store a list of translation in the database
@@ -39,12 +43,15 @@ pub struct CreateTranslationsResponse {
 pub async fn create_translations(
 	State(pool): State<DbPool>,
 	Json(translations): Json<NewTranslations>,
-) -> Result<Json<CreateTranslationsResponse>, Error> {
+) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
 	let (key, translations) = translations.insert(conn).await?;
 
-	Ok(Json(CreateTranslationsResponse { key, translations }))
+	Ok((
+		StatusCode::CREATED,
+		Json(CreateTranslationsResponse { key, translations }),
+	))
 }
 
 /// Get a specific translation with a given key and language
