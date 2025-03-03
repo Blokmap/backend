@@ -8,7 +8,7 @@ extern crate diesel;
 #[macro_use]
 extern crate tracing;
 
-use blokmap_backend::{Config, create_app};
+use blokmap_backend::{AppState, Config, create_app};
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::signal::unix::SignalKind;
@@ -26,9 +26,11 @@ async fn main() {
 	let config = Config::from_env();
 
 	// Set up the database connection pool.
-	let pool = config.create_database_pool();
+	let database_pool = config.create_database_pool();
 
-	let app = create_app(config, pool);
+	let state = AppState { config, database_pool };
+
+	let app = create_app(state);
 
 	let listener = TcpListener::bind("0.0.0.0:80").await.unwrap();
 	debug!("listening on {}", listener.local_addr().unwrap());

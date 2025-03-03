@@ -1,6 +1,7 @@
 use std::sync::LazyLock;
 
-use blokmap_backend::{DbConn, DbPool};
+use axum::Router;
+use blokmap_backend::{AppState, Config, DbConn, DbPool, create_app};
 use deadpool_diesel::postgres::{Manager, Pool};
 use diesel_migrations::{
 	EmbeddedMigrations,
@@ -26,6 +27,18 @@ pub struct DatabaseGuard {
 	root_conn:     DbConn,
 	database_name: String,
 	database_url:  String,
+}
+
+/// Get a test axum app with a oneshot database for running tests
+pub async fn get_test_app() -> (DatabaseGuard, Router) {
+	let config = Config::from_env();
+
+	let test_pool_guard = (*TEST_DATABASE_FIXTURE).acquire().await;
+	let test_pool = test_pool_guard.create_pool();
+
+	let state = AppState { config, database_pool: test_pool };
+
+	(test_pool_guard, create_app(state))
 }
 
 impl TestDatabaseFixture {
@@ -55,8 +68,6 @@ impl TestDatabaseFixture {
 		let uuid = Uuid::new_v4().simple().to_string();
 		let database_name = format!("test_{}", uuid);
 		let database_url = format!("{}/{}", self.base_url, database_name);
-
-		eprintln!("creating database {database_name} at {database_url}");
 
 		let root_conn = self
 			.root_pool

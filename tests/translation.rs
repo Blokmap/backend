@@ -1,25 +1,17 @@
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode, header};
 use blokmap_backend::controllers::translation::CreateTranslationResponse;
-use blokmap_backend::models::NewTranslation;
-use blokmap_backend::{Config, create_app};
+use blokmap_backend::models::{Language, NewTranslation};
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
 mod helper;
-use helper::TEST_DATABASE_FIXTURE;
+use helper::get_test_app;
 
 #[tokio::test]
 async fn test_create_translation() {
-	use blokmap_backend::models::Language;
-
-	let cfg = Config::from_env();
-
-	let test_pool_guard = (*TEST_DATABASE_FIXTURE).acquire().await;
-	let test_pool = test_pool_guard.create_pool();
-
-	let app = create_app(cfg, test_pool);
+	let (_guard, app) = get_test_app().await;
 
 	let response = app
 		.oneshot(
@@ -52,12 +44,7 @@ async fn test_create_translation() {
 
 #[tokio::test]
 async fn test_get_translations() {
-	let cfg = Config::from_env();
-
-	let test_pool_guard = (*TEST_DATABASE_FIXTURE).acquire().await;
-	let test_pool = test_pool_guard.create_pool();
-
-	let app = create_app(cfg, test_pool);
+	let (_guard, app) = get_test_app().await;
 
 	let response = app
 		.oneshot(

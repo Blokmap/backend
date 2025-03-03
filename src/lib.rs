@@ -4,6 +4,7 @@ extern crate tracing;
 use std::time::Duration;
 
 use axum::Router;
+use axum::extract::FromRef;
 use axum::routing::{delete, get, post};
 use deadpool_diesel::postgres::{Object, Pool};
 
@@ -30,11 +31,25 @@ use controllers::translation::{
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
+#[derive(Clone)]
+pub struct AppState {
+	pub config:        Config,
+	pub database_pool: DbPool,
+}
+
+impl FromRef<AppState> for Config {
+	fn from_ref(input: &AppState) -> Self { input.config.clone() }
+}
+
+impl FromRef<AppState> for DbPool {
+	fn from_ref(input: &AppState) -> Self { input.database_pool.clone() }
+}
+
 /// Create an axum app
 ///
 /// # Panics
 /// Panics if configuration fails
-pub fn create_app(config: Config, db_pool: DbPool) -> Router {
+pub fn create_app(state: AppState) -> Router {
 	Router::new()
 		.route("/healthcheck", get(healthcheck))
 		.nest("/profile", Router::new().route("/", get(get_all_profiles)))
@@ -50,6 +65,5 @@ pub fn create_app(config: Config, db_pool: DbPool) -> Router {
 		)
 		.layer(TraceLayer::new_for_http())
 		.layer(TimeoutLayer::new(Duration::from_secs(5)))
-		.with_state(db_pool)
-		.with_state(config)
+		.with_state(state)
 }
