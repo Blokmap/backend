@@ -6,8 +6,8 @@ pub mod sql_types {
 	pub struct Language;
 
 	#[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
-	#[diesel(postgres_type(name = "user_state"))]
-	pub struct UserState;
+	#[diesel(postgres_type(name = "profile_state"))]
+	pub struct ProfileState;
 }
 
 diesel::table! {
@@ -19,7 +19,7 @@ diesel::table! {
 
 diesel::table! {
 	use diesel::sql_types::*;
-	use super::sql_types::UserState;
+	use super::sql_types::ProfileState;
 
 	profile (id) {
 		id -> Int4,
@@ -32,7 +32,7 @@ diesel::table! {
 		email_confirmation_token -> Nullable<Text>,
 		email_confirmation_token_expiry -> Nullable<Timestamp>,
 		admin -> Bool,
-		state -> UserState,
+		state -> ProfileState,
 		created_at -> Timestamp,
 	}
 }
@@ -51,18 +51,8 @@ diesel::table! {
 	}
 }
 
-diesel::table! {
-	user (id) {
-		id -> Int8,
-		username -> Text,
-		email -> Text,
-		hashed_password -> Text,
-	}
-}
-
 diesel::allow_tables_to_appear_in_same_query!(
 	alembic_version,
 	profile,
 	translation,
-	user,
 );

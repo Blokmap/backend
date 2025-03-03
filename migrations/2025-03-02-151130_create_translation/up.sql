@@ -16,7 +16,12 @@ CREATE OR REPLACE FUNCTION fn__update_translation_updated_at()
 	LANGUAGE plpgsql
 AS $BODY$
 BEGIN
-	NEW.updated_at = now();
+    IF (
+        NEW IS DISTINCT FROM OLD AND
+        NEW.updated_at IS NOT DISTINCT FROM OLD.updated_at
+    ) THEN
+        NEW.updated_at := NOW();
+    END IF;
 	RETURN NEW;
 END;
 $BODY$;

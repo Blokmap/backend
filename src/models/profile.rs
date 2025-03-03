@@ -8,8 +8,8 @@ use crate::error::Error;
 use crate::schema::profile;
 
 #[derive(Clone, DbEnum, Debug)]
-#[ExistingTypePath = "crate::schema::sql_types::UserState"]
-pub enum UserState {
+#[ExistingTypePath = "crate::schema::sql_types::ProfileState"]
+pub enum ProfileState {
 	PendingEmailVerification,
 	Active,
 	Disabled,
@@ -36,7 +36,7 @@ pub struct Profile {
 	pub email_confirmation_token_expiry: Option<NaiveDateTime>,
 	pub admin:                           bool,
 	#[serde(skip)]
-	pub state:                           UserState,
+	pub state:                           ProfileState,
 	pub created_at:                      NaiveDateTime,
 }
 
