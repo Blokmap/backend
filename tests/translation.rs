@@ -19,7 +19,7 @@ async fn test_create_translation() {
 	let test_pool_guard = (*TEST_DATABASE_FIXTURE).acquire().await;
 	let test_pool = test_pool_guard.create_pool();
 
-	let app = create_app(&cfg, test_pool);
+	let app = create_app(cfg, test_pool);
 
 	let response = app
 		.oneshot(
@@ -57,7 +57,7 @@ async fn test_get_translations() {
 	let test_pool_guard = (*TEST_DATABASE_FIXTURE).acquire().await;
 	let test_pool = test_pool_guard.create_pool();
 
-	let app = create_app(&cfg, test_pool);
+	let app = create_app(cfg, test_pool);
 
 	let response = app
 		.oneshot(

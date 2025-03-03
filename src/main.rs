@@ -28,7 +28,7 @@ async fn main() {
 	// Set up the database connection pool.
 	let pool = config.create_database_pool();
 
-	let app = create_app(&config, pool);
+	let app = create_app(config, pool);
 
 	let listener = TcpListener::bind("0.0.0.0:80").await.unwrap();
 	debug!("listening on {}", listener.local_addr().unwrap());

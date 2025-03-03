@@ -34,7 +34,7 @@ use tower_http::trace::TraceLayer;
 ///
 /// # Panics
 /// Panics if configuration fails
-pub fn create_app(_cfg: &Config, db_pool: DbPool) -> Router {
+pub fn create_app(config: Config, db_pool: DbPool) -> Router {
 	Router::new()
 		.route("/healthcheck", get(healthcheck))
 		.nest("/profile", Router::new().route("/", get(get_all_profiles)))
@@ -51,4 +51,5 @@ pub fn create_app(_cfg: &Config, db_pool: DbPool) -> Router {
 		.layer(TraceLayer::new_for_http())
 		.layer(TimeoutLayer::new(Duration::from_secs(5)))
 		.with_state(db_pool)
+		.with_state(config)
 }

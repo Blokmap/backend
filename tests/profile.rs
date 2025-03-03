@@ -13,7 +13,7 @@ async fn test_get_profiles() {
 	let test_pool_guard = (*TEST_DATABASE_FIXTURE).acquire().await;
 	let test_pool = test_pool_guard.create_pool();
 
-	let app = create_app(&cfg, test_pool);
+	let app = create_app(cfg, test_pool);
 
 	let response = app
 		.oneshot(
