@@ -50,14 +50,23 @@ struct InsertableTranslation {
 }
 
 impl NewTranslations {
-	pub async fn insert(self, conn: DbConn) -> Result<(Uuid, Vec<Translation>), Error> {
+	pub async fn insert(
+		self,
+		conn: DbConn,
+	) -> Result<(Uuid, Vec<Translation>), Error> {
 		// Unwrap is safe as invald UUIDs are caught by serde validation
 		let key = self.key.unwrap_or_else(Uuid::new_v4);
 
 		let insertables: Vec<InsertableTranslation> = self
 			.translations
 			.into_iter()
-			.map(|t| InsertableTranslation { language: t.language, key, text: t.text })
+			.map(|t| {
+				InsertableTranslation {
+					language: t.language,
+					key,
+					text: t.text,
+				}
+			})
 			.collect();
 
 		let translations = conn
@@ -118,18 +127,6 @@ impl Translation {
 		Ok(translations)
 	}
 
-	pub async fn get_by_key(query_key: Uuid, conn: DbConn) -> Result<Vec<Self>, Error> {
-		let translations = conn
-			.interact(move |conn| {
-				use self::translation::dsl::*;
-
-				translation.select(Translation::as_select()).filter(key.eq(query_key)).load(conn)
-			})
-			.await??;
-
-		Ok(translations)
-	}
-
 	pub async fn get_by_key_and_language(
 		query_key: Uuid,
 		query_language: Language,
@@ -148,5 +145,57 @@ impl Translation {
 			.await??;
 
 		Ok(translation)
+	}
+
+	pub async fn get_by_key(
+		query_key: Uuid,
+		conn: DbConn,
+	) -> Result<Vec<Self>, Error> {
+		let translations = conn
+			.interact(move |conn| {
+				use self::translation::dsl::*;
+
+				translation
+					.select(Translation::as_select())
+					.filter(key.eq(query_key))
+					.load(conn)
+			})
+			.await??;
+
+		Ok(translations)
+	}
+
+	pub async fn delete_by_key_and_language(
+		query_key: Uuid,
+		query_language: Language,
+		conn: DbConn,
+	) -> Result<(), Error> {
+		conn.interact(move |conn| {
+			use self::translation::dsl::*;
+
+			diesel::delete(
+				translation
+					.filter(key.eq(query_key))
+					.filter(language.eq(query_language)),
+			)
+			.execute(conn)
+		})
+		.await??;
+
+		Ok(())
+	}
+
+	pub async fn delete_by_key(
+		query_key: Uuid,
+		conn: DbConn,
+	) -> Result<(), Error> {
+		conn.interact(move |conn| {
+			use self::translation::dsl::*;
+
+			diesel::delete(translation.filter(key.eq(query_key))).execute(conn)
+		})
+		.await??;
+
+		Ok(())
 	}
 }

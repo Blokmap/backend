@@ -1,5 +1,6 @@
 use axum::Json;
-use axum::extract::State;
+use axum::extract::{Path, State};
+use axum::response::NoContent;
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -7,29 +8,24 @@ use crate::DbPool;
 use crate::error::Error;
 use crate::models::{Language, NewTranslation, NewTranslations, Translation};
 
-/// Get all translations with a given key
-pub async fn get_translations(
-	key: Uuid,
-	State(pool): State<DbPool>,
-) -> Result<Json<Vec<Translation>>, Error> {
-	let conn = pool.get().await?;
-
-	let translations = Translation::get_by_key(key, conn).await?;
-
-	Ok(Json(translations))
+#[derive(Serialize)]
+pub struct CreateTranslationResponse {
+	key:         Uuid,
+	translation: Translation,
 }
 
-/// Get a specific translation with a given key and language
-pub async fn get_translation(
-	key: Uuid,
-	language: Language,
+/// Create and store a single translation in the database
+#[instrument(skip(pool))]
+pub async fn create_translation(
 	State(pool): State<DbPool>,
-) -> Result<Json<Translation>, Error> {
+	Json(translation): Json<NewTranslation>,
+) -> Result<Json<CreateTranslationResponse>, Error> {
 	let conn = pool.get().await?;
 
-	let translation = Translation::get_by_key_and_language(key, language, conn).await?;
+	let translation = translation.insert(conn).await?;
+	let key = translation.key;
 
-	Ok(Json(translation))
+	Ok(Json(CreateTranslationResponse { key, translation }))
 }
 
 #[derive(Serialize)]
@@ -39,9 +35,10 @@ pub struct CreateTranslationsResponse {
 }
 
 /// Create and store a list of translation in the database
+#[instrument(skip(pool))]
 pub async fn create_translations(
-	translations: NewTranslations,
 	State(pool): State<DbPool>,
+	Json(translations): Json<NewTranslations>,
 ) -> Result<Json<CreateTranslationsResponse>, Error> {
 	let conn = pool.get().await?;
 
@@ -50,21 +47,55 @@ pub async fn create_translations(
 	Ok(Json(CreateTranslationsResponse { key, translations }))
 }
 
-#[derive(Serialize)]
-pub struct CreateTranslationResponse {
-	key:         Uuid,
-	translation: Translation,
-}
-
-/// Create and store a single translation in the database
-pub async fn create_translation(
-	translation: NewTranslation,
+/// Get a specific translation with a given key and language
+#[instrument(skip(pool))]
+pub async fn get_translation(
 	State(pool): State<DbPool>,
-) -> Result<Json<CreateTranslationResponse>, Error> {
+	Path((key, language)): Path<(Uuid, Language)>,
+) -> Result<Json<Translation>, Error> {
 	let conn = pool.get().await?;
 
-	let translation = translation.insert(conn).await?;
-	let key = translation.key;
+	let translation =
+		Translation::get_by_key_and_language(key, language, conn).await?;
 
-	Ok(Json(CreateTranslationResponse { key, translation }))
+	Ok(Json(translation))
+}
+
+/// Get all translations with a given key
+#[instrument(skip(pool))]
+pub async fn get_translations(
+	State(pool): State<DbPool>,
+	Path(key): Path<Uuid>,
+) -> Result<Json<Vec<Translation>>, Error> {
+	let conn = pool.get().await?;
+
+	let translations = Translation::get_by_key(key, conn).await?;
+
+	Ok(Json(translations))
+}
+
+/// Delete the translation with the given key and language
+#[instrument(skip(pool))]
+pub async fn delete_translation(
+	State(pool): State<DbPool>,
+	Path((key, language)): Path<(Uuid, Language)>,
+) -> Result<NoContent, Error> {
+	let conn = pool.get().await?;
+
+	Translation::delete_by_key_and_language(key, language, conn).await?;
+
+	Ok(NoContent)
+}
+
+/// Delete all translations with a given key
+#[instrument(skip(pool))]
+pub async fn delete_translations(
+	State(pool): State<DbPool>,
+	Path(key): Path<Uuid>,
+) -> Result<NoContent, Error> {
+	let conn = pool.get().await?;
+
+	Translation::delete_by_key(key, conn).await?;
+
+	Ok(NoContent)
 }

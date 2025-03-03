@@ -27,7 +27,12 @@ impl From<validator::ValidationErrors> for Error {
 		let errs = err.field_errors();
 		let repr = errs
 			.values()
-			.map(|v| v.iter().map(ToString::to_string).collect::<Vec<String>>().join("\n"))
+			.map(|v| {
+				v.iter()
+					.map(ToString::to_string)
+					.collect::<Vec<String>>()
+					.join("\n")
+			})
 			.collect::<Vec<String>>()
 			.join("\n");
 
@@ -80,13 +85,17 @@ impl From<diesel::result::Error> for Error {
 				diesel::result::DatabaseErrorKind::UniqueViolation,
 				info,
 			) => {
-				// Unwrap is safe as constraint_name is guaranteed to exist for postgres
+				// Unwrap is safe as constraint_name is guaranteed to exist for
+				// postgres
 				let constraint_name = info.constraint_name().unwrap();
 
-				// Standard constaint names in postgres are {tablename}_{columnname}_{suffix}
+				// Standard constaint names in postgres are
+				// {tablename}_{columnname}_{suffix}
 				let Some(field) = constraint_name.split('_').nth(1) else {
-					return InternalServerError::ConstraintError(constraint_name.to_string())
-						.into();
+					return InternalServerError::ConstraintError(
+						constraint_name.to_string(),
+					)
+					.into();
 				};
 
 				Self::Duplicate(format!("'{field}' is already in use"))

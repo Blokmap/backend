@@ -11,10 +11,18 @@ extern crate tracing;
 use std::time::Duration;
 
 use axum::Router;
-use axum::routing::get;
-use blokmap_backend::config::Config;
+use axum::routing::{delete, get, post};
 use blokmap_backend::controllers::healthcheck;
 use blokmap_backend::controllers::profile::get_all_profiles;
+use blokmap_backend::controllers::translation::{
+	create_translation,
+	create_translations,
+	delete_translation,
+	delete_translations,
+	get_translation,
+	get_translations,
+};
+use deadpool_diesel::postgres::{Manager, Pool};
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::signal::unix::SignalKind;
@@ -24,8 +32,11 @@ use tracing::Level;
 
 #[tokio::main]
 async fn main() {
-	// Set up logging.
-	tracing_subscriber::fmt().pretty().with_thread_names(true).with_max_level(Level::DEBUG).init();
+	tracing_subscriber::fmt()
+		.pretty()
+		.with_thread_names(true)
+		.with_max_level(Level::DEBUG)
+		.init();
 
 	// Set up the configuration.
 	let config = Config::from_env();
@@ -34,18 +45,28 @@ async fn main() {
 	let pool = config.setup_database().await;
 
 	let app = Router::new()
+		.route("/healthcheck", get(healthcheck))
+		.nest("/profile", Router::new().route("/", get(get_all_profiles)))
+		.nest(
+			"/location",
+			Router::new()
+				.route("/", post(create_translation))
+				.route("/bulk", post(create_translations))
+				.route("/{key}", get(get_translations))
+				.route("/{key}/{language}", get(get_translation))
+				.route("/{key}", delete(delete_translations))
+				.route("/{key}/{language}", delete(delete_translation)),
+		)
 		.layer(TraceLayer::new_for_http())
 		.layer(TimeoutLayer::new(Duration::from_secs(5)))
-		.route("/healthcheck", get(healthcheck))
-		.route("/profile", get(get_all_profiles))
 		.with_state(pool);
 
-	// Start the server.
-	let address = format!("{}:{}", config.server_host, config.server_port);
-	let listener = TcpListener::bind(address).await.unwrap();
-
-	debug!("Listening on {}", listener.local_addr().unwrap());
-	axum::serve(listener, app).with_graceful_shutdown(shutdown_handler()).await.unwrap();
+	let listener = TcpListener::bind("0.0.0.0:80").await.unwrap();
+	debug!("listening on {}", listener.local_addr().unwrap());
+	axum::serve(listener, app)
+		.with_graceful_shutdown(shutdown_handler())
+		.await
+		.unwrap();
 }
 
 async fn shutdown_handler() {
@@ -57,11 +78,11 @@ async fn shutdown_handler() {
 		signal::unix::signal(SignalKind::terminate())
 			.expect("COULD NOT INSTALL TERMINATE SIGNAL HANDLER")
 			.recv()
-			.await
+			.await;
 	};
 
 	tokio::select! {
 		() = ctrl_c => {},
-		_ = terminate => {},
+		() = terminate => {},
 	}
 }
