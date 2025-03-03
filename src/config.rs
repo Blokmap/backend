@@ -1,26 +1,48 @@
+use chrono::TimeDelta;
 use deadpool_diesel::postgres::{Manager, Pool};
 
+#[derive(Clone, Debug)]
 pub struct Config {
 	pub database_url: String,
-	pub server_host: String,
-	pub server_port: u16,
+
+	pub access_token_name:     String,
+	pub access_token_lifetime: TimeDelta,
 }
 
 impl Config {
-	pub fn from_env() -> Self {
-		let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set.");
-		let server_host = std::env::var("SERVER_HOST").expect("SERVER_HOST must be set.");
-		let server_port = std::env::var("SERVER_PORT")
-			.expect("SERVER_PORT must be set.")
-			.parse::<u16>()
-			.expect("SERVER_PORT must be a number.");
-
-		Self { database_url, server_host, server_port }
+	fn get_env_var(var: &str) -> String {
+		std::env::var(var).unwrap_or_else(|_| panic!("{var} must be set"))
 	}
 
-	pub async fn setup_database(&self) -> Pool {
-		let manager = Manager::new(&self.database_url.clone(), deadpool_diesel::Runtime::Tokio1);
-		let pool = Pool::builder(manager).build().unwrap();
-		pool
+	/// Create a new [`Config`] from environment variables
+	///
+	/// # Panics
+	/// Panics if an environment variable is missing
+	#[must_use]
+	pub fn from_env() -> Self {
+		let database_url = Self::get_env_var("DATABASE_URL");
+
+		let access_token_name = Self::get_env_var("ACCESS_TOKEN_NAME");
+		let access_token_lifetime = TimeDelta::minutes(
+			Self::get_env_var("ACCESS_TOKEN_LIFETIME_MINUTES")
+				.parse::<i64>()
+				.unwrap(),
+		);
+
+		Self { database_url, access_token_name, access_token_lifetime }
+	}
+
+	/// Create a database pool for the given config
+	///
+	/// # Panics
+	/// Panics if creating the pool fails
+	#[must_use]
+	pub fn create_database_pool(&self) -> Pool {
+		let manager = Manager::new(
+			self.database_url.to_string(),
+			deadpool_diesel::Runtime::Tokio1,
+		);
+
+		Pool::builder(manager).build().unwrap()
 	}
 }

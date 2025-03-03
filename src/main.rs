@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use axum::Router;
 use axum::routing::{delete, get, post};
+use blokmap_backend::config::Config;
 use blokmap_backend::controllers::healthcheck;
 use blokmap_backend::controllers::profile::get_all_profiles;
 use blokmap_backend::controllers::translation::{
@@ -22,7 +23,6 @@ use blokmap_backend::controllers::translation::{
 	get_translation,
 	get_translations,
 };
-use deadpool_diesel::postgres::{Manager, Pool};
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::signal::unix::SignalKind;
@@ -42,7 +42,7 @@ async fn main() {
 	let config = Config::from_env();
 
 	// Set up the database connection pool.
-	let pool = config.setup_database().await;
+	let pool = config.create_database_pool();
 
 	let app = Router::new()
 		.route("/healthcheck", get(healthcheck))
