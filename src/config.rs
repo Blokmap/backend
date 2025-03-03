@@ -1,6 +1,7 @@
 use chrono::TimeDelta;
 use deadpool_diesel::postgres::{Manager, Pool};
 
+/// Configuration settings for the application
 #[derive(Clone, Debug)]
 pub struct Config {
 	pub database_url: String,

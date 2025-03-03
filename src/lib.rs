@@ -1,3 +1,5 @@
+//! # Blokmap backend library
+
 #[macro_use]
 extern crate tracing;
 
@@ -9,28 +11,32 @@ use axum::routing::{delete, get, post};
 use deadpool_diesel::postgres::{Object, Pool};
 
 mod config;
+mod schema;
+
 pub mod controllers;
 pub mod error;
 pub mod models;
-pub mod schema;
 
+/// An entire database pool
 pub type DbPool = Pool;
+/// A single database connection
 pub type DbConn = Object;
 
 pub use config::Config;
 use controllers::healthcheck;
 use controllers::profile::get_all_profiles;
 use controllers::translation::{
+	create_bulk_translations,
 	create_translation,
-	create_translations,
+	delete_bulk_translations,
 	delete_translation,
-	delete_translations,
+	get_bulk_translations,
 	get_translation,
-	get_translations,
 };
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
+/// Common state of the app
 #[derive(Clone)]
 pub struct AppState {
 	pub config:        Config,
@@ -46,9 +52,6 @@ impl FromRef<AppState> for DbPool {
 }
 
 /// Create an axum app
-///
-/// # Panics
-/// Panics if configuration fails
 pub fn create_app(state: AppState) -> Router {
 	Router::new()
 		.route("/healthcheck", get(healthcheck))
@@ -57,10 +60,10 @@ pub fn create_app(state: AppState) -> Router {
 			"/translation",
 			Router::new()
 				.route("/", post(create_translation))
-				.route("/bulk", post(create_translations))
-				.route("/{key}", get(get_translations))
+				.route("/bulk", post(create_bulk_translations))
+				.route("/{key}", get(get_bulk_translations))
 				.route("/{key}/{language}", get(get_translation))
-				.route("/{key}", delete(delete_translations))
+				.route("/{key}", delete(delete_bulk_translations))
 				.route("/{key}/{language}", delete(delete_translation)),
 		)
 		.layer(TraceLayer::new_for_http())

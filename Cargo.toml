@@ -10,6 +10,9 @@ readme="README.md"
 license-file="LICENSE"
 publish=false
 
+[lib]
+name="blokmap"
+
 [profile.release]
 opt-level = 3
 lto = "thin"

@@ -8,7 +8,7 @@ extern crate diesel;
 #[macro_use]
 extern crate tracing;
 
-use blokmap_backend::{AppState, Config, create_app};
+use blokmap::{AppState, Config, create_app};
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::signal::unix::SignalKind;

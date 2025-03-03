@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 
 use axum::Router;
-use blokmap_backend::{AppState, Config, DbConn, DbPool, create_app};
+use blokmap::{AppState, Config, DbConn, DbPool, create_app};
 use deadpool_diesel::postgres::{Manager, Pool};
 use diesel_migrations::{
 	EmbeddedMigrations,

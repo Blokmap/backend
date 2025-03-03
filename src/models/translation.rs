@@ -30,83 +30,26 @@ pub struct Translation {
 	pub updated_at: NaiveDateTime,
 }
 
-#[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct NewTranslations {
-	pub key:          Option<Uuid>,
-	pub translations: Vec<NewTranslation>,
-}
-
-#[derive(Debug, Deserialize, Clone, Serialize)]
-pub struct NewTranslation {
-	pub language: Language,
-	pub key:      Option<Uuid>,
-	pub text:     String,
-}
-
 #[derive(Debug, Deserialize, Clone, Insertable)]
 #[diesel(table_name = translation)]
-struct InsertableTranslation {
+pub struct InsertableTranslation {
 	pub language: Language,
 	pub key:      Uuid,
 	pub text:     String,
 }
 
-impl NewTranslations {
-	pub async fn insert(
+impl InsertableTranslation {
+	/// Insert this [`InsertableTranslation`]
+	pub(crate) async fn insert(
 		self,
 		conn: DbConn,
-	) -> Result<(Uuid, Vec<Translation>), Error> {
-		// Unwrap is safe as invald UUIDs are caught by serde validation
-		let key = self.key.unwrap_or_else(Uuid::new_v4);
-
-		let insertables: Vec<InsertableTranslation> = self
-			.translations
-			.into_iter()
-			.map(|t| {
-				InsertableTranslation {
-					language: t.language,
-					key,
-					text: t.text,
-				}
-			})
-			.collect();
-
-		let translations = conn
-			.interact(|conn| {
-				conn.transaction(|conn| {
-					use self::translation::dsl::*;
-
-					diesel::insert_into(translation)
-						.values(insertables)
-						.returning(Translation::as_returning())
-						.get_results(conn)
-				})
-			})
-			.await??;
-
-		Ok((key, translations))
-	}
-}
-
-impl From<NewTranslation> for InsertableTranslation {
-	fn from(value: NewTranslation) -> Self {
-		// Unwrap is safe as invald UUIDs are caught by serde validation
-		let key = value.key.unwrap_or_else(Uuid::new_v4);
-
-		Self { language: value.language, key, text: value.text }
-	}
-}
-
-impl NewTranslation {
-	pub async fn insert(self, conn: DbConn) -> Result<Translation, Error> {
-		let insertable_translation: InsertableTranslation = self.into();
-
+	) -> Result<Translation, Error> {
 		let new_translation = conn
 			.interact(|conn| {
 				use self::translation::dsl::*;
 
 				diesel::insert_into(translation)
-					.values(insertable_translation)
+					.values(self)
 					.returning(Translation::as_returning())
 					.get_result(conn)
 			})
@@ -114,22 +57,46 @@ impl NewTranslation {
 
 		Ok(new_translation)
 	}
-}
 
-impl Translation {
-	pub async fn get_all(conn: DbConn) -> Result<Vec<Self>, Error> {
+	/// Insert a list of [`InsertableTranslation`]s in a single transaction
+	pub(crate) async fn bulk_insert(
+		translations: Vec<Self>,
+		conn: DbConn,
+	) -> Result<Vec<Translation>, Error> {
 		let translations = conn
 			.interact(|conn| {
-				use self::translation::dsl::*;
+				conn.transaction(|conn| {
+					use self::translation::dsl::*;
 
-				translation.load(conn)
+					diesel::insert_into(translation)
+						.values(translations)
+						.returning(Translation::as_returning())
+						.get_results(conn)
+				})
 			})
 			.await??;
 
 		Ok(translations)
 	}
+}
 
-	pub async fn get_by_key_and_language(
+impl Translation {
+	// /// Get a list of all [`Translation`]s
+	// pub(crate) async fn get_all(conn: DbConn) -> Result<Vec<Self>, Error> {
+	// 	let translations = conn
+	// 		.interact(|conn| {
+	// 			use self::translation::dsl::*;
+	//
+	// 			translation.load(conn)
+	// 		})
+	// 		.await??;
+	//
+	// 	Ok(translations)
+	// }
+
+	/// Attempt to get a single [`Translation`] given its [key](Uuid) and
+	/// [language](Language)
+	pub(crate) async fn get_by_key_and_language(
 		query_key: Uuid,
 		query_language: Language,
 		conn: DbConn,
@@ -149,7 +116,8 @@ impl Translation {
 		Ok(translation)
 	}
 
-	pub async fn get_by_key(
+	/// Get a list of all [`Translation`]s that match the given [key](Uuid)
+	pub(crate) async fn get_by_key(
 		query_key: Uuid,
 		conn: DbConn,
 	) -> Result<Vec<Self>, Error> {
@@ -167,7 +135,9 @@ impl Translation {
 		Ok(translations)
 	}
 
-	pub async fn delete_by_key_and_language(
+	/// Delete a single [`Translation`] given its [key](Uuid) and
+	/// [language](Language)
+	pub(crate) async fn delete_by_key_and_language(
 		query_key: Uuid,
 		query_language: Language,
 		conn: DbConn,
@@ -187,7 +157,8 @@ impl Translation {
 		Ok(())
 	}
 
-	pub async fn delete_by_key(
+	/// Delete all [`Translation`]s that match the given [key](Uuid)
+	pub(crate) async fn delete_by_key(
 		query_key: Uuid,
 		conn: DbConn,
 	) -> Result<(), Error> {

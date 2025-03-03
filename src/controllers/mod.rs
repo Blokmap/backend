@@ -1,3 +1,5 @@
+//! Defines controller functions that correspond to individual routes
+
 use axum::extract::State;
 use axum::response::NoContent;
 use diesel::{RunQueryDsl, sql_query};
@@ -9,7 +11,7 @@ use crate::DbPool;
 use crate::error::Error;
 
 /// Check if the database connection and webserver are functional
-pub async fn healthcheck(
+pub(crate) async fn healthcheck(
 	State(pool): State<DbPool>,
 ) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;

@@ -15,6 +15,7 @@ pub enum UserState {
 	Disabled,
 }
 
+/// A single profile
 #[derive(Clone, Debug, Identifiable, Queryable, Serialize)]
 #[diesel(table_name = profile)]
 pub struct Profile {
@@ -40,7 +41,8 @@ pub struct Profile {
 }
 
 impl Profile {
-	pub async fn get_all(conn: DbConn) -> Result<Vec<Self>, Error> {
+	/// Get a list of all profiles
+	pub(crate) async fn get_all(conn: DbConn) -> Result<Vec<Self>, Error> {
 		use self::profile::dsl::*;
 
 		let profiles = conn.interact(|conn| profile.load(conn)).await??;

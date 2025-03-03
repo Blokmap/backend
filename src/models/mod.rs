@@ -1,3 +1,5 @@
+//! Database model definitions
+
 mod profile;
 mod translation;
 

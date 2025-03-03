@@ -1,15 +1,22 @@
+//! Library-wide error types and [`From`] impls
+
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use thiserror::Error;
 
+/// Top level application error, can be converted into a [`Response`]
 #[derive(Debug, Error)]
 pub enum Error {
+	/// Duplicate resource created
 	#[error("{0}")]
 	Duplicate(String),
+	/// Opaque internal server error
 	#[error("internal server error")]
 	InternalServerError,
 	#[error("not found")]
+	/// Resource not found
 	NotFound,
+	/// Resource could not be validated
 	#[error("{0}")]
 	ValidationError(String),
 }
@@ -55,6 +62,9 @@ impl IntoResponse for Error {
 	}
 }
 
+/// A list of possible internal errors
+///
+/// API end users should never see these details
 #[derive(Debug, Error)]
 pub enum InternalServerError {
 	/// Unknown database constraint violation

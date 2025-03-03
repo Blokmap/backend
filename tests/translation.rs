@@ -1,7 +1,10 @@
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode, header};
-use blokmap_backend::controllers::translation::CreateTranslationResponse;
-use blokmap_backend::models::{Language, NewTranslation};
+use blokmap::controllers::translation::{
+	CreateTranslationRequest,
+	CreateTranslationResponse,
+};
+use blokmap::models::Language;
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
@@ -20,7 +23,7 @@ async fn test_create_translation() {
 				.header(header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
 				.uri("/translation")
 				.body(Body::from(
-					serde_json::to_string(&json!(NewTranslation {
+					serde_json::to_string(&json!(CreateTranslationRequest {
 						language: Language::En,
 						key:      None,
 						text:     "foo".to_string(),
@@ -38,8 +41,8 @@ async fn test_create_translation() {
 	let body: CreateTranslationResponse =
 		serde_json::from_slice(&body).unwrap();
 
-	assert_eq!(body.translation.language, Language::En);
-	assert_eq!(body.translation.text, "foo".to_string());
+	assert_eq!(body.new_translation.language, Language::En);
+	assert_eq!(body.new_translation.text, "foo".to_string());
 }
 
 #[tokio::test]
