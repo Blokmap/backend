@@ -18,6 +18,7 @@ jobs:
           - name: Setup Rust
             uses: actions-rust-lang/setup-rust-toolchain@v1
             with:
+                toolchain: nightly
                 components: rustfmt, clippy
 
           - name: Lint code
@@ -33,6 +34,7 @@ jobs:
           - name: Setup Rust
             uses: actions-rust-lang/setup-rust-toolchain@v1
             with:
+                toolchain: nightly
                 components: rustfmt, clippy
 
           - name: Format code
@@ -61,6 +63,8 @@ jobs:
 
           - name: Setup Rust
             uses: actions-rust-lang/setup-rust-toolchain@v1
+            with:
+                components: cargo
 
           - name: Install diesel
             run: cargo install diesel_cli --no-default-features --feature postgres
