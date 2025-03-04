@@ -1,7 +1,6 @@
 .git/
 .github/
 
-migrations/
 target/
 
 .dockerignore
