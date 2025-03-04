@@ -1,0 +1,40 @@
+name: Lint, format, and test code
+
+on:
+    push:
+        branches: ["**"]
+        tags-ignore: ["**"]
+
+    workflow_call:
+
+jobs:
+    lint-and-format:
+        runs-on: self-hosted
+
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+
+          - name: Setup Rust
+            uses: actions-rust-lang/setup-rust-toolchain@v1
+            with:
+                components: rustfmt, clippy
+
+          - name: Lint code
+            run: make lint
+
+          - name: Format code
+            run: make fmt-check
+
+    test:
+        runs-on: self-hosted
+
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+
+          - name: Setup Rust
+            uses: actions-rust-lang/setup-rust-toolchain@v1
+
+          - name: Run tests
+            run: cargo test --tests
