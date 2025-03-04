@@ -1,0 +1,11 @@
+FROM clux/muslrust:1.85.0-stable
+
+RUN cargo install cargo-watch
+
+WORKDIR /app
+
+COPY . .
+
+RUN cargo build
+
+CMD ["cargo", "watch", "-x", "run"]

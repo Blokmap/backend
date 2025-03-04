@@ -3,70 +3,40 @@
 #[macro_use]
 extern crate tracing;
 
-use std::time::Duration;
-
-use axum::Router;
-use axum::extract::FromRef;
-use axum::routing::{delete, get, post};
-use deadpool_diesel::postgres::{Object, Pool};
-
-mod config;
-mod schema;
+pub mod config;
+pub mod routes;
+pub mod schema;
 
 pub mod controllers;
 pub mod error;
 pub mod models;
 
-/// An entire database pool
-pub type DbPool = Pool;
-/// A single database connection
-pub type DbConn = Object;
+use axum::extract::FromRef;
+use deadpool_diesel::postgres::{Object, Pool};
 
 pub use config::Config;
-use controllers::healthcheck;
-use controllers::profile::get_all_profiles;
-use controllers::translation::{
-	create_bulk_translations,
-	create_translation,
-	delete_bulk_translations,
-	delete_translation,
-	get_bulk_translations,
-	get_translation,
-};
-use tower_http::timeout::TimeoutLayer;
-use tower_http::trace::TraceLayer;
+
+/// An entire database pool
+pub type DbPool = Pool;
+
+/// A single database connection
+pub type DbConn = Object;
 
 /// Common state of the app
 #[derive(Clone)]
 pub struct AppState {
-	pub config:        Config,
+	pub config: Config,
 	pub database_pool: DbPool,
 }
 
 impl FromRef<AppState> for Config {
-	fn from_ref(input: &AppState) -> Self { input.config.clone() }
+	fn from_ref(input: &AppState) -> Self {
+		input.config.clone()
+	}
 }
 
 impl FromRef<AppState> for DbPool {
-	fn from_ref(input: &AppState) -> Self { input.database_pool.clone() }
-}
-
-/// Create an axum app
-pub fn create_app(state: AppState) -> Router {
-	Router::new()
-		.route("/healthcheck", get(healthcheck))
-		.nest("/profile", Router::new().route("/", get(get_all_profiles)))
-		.nest(
-			"/translation",
-			Router::new()
-				.route("/", post(create_translation))
-				.route("/bulk", post(create_bulk_translations))
-				.route("/{key}", get(get_bulk_translations))
-				.route("/{key}/{language}", get(get_translation))
-				.route("/{key}", delete(delete_bulk_translations))
-				.route("/{key}/{language}", delete(delete_translation)),
-		)
-		.layer(TraceLayer::new_for_http())
-		.layer(TimeoutLayer::new(Duration::from_secs(5)))
-		.with_state(state)
+	fn from_ref(input: &AppState) -> Self {
+		input.database_pool.clone()
+	}
 }

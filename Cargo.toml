@@ -1,17 +1,17 @@
 [package]
 name = "blokmap-backend"
 version = "0.1.0"
-authors=[
-	"Ewout Verlinde <ewout@gentsestudentenraad.be>",
+authors = [
+    "Ewout Verlinde <ewout@gentsestudentenraad.be>",
     "Tibo Ulens <tibo@gentsestudentenraad.be>",
 ]
 edition = "2024"
-readme="README.md"
-license-file="LICENSE"
-publish=false
+readme = "README.md"
+license-file = "LICENSE"
+publish = false
 
 [lib]
-name="blokmap"
+name = "blokmap"
 
 [profile.release]
 opt-level = 3
@@ -21,25 +21,37 @@ codegen-units = 1
 
 [dependencies]
 argon2 = "0.5.3"
-axum = { version="0.8.1", features=["macros"] }
-chrono = { version="0.4.40", features=["serde"] }
-deadpool-diesel = { version="0.6.1", features=["postgres", "tracing"] }
-diesel = { version="2.2.7", features=["postgres", "chrono", "uuid"]}
-diesel-derive-enum = { version="2.1.0", features=["postgres"] }
+axum = { version = "0.8.1", features = ["macros"] }
+chrono = { version = "0.4.40", features = ["serde"] }
+deadpool-diesel = { version = "0.6.1", features = ["postgres", "tracing"] }
+diesel = { version = "2.2.7", features = ["postgres", "chrono", "uuid"] }
+diesel-derive-enum = { version = "2.1.0", features = ["postgres"] }
 openssl = "*"
-serde = { version="1.0.218", features=["derive"] }
+serde = { version = "1.0.218", features = ["derive"] }
 serde_json = "1.0.139"
 thiserror = "2.0.11"
-tower-http = { version="0.6.2", features=["compression-full", "decompression-full", "timeout", "trace"] }
-tokio = { version="1.43.0", features=["macros", "parking_lot", "rt", "rt-multi-thread", "signal", "tracing"] }
+tower-http = { version = "0.6.2", features = [
+    "compression-full",
+    "decompression-full",
+    "timeout",
+    "trace",
+] }
+tokio = { version = "1.43.0", features = [
+    "macros",
+    "parking_lot",
+    "rt",
+    "rt-multi-thread",
+    "signal",
+    "tracing",
+] }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
-uuid = { version="1.15.1", features=["v4", "serde"] }
+uuid = { version = "1.15.1", features = ["v4", "serde"] }
 validator = "0.20.0"
 validator_derive = "0.20.0"
 
 [dev-dependencies]
-diesel_migrations = { version="2.2.0", features=["postgres"] }
+diesel_migrations = { version = "2.2.0", features = ["postgres"] }
 futures = "0.3.31"
 http-body-util = "0.1.2"
 mime = "0.3.17"
