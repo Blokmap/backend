@@ -31,7 +31,7 @@ async fn main() {
 
 	// Crate the app router and listener.
 	let router = routes::get_app_router(AppState { config, database_pool });
-	let listener = TcpListener::bind("0.0.0.0:8000").await.unwrap();
+	let listener = TcpListener::bind("0.0.0.0:80").await.unwrap();
 
 	// Start the server.
 	debug!("listening on {}", listener.local_addr().unwrap());
