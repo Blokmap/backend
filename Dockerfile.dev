@@ -2,10 +2,8 @@ FROM clux/muslrust:1.85.0-stable
 
 RUN cargo install cargo-watch
 
-WORKDIR /app
+WORKDIR /volume/blokmap-backend
 
 COPY . .
-
-RUN cargo build
 
 CMD ["cargo", "watch", "-x", "run"]
