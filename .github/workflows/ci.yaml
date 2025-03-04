@@ -8,7 +8,7 @@ on:
     workflow_call:
 
 jobs:
-    lint-and-format:
+    lint:
         runs-on: self-hosted
 
         steps:
@@ -22,6 +22,18 @@ jobs:
 
           - name: Lint code
             run: make lint
+
+    format:
+        runs-on: self-hosted
+
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+
+          - name: Setup Rust
+            uses: actions-rust-lang/setup-rust-toolchain@v1
+            with:
+                components: rustfmt, clippy
 
           - name: Format code
             run: make fmt-check
