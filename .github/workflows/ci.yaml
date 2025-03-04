@@ -8,23 +8,7 @@ on:
     workflow_call:
 
 jobs:
-    lint:
-        runs-on: self-hosted
-
-        steps:
-          - name: Checkout code
-            uses: actions/checkout@v4
-
-          - name: Setup Rust
-            uses: actions-rust-lang/setup-rust-toolchain@v1
-            with:
-                toolchain: nightly
-                components: rustfmt, clippy
-
-          - name: Lint code
-            run: make lint
-
-    format:
+    lint-format:
         runs-on: self-hosted
 
         steps:
@@ -40,9 +24,12 @@ jobs:
           - name: Format code
             run: make fmt-check
 
+          - name: Lint code
+            run: make lint
+
     test:
         runs-on: self-hosted
-
+        needs: [lint-format]
         env:
             # The test job doesn't run in a container and so can't use docker DNS
             DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test
