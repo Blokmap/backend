@@ -68,13 +68,10 @@ jobs:
                 components: cargo
 
           - name: Add cargo binstall
-            run: |
-                curl -L --proto '=https' --tlsv1.2 -sSf \
-                https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh \
-                | bash
+            uses: cargo-bins/cargo-binstall@main
 
           - name: Install diesel
-            run: cargo binstall diesel_cli
+            run: cargo binstall --force -y diesel_cli
 
           - name: Run migrations
             run: diesel migration run
