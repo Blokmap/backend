@@ -25,15 +25,15 @@ async fn main() {
 		.init();
 
 	// Load the configuration from the environment,
-    // and create a database pool.
+	// and create a database pool.
 	let config = Config::from_env();
 	let database_pool = config.create_database_pool();
 
-    // Crate the app router and listener.
+	// Crate the app router and listener.
 	let router = routes::get_app_router(AppState { config, database_pool });
 	let listener = TcpListener::bind("0.0.0.0:8000").await.unwrap();
 
-    // Start the server.
+	// Start the server.
 	debug!("listening on {}", listener.local_addr().unwrap());
 	axum::serve(listener, router)
 		.with_graceful_shutdown(shutdown_handler())

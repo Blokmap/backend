@@ -1,21 +1,20 @@
 use std::time::Duration;
 
-use tower_http::{timeout::TimeoutLayer, trace::TraceLayer};
-
-use axum::{
-	Router,
-	routing::{get, post},
-};
+use axum::Router;
+use axum::routing::{get, post};
+use tower_http::timeout::TimeoutLayer;
+use tower_http::trace::TraceLayer;
 
 use crate::AppState;
-
-use crate::controllers::{
-	healthcheck,
-	profile::get_all_profiles,
-	translation::{
-		create_bulk_translations, create_translation, delete_bulk_translations,
-		delete_translation, get_bulk_translations, get_translation,
-	},
+use crate::controllers::healthcheck;
+use crate::controllers::profile::get_all_profiles;
+use crate::controllers::translation::{
+	create_bulk_translations,
+	create_translation,
+	delete_bulk_translations,
+	delete_translation,
+	get_bulk_translations,
+	get_translation,
 };
 
 /// Get the app router.

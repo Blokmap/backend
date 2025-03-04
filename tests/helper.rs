@@ -1,11 +1,12 @@
 use std::sync::LazyLock;
 
 use axum::Router;
-use blokmap::routes;
-use blokmap::{AppState, Config, DbConn, DbPool};
+use blokmap::{AppState, Config, DbConn, DbPool, routes};
 use deadpool_diesel::postgres::{Manager, Pool};
 use diesel_migrations::{
-	EmbeddedMigrations, MigrationHarness, embed_migrations,
+	EmbeddedMigrations,
+	MigrationHarness,
+	embed_migrations,
 };
 use uuid::Uuid;
 
@@ -17,15 +18,15 @@ pub static TEST_DATABASE_FIXTURE: LazyLock<TestDatabaseFixture> =
 
 /// A RAII guard provider which generates temporary test databases
 pub struct TestDatabaseFixture {
-	base_url: String,
+	base_url:  String,
 	root_pool: DbPool,
 }
 
 /// A test database RAII guard
 pub struct DatabaseGuard {
-	root_conn: DbConn,
+	root_conn:     DbConn,
 	database_name: String,
-	database_url: String,
+	database_url:  String,
 }
 
 /// Get a test axum app with a oneshot database for running tests

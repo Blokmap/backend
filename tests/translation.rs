@@ -1,7 +1,8 @@
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode, header};
 use blokmap::controllers::translation::{
-	CreateTranslationRequest, CreateTranslationResponse,
+	CreateTranslationRequest,
+	CreateTranslationResponse,
 };
 use blokmap::models::Language;
 use http_body_util::BodyExt;
@@ -24,8 +25,8 @@ async fn test_create_translation() {
 				.body(Body::from(
 					serde_json::to_string(&json!(CreateTranslationRequest {
 						language: Language::En,
-						key: None,
-						text: "foo".to_string(),
+						key:      None,
+						text:     "foo".to_string(),
 					}))
 					.unwrap(),
 				))
