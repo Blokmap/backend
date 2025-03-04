@@ -1,7 +1,16 @@
-.PHONY: shell migrate
+.PHONY: lint lint-fix fmt fmt-check
 
-shell:
-	docker exec -it -w /blokmap-backend blokmap-dev-backend /bin/sh
+CLIPPY_ALLOW = -A clippy::wildcard-imports
+CLIPPY_FLAGS = -W clippy::pedantic $(CLIPPY_ALLOW) -D warnings
 
-migrate:
-	docker exec -w /blokmap-backend blokmap-dev-backend alembic upgrade head
+lint:
+	cargo +nightly clippy --all-targets -- $(CLIPPY_FLAGS)
+
+lint-fix:
+	cargo +nightly clippy --all-targets --fix -- $(CLIPPY_FLAGS)
+
+fmt:
+	cargo +nightly fmt
+
+fmt-check:
+	cargo +nightly fmt --check

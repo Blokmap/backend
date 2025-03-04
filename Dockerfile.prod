@@ -1,44 +1,31 @@
-# Stage 1: Export the requirements with poetry.
-FROM python:3.13-slim AS builder
+FROM clux/muslrust:1.85.0-stable AS build
 
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update \
-    && apt-get install -y curl
+RUN cargo new --vcs none --bin --edition 2024 blokmap
 
-ENV PIP_NO_CACHE_DIR=false \
-    PIP_DISABLE_PIP_VERSION_CHECK=on \
-    POETRY_HOME="/opt/poetry" \
-    POETRY_NO_INTERACTION=1 \
-    POETRY_VIRTUALENVS_CREATE=false
+# muslrust starts in /volume
+WORKDIR /volume/blokmap
 
-ENV PATH="$POETRY_HOME/bin:$PATH"
+COPY ./.cargo ./Cargo.toml ./Cargo.lock ./
 
-RUN curl -sSL https://install.python-poetry.org | python -
+RUN cargo build --release --bin blokmap
 
-RUN poetry self add poetry-plugin-export
+RUN rm -r ./src
+RUN rm ./target/x86_64-unknown-linux-musl/release/deps/blokmap*
 
-WORKDIR /blokmap-backend
+COPY ./src ./src
 
-COPY pyproject.toml poetry.lock ./
+RUN cargo build --release --bin blokmap
 
-RUN poetry export --without-hashes --format=requirements.txt > requirements.txt
+# Run
+FROM alpine:latest
 
-# Stage 2: Install the requirements and run the application.
-FROM python:3.13-slim
+RUN apk add --no-cache curl
 
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update \
-    && apt-get install -y libpq5
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
+	CMD curl -f http://localhost/healthcheck || exit 1
 
-WORKDIR /blokmap-backend
+WORKDIR /blokmap
 
-COPY --from=builder /blokmap-backend/requirements.txt .
+COPY --from=build /volume/blokmap/target/x86_64-unknown-linux-musl/release/blokmap .
 
-RUN pip install -r requirements.txt --no-cache-dir
-
-COPY ./alembic.ini .
-COPY ./migrations ./migrations
-
-COPY ./app ./app
-
-CMD ["gunicorn", "-w", "9", "-b", "0.0.0.0:80", "app.main:app", "-k", "uvicorn.workers.UvicornWorker"]
+CMD [ "./blokmap" ]
