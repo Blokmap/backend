@@ -44,7 +44,7 @@ jobs:
         runs-on: self-hosted
 
         env:
-            DATABASE_URL: postgresql://test:test@test:5432/test
+            DATABASE_URL: postgresql://test:test@test-database:5432/test
 
         services:
             test-database:
@@ -66,11 +66,17 @@ jobs:
             with:
                 components: cargo
 
+          - name: Add cargo binstall
+            run: |
+                curl -L --proto '=https' --tlsv1.2 -sSf \
+                https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh \
+                | bash
+
           - name: Install diesel
-            run: cargo install diesel_cli --no-default-features --features postgres
+            run: cargo binstall diesel_cli
 
           - name: Run migrations
             run: diesel migration run
 
           - name: Run tests
-            run: cargo test --tests
+            run: cargo test --tests --verbose
