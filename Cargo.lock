@@ -202,7 +202,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "blokmap-backend"
+name = "blokmap"
 version = "0.1.0"
 dependencies = [
  "argon2",

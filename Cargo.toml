@@ -1,5 +1,5 @@
 [package]
-name = "blokmap-backend"
+name = "blokmap"
 version = "0.1.0"
 authors = [
     "Ewout Verlinde <ewout@gentsestudentenraad.be>",
@@ -9,9 +9,6 @@ edition = "2024"
 readme = "README.md"
 license-file = "LICENSE"
 publish = false
-
-[lib]
-name = "blokmap"
 
 [profile.release]
 opt-level = 3
