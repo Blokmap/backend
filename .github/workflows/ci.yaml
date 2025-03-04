@@ -67,7 +67,7 @@ jobs:
                 components: cargo
 
           - name: Install diesel
-            run: cargo install diesel_cli --no-default-features --feature postgres
+            run: cargo install diesel_cli --no-default-features --features postgres
 
           - name: Run migrations
             run: diesel migration run
