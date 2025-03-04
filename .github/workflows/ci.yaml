@@ -41,12 +41,32 @@ jobs:
     test:
         runs-on: self-hosted
 
+        env:
+            DATABASE_URL: postgresql://test:test@test:5432/test
+
+        services:
+            test-database:
+                image: postgres:17
+                env:
+                    PGUSER: test
+                    POSTGRES_USER: test
+                    POSTGRES_PASSWORD: test
+                    POSTGRES_DB: test
+                ports:
+                  - "5432:5432"
+
         steps:
           - name: Checkout code
             uses: actions/checkout@v4
 
           - name: Setup Rust
             uses: actions-rust-lang/setup-rust-toolchain@v1
+
+          - name: Install diesel
+            run: cargo install diesel_cli --no-default-features --feature postgres
+
+          - name: Run migrations
+            run: diesel migration run
 
           - name: Run tests
             run: cargo test --tests
