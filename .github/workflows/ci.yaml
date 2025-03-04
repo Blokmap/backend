@@ -58,10 +58,10 @@ jobs:
             uses: cargo-bins/cargo-binstall@main
 
           - name: Install diesel
-            run: cargo binstall --force -y diesel_cli
+            run: cargo binstall -y diesel_cli
 
           - name: Run migrations
             run: diesel migration run
 
           - name: Run tests
-            run: cargo test --tests --verbose
+            run: cargo test --tests
