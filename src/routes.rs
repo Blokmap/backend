@@ -12,6 +12,7 @@ use crate::controllers::profile::{
 	get_all_profiles,
 	login_profile_with_email,
 	login_profile_with_username,
+	logout_profile,
 	register_profile,
 };
 use crate::controllers::translation::{
@@ -44,6 +45,7 @@ fn get_auth_routes() -> Router<AppState> {
 		.route("/confirm_email/{token}", post(confirm_email))
 		.route("/login/username", get(login_profile_with_username))
 		.route("/login/email", get(login_profile_with_email))
+		.route("/logout", post(logout_profile))
 }
 
 fn get_profile_routes() -> Router<AppState> {

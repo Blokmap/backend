@@ -175,3 +175,20 @@ pub(crate) async fn login_profile_with_email(
 
 	Ok((jar, NoContent))
 }
+
+pub(crate) async fn logout_profile(
+	State(config): State<Config>,
+	jar: PrivateCookieJar,
+) -> Result<(PrivateCookieJar, NoContent), Error> {
+	let revoked_access_token = Cookie::build((config.access_token_name, ""))
+		.domain("")
+		.http_only(true)
+		.max_age(time::Duration::hours(-1))
+		.path("/")
+		.same_site(SameSite::Lax)
+		.secure(true);
+
+	let jar = jar.add(revoked_access_token);
+
+	Ok((jar, NoContent))
+}
