@@ -31,7 +31,7 @@ async fn main() {
 	let database_pool = config.create_database_pool();
 
 	let cookie_jar_key = Key::from(
-		&std::fs::read("/var/secrets/cookie-jar-key")
+		&std::fs::read("/run/secrets/cookie-jar-key")
 			.expect("COULD NOT READ COOKIE JAR KEY"),
 	);
 

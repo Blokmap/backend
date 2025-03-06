@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use diesel_derive_enum::DbEnum;
@@ -5,6 +7,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::schema::profile;
 use crate::{DbConn, Error};
+
+#[derive(Clone, Copy)]
+pub(crate) struct ProfileId(pub(crate) i32);
+
+impl Deref for ProfileId {
+	type Target = i32;
+
+	fn deref(&self) -> &Self::Target { &self.0 }
+}
 
 #[derive(Clone, DbEnum, Debug)]
 #[ExistingTypePath = "crate::schema::sql_types::ProfileState"]
@@ -73,6 +84,22 @@ impl InsertableProfile {
 }
 
 impl Profile {
+	/// Get a [`Profile`] given its id
+	pub(crate) async fn get(
+		query_id: i32,
+		conn: DbConn,
+	) -> Result<Self, Error> {
+		let profiles = conn
+			.interact(move |conn| {
+				use self::profile::dsl::*;
+
+				profile.find(query_id).get_result(conn)
+			})
+			.await??;
+
+		Ok(profiles)
+	}
+
 	/// Get a list of all [`Profile`]s
 	pub(crate) async fn get_all(conn: DbConn) -> Result<Vec<Self>, Error> {
 		use self::profile::dsl::*;
@@ -80,6 +107,23 @@ impl Profile {
 		let profiles = conn.interact(|conn| profile.load(conn)).await??;
 
 		Ok(profiles)
+	}
+
+	/// Check if a [`Profile`] with a given id exists
+	pub(crate) async fn exists(
+		query_id: i32,
+		conn: DbConn,
+	) -> Result<bool, Error> {
+		let exists = conn
+			.interact(move |conn| {
+				use self::profile::dsl::*;
+
+				diesel::select(diesel::dsl::exists(profile.find(query_id)))
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(exists)
 	}
 
 	/// Get a profile given its email confirmation token

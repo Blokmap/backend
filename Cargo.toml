@@ -22,7 +22,12 @@ axum = { version = "0.8.1", features = ["macros"] }
 axum-extra = { version = "0.10.0", features = ["cookie", "cookie-private"] }
 chrono = { version = "0.4.40", features = ["serde"] }
 deadpool-diesel = { version = "0.6.1", features = ["postgres", "tracing"] }
-diesel = { version = "2.2.7", features = ["postgres", "chrono", "uuid"] }
+diesel = { version = "2.2.7", features = [
+	"postgres",
+	"chrono",
+	"uuid",
+	"i-implement-a-third-party-backend-and-opt-into-breaking-changes",
+] }
 diesel-derive-enum = { version = "2.1.0", features = ["postgres"] }
 openssl = "*"
 regex = "1.11.1"

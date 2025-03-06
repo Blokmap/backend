@@ -12,6 +12,7 @@ mod error;
 mod schema;
 
 pub mod controllers;
+pub mod middleware;
 pub mod models;
 pub mod routes;
 
