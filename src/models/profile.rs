@@ -38,6 +38,7 @@ pub struct Profile {
 	#[serde(skip)]
 	pub state:                           ProfileState,
 	pub created_at:                      NaiveDateTime,
+	pub last_login_at:                   NaiveDateTime,
 }
 
 impl Profile {
