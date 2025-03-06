@@ -43,8 +43,8 @@ fn get_auth_routes() -> Router<AppState> {
 	Router::new()
 		.route("/register", post(register_profile))
 		.route("/confirm_email/{token}", post(confirm_email))
-		.route("/login/username", get(login_profile_with_username))
-		.route("/login/email", get(login_profile_with_email))
+		.route("/login/username", post(login_profile_with_username))
+		.route("/login/email", post(login_profile_with_email))
 		.route("/logout", post(logout_profile))
 }
 
