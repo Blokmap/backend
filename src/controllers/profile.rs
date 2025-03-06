@@ -17,9 +17,8 @@ use uuid::Uuid;
 use validator::Validate;
 use validator_derive::Validate;
 
-use crate::error::{Error, TokenError};
 use crate::models::{InsertableProfile, Profile};
-use crate::{Config, DbPool};
+use crate::{Config, DbPool, Error, TokenError};
 
 static USERNAME_REGEX: LazyLock<Regex> =
 	LazyLock::new(|| Regex::new(r"^[a-zA-Z][a-zA-Z0-9-_]{2,31}$").unwrap());

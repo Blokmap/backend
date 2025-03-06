@@ -3,18 +3,20 @@
 #[macro_use]
 extern crate tracing;
 
-pub mod config;
-pub mod routes;
-pub mod schema;
-
-pub mod controllers;
-pub mod error;
-pub mod models;
-
 use axum::extract::FromRef;
 use axum_extra::extract::cookie::Key;
-pub use config::Config;
 use deadpool_diesel::postgres::{Object, Pool};
+
+mod config;
+mod error;
+mod schema;
+
+pub mod controllers;
+pub mod models;
+pub mod routes;
+
+pub use config::Config;
+pub use error::*;
 
 /// An entire database pool
 pub type DbPool = Pool;

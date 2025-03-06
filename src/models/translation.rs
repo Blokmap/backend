@@ -4,9 +4,8 @@ use diesel_derive_enum::DbEnum;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::DbConn;
-use crate::error::Error;
 use crate::schema::translation;
+use crate::{DbConn, Error};
 
 #[derive(Clone, DbEnum, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[ExistingTypePath = "crate::schema::sql_types::Language"]

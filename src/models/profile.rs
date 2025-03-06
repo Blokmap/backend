@@ -3,9 +3,8 @@ use diesel::prelude::*;
 use diesel_derive_enum::DbEnum;
 use serde::{Deserialize, Serialize};
 
-use crate::DbConn;
-use crate::error::Error;
 use crate::schema::profile;
+use crate::{DbConn, Error};
 
 #[derive(Clone, DbEnum, Debug)]
 #[ExistingTypePath = "crate::schema::sql_types::ProfileState"]
