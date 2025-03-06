@@ -6,8 +6,8 @@ use blokmap::models::Profile;
 use helper::get_test_app;
 
 #[tokio::test]
-async fn test_get_profiles() {
-	let (_guard, test_server) = get_test_app().await;
+async fn get_all_profiles() {
+	let (_guard, test_server) = get_test_app(true).await;
 
 	test_server
 		.post("/auth/login/username")
@@ -23,8 +23,8 @@ async fn test_get_profiles() {
 }
 
 #[tokio::test]
-async fn test_get_current_profile() {
-	let (_guard, test_server) = get_test_app().await;
+async fn get_current_profile() {
+	let (_guard, test_server) = get_test_app(true).await;
 
 	test_server
 		.post("/auth/login/username")

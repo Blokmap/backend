@@ -11,8 +11,8 @@ mod helper;
 use helper::get_test_app;
 
 #[tokio::test]
-async fn test_create_translation() {
-	let (_guard, test_server) = get_test_app().await;
+async fn create_translation() {
+	let (_guard, test_server) = get_test_app(true).await;
 
 	test_server
 		.post("/auth/login/username")
@@ -55,8 +55,8 @@ async fn test_create_translation() {
 }
 
 #[tokio::test]
-async fn test_get_invalid_translations() {
-	let (_guard, test_server) = get_test_app().await;
+async fn get_invalid_translations() {
+	let (_guard, test_server) = get_test_app(true).await;
 
 	test_server
 		.post("/auth/login/username")

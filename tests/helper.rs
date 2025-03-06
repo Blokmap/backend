@@ -36,7 +36,7 @@ pub struct DatabaseGuard {
 ///
 /// # Panics
 /// Panics if building a test user fails
-pub async fn get_test_app() -> (DatabaseGuard, TestServer) {
+pub async fn get_test_app(create_user: bool) -> (DatabaseGuard, TestServer) {
 	let config = Config::from_env();
 
 	let test_pool_guard = (*TEST_DATABASE_FIXTURE).acquire().await;
@@ -49,16 +49,18 @@ pub async fn get_test_app() -> (DatabaseGuard, TestServer) {
 
 	let test_server = TestServer::builder().save_cookies().build(app).unwrap();
 
-	let response = test_server
-		.post("/auth/register")
-		.json(&RegisterRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
-			email:    "bob@example.com".to_string(),
-		})
-		.await;
+	if create_user {
+		let response = test_server
+			.post("/auth/register")
+			.json(&RegisterRequest {
+				username: "bob".to_string(),
+				password: "bobdebouwer1234!".to_string(),
+				email:    "bob@example.com".to_string(),
+			})
+			.await;
 
-	assert_eq!(response.status_code(), StatusCode::CREATED);
+		assert_eq!(response.status_code(), StatusCode::CREATED);
+	}
 
 	(test_pool_guard, test_server)
 }
