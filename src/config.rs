@@ -6,6 +6,8 @@ use deadpool_diesel::postgres::{Manager, Pool};
 pub struct Config {
 	pub database_url: String,
 
+	pub production: bool,
+
 	pub email_confirmation_token_lifetime: Duration,
 
 	pub access_token_name:     String,
@@ -33,6 +35,10 @@ impl Config {
 	pub fn from_env() -> Self {
 		let database_url = Self::get_env("DATABASE_URL");
 
+		let production = Self::get_env_default("PRODUCTION", "false")
+			.parse::<bool>()
+			.unwrap();
+
 		let email_confirmation_token_lifetime = Duration::minutes(
 			Self::get_env_default("EMAIL_CONFIRMATION_TOKEN_LIFETIME", "5")
 				.parse::<i64>()
@@ -49,6 +55,7 @@ impl Config {
 
 		Self {
 			database_url,
+			production,
 			email_confirmation_token_lifetime,
 			access_token_name,
 			access_token_lifetime,
