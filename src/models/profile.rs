@@ -23,7 +23,7 @@ impl std::fmt::Display for ProfileId {
 	}
 }
 
-#[derive(Clone, DbEnum, Debug, Default)]
+#[derive(Clone, DbEnum, Debug, Default, PartialEq, Eq)]
 #[ExistingTypePath = "crate::schema::sql_types::ProfileState"]
 pub enum ProfileState {
 	#[default]

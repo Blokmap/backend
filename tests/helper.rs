@@ -1,9 +1,10 @@
 use std::sync::LazyLock;
 
-use axum::http::StatusCode;
+use argon2::password_hash::SaltString;
+use argon2::password_hash::rand_core::OsRng;
+use argon2::{Argon2, PasswordHasher};
 use axum_extra::extract::cookie::Key;
 use axum_test::TestServer;
-use blokmap::controllers::auth::RegisterRequest;
 use blokmap::{AppState, Config, DbConn, DbPool, routes};
 use deadpool_diesel::postgres::{Manager, Pool};
 use diesel_migrations::{
@@ -44,22 +45,35 @@ pub async fn get_test_app(create_user: bool) -> (DatabaseGuard, TestServer) {
 
 	let cookie_jar_key = Key::from(&[0u8; 64]);
 
-	let state = AppState { config, database_pool: test_pool, cookie_jar_key };
+	let state =
+		AppState { config, database_pool: test_pool.clone(), cookie_jar_key };
 	let app = routes::get_app_router(state);
 
 	let test_server = TestServer::builder().save_cookies().build(app).unwrap();
 
 	if create_user {
-		let response = test_server
-			.post("/auth/register")
-			.json(&RegisterRequest {
-				username: "bob".to_string(),
-				password: "bobdebouwer1234!".to_string(),
-				email:    "bob@example.com".to_string(),
-			})
-			.await;
+		let salt = SaltString::generate(&mut OsRng);
+		let password_hash = Argon2::default()
+			.hash_password("bobdebouwer1234!".as_bytes(), &salt)
+			.unwrap()
+			.to_string();
 
-		assert_eq!(response.status_code(), StatusCode::CREATED);
+		let conn = test_pool.get().await.unwrap();
+
+		conn.interact(|conn| {
+			use diesel::prelude::*;
+			use diesel::sql_types::Text;
+
+			diesel::sql_query(
+				"INSERT INTO profile (username, password_hash, email, state) \
+				 VALUES ('bob', $1, 'bob@example.com', 'active');",
+			)
+			.bind::<Text, _>(password_hash)
+			.execute(conn)
+		})
+		.await
+		.unwrap()
+		.unwrap();
 	}
 
 	(test_pool_guard, test_server)

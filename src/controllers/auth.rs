@@ -22,7 +22,7 @@ use crate::models::{InsertableProfile, Profile, ProfileId};
 use crate::{Config, DbPool, Error, TokenError};
 
 static USERNAME_REGEX: LazyLock<Regex> =
-	LazyLock::new(|| Regex::new(r"^[a-zA-Z][a-zA-Z0-9-_]{2,31}$").unwrap());
+	LazyLock::new(|| Regex::new(r"^[a-zA-Z][a-zA-Z0-9-_]*$").unwrap());
 
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]
 pub struct RegisterRequest {
