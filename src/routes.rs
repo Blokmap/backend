@@ -7,7 +7,11 @@ use tower_http::trace::TraceLayer;
 
 use crate::AppState;
 use crate::controllers::healthcheck;
-use crate::controllers::profile::get_all_profiles;
+use crate::controllers::profile::{
+	confirm_email,
+	get_all_profiles,
+	register_profile,
+};
 use crate::controllers::translation::{
 	create_bulk_translations,
 	create_translation,
@@ -21,6 +25,7 @@ use crate::controllers::translation::{
 pub fn get_app_router(state: AppState) -> Router {
 	let api_routes = Router::new()
 		.route("/healthcheck", get(healthcheck))
+		.nest("/auth", get_auth_routes())
 		.nest("/profile", get_profile_routes())
 		.nest("/translation", get_translation_routes());
 
@@ -31,12 +36,16 @@ pub fn get_app_router(state: AppState) -> Router {
 		.with_state(state)
 }
 
-/// Get the profile routes.
+fn get_auth_routes() -> Router<AppState> {
+	Router::new()
+		.route("/register", post(register_profile))
+		.route("/confirm_email/{token}", post(confirm_email))
+}
+
 fn get_profile_routes() -> Router<AppState> {
 	Router::new().route("/", get(get_all_profiles))
 }
 
-/// Get the translation routes.
 fn get_translation_routes() -> Router<AppState> {
 	Router::new()
 		.route("/", post(create_translation))

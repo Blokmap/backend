@@ -16,6 +16,9 @@ pub enum Error {
 	#[error("not found")]
 	/// Resource not found
 	NotFound,
+	/// Invalid or missing token
+	#[error(transparent)]
+	TokenError(#[from] TokenError),
 	/// Resource could not be validated
 	#[error("{0}")]
 	ValidationError(String),
@@ -55,6 +58,7 @@ impl IntoResponse for Error {
 			Self::Duplicate(_) => StatusCode::CONFLICT,
 			Self::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
 			Self::NotFound => StatusCode::NOT_FOUND,
+			Self::TokenError(_) => StatusCode::FORBIDDEN,
 			Self::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
 		};
 
@@ -76,9 +80,18 @@ pub enum InternalServerError {
 	/// Error interacting with a database connection
 	#[error("database interaction error -- {0:?}")]
 	DatabaseInteractionError(deadpool_diesel::InteractError),
+	/// Error hashing some value
+	#[error("hash error -- {0:?}")]
+	HashError(argon2::password_hash::Error),
 	/// Error acquiring database pool connection
 	#[error("database pool error -- {0:?}")]
 	PoolError(deadpool_diesel::PoolError),
+}
+
+impl From<argon2::password_hash::Error> for Error {
+	fn from(err: argon2::password_hash::Error) -> Self {
+		InternalServerError::HashError(err).into()
+	}
 }
 
 impl From<deadpool_diesel::InteractError> for Error {
@@ -108,7 +121,7 @@ impl From<diesel::result::Error> for Error {
 					.into();
 				};
 
-				Self::Duplicate(format!("'{field}' is already in use"))
+				Self::Duplicate(format!("{field} is already in use"))
 			},
 			_ => InternalServerError::DatabaseError(err).into(),
 		}
@@ -119,4 +132,11 @@ impl From<deadpool_diesel::PoolError> for Error {
 	fn from(value: deadpool_diesel::PoolError) -> Self {
 		InternalServerError::PoolError(value).into()
 	}
+}
+
+/// Any error related to a token
+#[derive(Debug, Error)]
+pub enum TokenError {
+	#[error("email confirmation token has expired")]
+	ExpiredEmailToken,
 }

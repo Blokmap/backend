@@ -1,4 +1,4 @@
-use chrono::TimeDelta;
+use chrono::Duration;
 use deadpool_diesel::postgres::{Manager, Pool};
 
 /// Configuration settings for the application
@@ -6,8 +6,10 @@ use deadpool_diesel::postgres::{Manager, Pool};
 pub struct Config {
 	pub database_url: String,
 
+	pub email_confirmation_token_lifetime: Duration,
+
 	pub access_token_name:     String,
-	pub access_token_lifetime: TimeDelta,
+	pub access_token_lifetime: Duration,
 }
 
 impl Config {
@@ -31,15 +33,26 @@ impl Config {
 	pub fn from_env() -> Self {
 		let database_url = Self::get_env("DATABASE_URL");
 
+		let email_confirmation_token_lifetime = Duration::minutes(
+			Self::get_env_default("EMAIL_CONFIRMATION_TOKEN_LIFETIME", "5")
+				.parse::<i64>()
+				.unwrap(),
+		);
+
 		let access_token_name =
 			Self::get_env_default("ACCESS_TOKEN_NAME", "access_token");
-		let access_token_lifetime = TimeDelta::minutes(
+		let access_token_lifetime = Duration::minutes(
 			Self::get_env_default("ACCESS_TOKEN_LIFETIME_MINUTES", "10")
 				.parse::<i64>()
 				.unwrap(),
 		);
 
-		Self { database_url, access_token_name, access_token_lifetime }
+		Self {
+			database_url,
+			email_confirmation_token_lifetime,
+			access_token_name,
+			access_token_lifetime,
+		}
 	}
 
 	/// Create a database pool for the given config
