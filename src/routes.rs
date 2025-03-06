@@ -3,6 +3,7 @@ use std::time::Duration;
 use axum::Router;
 use axum::routing::{get, post};
 use tower::ServiceBuilder;
+use tower_http::compression::CompressionLayer;
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
@@ -38,7 +39,8 @@ pub fn get_app_router(state: AppState) -> Router {
 		.layer(
 			ServiceBuilder::new()
 				.layer(TraceLayer::new_for_http())
-				.layer(TimeoutLayer::new(Duration::from_secs(5))),
+				.layer(TimeoutLayer::new(Duration::from_secs(5)))
+				.layer(CompressionLayer::new()),
 		)
 		.with_state(state)
 }
