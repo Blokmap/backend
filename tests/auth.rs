@@ -165,6 +165,55 @@ async fn register_invalid_email() {
 }
 
 #[tokio::test]
+async fn confirm_email() {
+	let (guard, test_server) = get_test_app(false).await;
+
+	test_server
+		.post("/auth/register")
+		.json(&RegisterRequest {
+			username: "bob".to_string(),
+			password: "bobdebouwer1234!".to_string(),
+			email:    "bob@example.com".to_string(),
+		})
+		.await;
+
+	let conn = guard.create_pool().get().await.unwrap();
+	let email_confirmation_token: Option<String> = conn
+		.interact(|conn| {
+			use blokmap::schema::profile::dsl::*;
+			use diesel::prelude::*;
+
+			profile
+				.select(email_confirmation_token)
+				.filter(username.eq("bob"))
+				.get_result(conn)
+		})
+		.await
+		.unwrap()
+		.unwrap();
+
+	assert!(email_confirmation_token.is_some());
+
+	let response = test_server
+		.post(&format!(
+			"/auth/confirm_email/{}",
+			email_confirmation_token.unwrap()
+		))
+		.await;
+
+	let _access_token = response.cookie("access_token");
+
+	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
+
+	let response = test_server.get("/profile/me").await;
+	let body = response.json::<Profile>();
+
+	assert_eq!(response.status_code(), StatusCode::OK);
+	assert_eq!(body.username, "bob".to_string());
+	assert_eq!(body.email, Some("bob@example.com".to_string()));
+}
+
+#[tokio::test]
 async fn login_username() {
 	let (_guard, test_server) = get_test_app(true).await;
 

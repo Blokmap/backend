@@ -9,12 +9,12 @@ use deadpool_diesel::postgres::{Object, Pool};
 
 mod config;
 mod error;
-mod schema;
 
 pub mod controllers;
 pub mod middleware;
 pub mod models;
 pub mod routes;
+pub mod schema;
 
 pub use config::Config;
 pub use error::*;

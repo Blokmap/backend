@@ -88,27 +88,41 @@ pub(crate) async fn register_profile(
 	Ok((StatusCode::CREATED, Json(new_profile)))
 }
 
-#[instrument(skip(pool))]
+#[instrument(skip(pool, config))]
 pub(crate) async fn confirm_email(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
+	jar: PrivateCookieJar,
 	Path(token): Path<String>,
-) -> Result<NoContent, Error> {
+) -> Result<(PrivateCookieJar, NoContent), Error> {
 	let conn = pool.get().await?;
 	let profile = Profile::get_by_email_confirmation_token(token, conn).await?;
 
 	// Unwrap is safe because profiles with a confirmation token will always
 	// have a token expiry
 	let expiry = profile.email_confirmation_token_expiry.unwrap();
-	if Utc::now().naive_utc() < expiry {
+	if Utc::now().naive_utc() > expiry {
 		return Err(TokenError::ExpiredEmailToken.into());
 	}
 
 	let conn = pool.get().await?;
 	profile.confirm_email(conn).await?;
 
+	let secure = config.production;
+	let access_token =
+		Cookie::build((config.access_token_name, profile.id.to_string()))
+			.domain("")
+			.http_only(true)
+			.max_age(config.access_token_lifetime)
+			.path("/")
+			.same_site(SameSite::Lax)
+			.secure(secure);
+
+	let jar = jar.add(access_token);
+
 	info!("confirmed email for profile {}", profile.id);
 
-	Ok(NoContent)
+	Ok((jar, NoContent))
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
