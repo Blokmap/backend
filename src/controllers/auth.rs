@@ -24,6 +24,22 @@ use crate::{Config, DbPool, Error, TokenError};
 static USERNAME_REGEX: LazyLock<Regex> =
 	LazyLock::new(|| Regex::new(r"^[a-zA-Z][a-zA-Z0-9-_]*$").unwrap());
 
+fn make_access_token_cookie(
+	config: &Config,
+	data: &impl ToString,
+) -> Cookie<'static> {
+	let secure = config.production;
+
+	Cookie::build((config.access_token_name.clone(), data.to_string()))
+		.domain("")
+		.http_only(true)
+		.max_age(config.access_token_lifetime)
+		.path("/")
+		.same_site(SameSite::Lax)
+		.secure(secure)
+		.into()
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]
 pub struct RegisterRequest {
 	#[validate(regex(
@@ -108,16 +124,7 @@ pub(crate) async fn confirm_email(
 	let conn = pool.get().await?;
 	profile.confirm_email(conn).await?;
 
-	let secure = config.production;
-	let access_token =
-		Cookie::build((config.access_token_name, profile.id.to_string()))
-			.domain("")
-			.http_only(true)
-			.max_age(config.access_token_lifetime)
-			.path("/")
-			.same_site(SameSite::Lax)
-			.secure(secure);
-
+	let access_token = make_access_token_cookie(&config, &profile.id);
 	let jar = jar.add(access_token);
 
 	info!("confirmed email for profile {}", profile.id);
@@ -145,16 +152,7 @@ pub(crate) async fn login_profile_with_username(
 	Argon2::default()
 		.verify_password(login_data.password.as_bytes(), &password_hash)?;
 
-	let secure = config.production;
-	let access_token =
-		Cookie::build((config.access_token_name, profile.id.to_string()))
-			.domain("")
-			.http_only(true)
-			.max_age(config.access_token_lifetime)
-			.path("/")
-			.same_site(SameSite::Lax)
-			.secure(secure);
-
+	let access_token = make_access_token_cookie(&config, &profile.id);
 	let jar = jar.add(access_token);
 
 	info!("logged in profile {} with username", profile.id);
@@ -182,16 +180,7 @@ pub(crate) async fn login_profile_with_email(
 	Argon2::default()
 		.verify_password(login_data.password.as_bytes(), &password_hash)?;
 
-	let secure = config.production;
-	let access_token =
-		Cookie::build((config.access_token_name, profile.id.to_string()))
-			.domain("")
-			.http_only(true)
-			.max_age(config.access_token_lifetime)
-			.path("/")
-			.same_site(SameSite::Lax)
-			.secure(secure);
-
+	let access_token = make_access_token_cookie(&config, &profile.id);
 	let jar = jar.add(access_token);
 
 	info!("logged in profile {} with email", profile.id);
@@ -205,15 +194,8 @@ pub(crate) async fn logout_profile(
 	jar: PrivateCookieJar,
 	Extension(profile_id): Extension<ProfileId>,
 ) -> Result<(PrivateCookieJar, NoContent), Error> {
-	let secure = config.production;
-
-	let revoked_access_token = Cookie::build((config.access_token_name, ""))
-		.domain("")
-		.http_only(true)
-		.max_age(time::Duration::hours(-1))
-		.path("/")
-		.same_site(SameSite::Lax)
-		.secure(secure);
+	let mut revoked_access_token = jar.get(&config.access_token_name).unwrap();
+	revoked_access_token.make_removal();
 
 	let jar = jar.add(revoked_access_token);
 

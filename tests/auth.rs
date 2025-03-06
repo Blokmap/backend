@@ -267,6 +267,6 @@ async fn logout() {
 
 	let access_token = response.cookie("access_token");
 
-	assert_eq!(access_token.max_age(), Some(time::Duration::seconds(0)));
+	assert_eq!(access_token.max_age(), Some(time::Duration::ZERO));
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 }
