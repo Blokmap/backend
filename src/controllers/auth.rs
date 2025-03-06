@@ -194,6 +194,7 @@ pub(crate) async fn logout_profile(
 	jar: PrivateCookieJar,
 	Extension(profile_id): Extension<ProfileId>,
 ) -> Result<(PrivateCookieJar, NoContent), Error> {
+	// Unwrap is safe because the auth middleware guarantees the token exists
 	let mut revoked_access_token = jar.get(&config.access_token_name).unwrap();
 	revoked_access_token.make_removal();
 
