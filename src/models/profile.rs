@@ -123,4 +123,36 @@ impl Profile {
 
 		Ok(())
 	}
+
+	/// Get a [`Profile`] given its username
+	pub(crate) async fn get_by_username(
+		query_username: String,
+		conn: DbConn,
+	) -> Result<Self, Error> {
+		let profile = conn
+			.interact(|conn| {
+				use self::profile::dsl::*;
+
+				profile.filter(username.eq(query_username)).first(conn)
+			})
+			.await??;
+
+		Ok(profile)
+	}
+
+	/// Get a [`Profile`] given its email
+	pub(crate) async fn get_by_email(
+		query_email: String,
+		conn: DbConn,
+	) -> Result<Self, Error> {
+		let profile = conn
+			.interact(|conn| {
+				use self::profile::dsl::*;
+
+				profile.filter(email.eq(query_email)).first(conn)
+			})
+			.await??;
+
+		Ok(profile)
+	}
 }

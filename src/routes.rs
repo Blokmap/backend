@@ -10,6 +10,8 @@ use crate::controllers::healthcheck;
 use crate::controllers::profile::{
 	confirm_email,
 	get_all_profiles,
+	login_profile_with_email,
+	login_profile_with_username,
 	register_profile,
 };
 use crate::controllers::translation::{
@@ -40,6 +42,8 @@ fn get_auth_routes() -> Router<AppState> {
 	Router::new()
 		.route("/register", post(register_profile))
 		.route("/confirm_email/{token}", post(confirm_email))
+		.route("/login/username", get(login_profile_with_username))
+		.route("/login/email", get(login_profile_with_email))
 }
 
 fn get_profile_routes() -> Router<AppState> {

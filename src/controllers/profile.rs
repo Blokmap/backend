@@ -4,10 +4,12 @@ use std::sync::LazyLock;
 
 use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
-use argon2::{Argon2, PasswordHasher};
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::response::NoContent;
+use axum_extra::extract::PrivateCookieJar;
+use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::Utc;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -59,23 +61,23 @@ pub struct RegisterRequest {
 pub(crate) async fn register_profile(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,
-	Json(new_user): Json<RegisterRequest>,
+	Json(register_data): Json<RegisterRequest>,
 ) -> Result<Json<Profile>, Error> {
-	new_user.validate()?;
+	register_data.validate()?;
 
 	let salt = SaltString::generate(&mut OsRng);
-	let argon2 = Argon2::default();
-	let password_hash =
-		argon2.hash_password(new_user.password.as_bytes(), &salt)?.to_string();
+	let password_hash = Argon2::default()
+		.hash_password(register_data.password.as_bytes(), &salt)?
+		.to_string();
 
 	let email_confirmation_token = Uuid::new_v4().to_string();
 	let email_confirmation_token_expiry =
 		Utc::now().naive_utc() + config.email_confirmation_token_lifetime;
 
 	let insertable_profile = InsertableProfile {
-		username: new_user.username,
+		username: register_data.username,
 		password_hash,
-		pending_email: new_user.email,
+		pending_email: register_data.email,
 		email_confirmation_token,
 		email_confirmation_token_expiry,
 	};
@@ -106,4 +108,70 @@ pub(crate) async fn confirm_email(
 	profile.confirm_email(conn).await?;
 
 	Ok(NoContent)
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct LoginUsernameRequest {
+	username: String,
+	password: String,
+}
+
+pub(crate) async fn login_profile_with_username(
+	State(pool): State<DbPool>,
+	State(config): State<Config>,
+	jar: PrivateCookieJar,
+	Json(login_data): Json<LoginUsernameRequest>,
+) -> Result<(PrivateCookieJar, NoContent), Error> {
+	let conn = pool.get().await?;
+	let profile = Profile::get_by_username(login_data.username, conn).await?;
+
+	let password_hash = PasswordHash::new(&login_data.password)?;
+	Argon2::default()
+		.verify_password(login_data.password.as_bytes(), &password_hash)?;
+
+	let access_token =
+		Cookie::build((config.access_token_name, profile.id.to_string()))
+			.domain("")
+			.http_only(true)
+			.max_age(config.access_token_lifetime)
+			.path("/")
+			.same_site(SameSite::Lax)
+			.secure(true);
+
+	let jar = jar.add(access_token);
+
+	Ok((jar, NoContent))
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct LoginEmailRequest {
+	email:    String,
+	password: String,
+}
+
+pub(crate) async fn login_profile_with_email(
+	State(pool): State<DbPool>,
+	State(config): State<Config>,
+	jar: PrivateCookieJar,
+	Json(login_data): Json<LoginEmailRequest>,
+) -> Result<(PrivateCookieJar, NoContent), Error> {
+	let conn = pool.get().await?;
+	let profile = Profile::get_by_email(login_data.email, conn).await?;
+
+	let password_hash = PasswordHash::new(&login_data.password)?;
+	Argon2::default()
+		.verify_password(login_data.password.as_bytes(), &password_hash)?;
+
+	let access_token =
+		Cookie::build((config.access_token_name, profile.id.to_string()))
+			.domain("")
+			.http_only(true)
+			.max_age(config.access_token_lifetime)
+			.path("/")
+			.same_site(SameSite::Lax)
+			.secure(true);
+
+	let jar = jar.add(access_token);
+
+	Ok((jar, NoContent))
 }

@@ -1,6 +1,7 @@
 use std::sync::LazyLock;
 
 use axum::Router;
+use axum_extra::extract::cookie::Key;
 use blokmap::{AppState, Config, DbConn, DbPool, routes};
 use deadpool_diesel::postgres::{Manager, Pool};
 use diesel_migrations::{
@@ -36,7 +37,9 @@ pub async fn get_test_app() -> (DatabaseGuard, Router) {
 	let test_pool_guard = (*TEST_DATABASE_FIXTURE).acquire().await;
 	let test_pool = test_pool_guard.create_pool();
 
-	let state = AppState { config, database_pool: test_pool };
+	let cookie_jar_key = Key::from(&[0u8; 64]);
+
+	let state = AppState { config, database_pool: test_pool, cookie_jar_key };
 
 	(test_pool_guard, routes::get_app_router(state))
 }

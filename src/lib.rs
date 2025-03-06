@@ -12,6 +12,7 @@ pub mod error;
 pub mod models;
 
 use axum::extract::FromRef;
+use axum_extra::extract::cookie::Key;
 pub use config::Config;
 use deadpool_diesel::postgres::{Object, Pool};
 
@@ -24,8 +25,9 @@ pub type DbConn = Object;
 /// Common state of the app
 #[derive(Clone)]
 pub struct AppState {
-	pub config:        Config,
-	pub database_pool: DbPool,
+	pub config:         Config,
+	pub database_pool:  DbPool,
+	pub cookie_jar_key: Key,
 }
 
 impl FromRef<AppState> for Config {
@@ -34,4 +36,8 @@ impl FromRef<AppState> for Config {
 
 impl FromRef<AppState> for DbPool {
 	fn from_ref(input: &AppState) -> Self { input.database_pool.clone() }
+}
+
+impl FromRef<AppState> for Key {
+	fn from_ref(input: &AppState) -> Self { input.cookie_jar_key.clone() }
 }

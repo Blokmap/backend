@@ -9,7 +9,7 @@ pub struct Config {
 	pub email_confirmation_token_lifetime: Duration,
 
 	pub access_token_name:     String,
-	pub access_token_lifetime: Duration,
+	pub access_token_lifetime: time::Duration,
 }
 
 impl Config {
@@ -41,7 +41,7 @@ impl Config {
 
 		let access_token_name =
 			Self::get_env_default("ACCESS_TOKEN_NAME", "access_token");
-		let access_token_lifetime = Duration::minutes(
+		let access_token_lifetime = time::Duration::minutes(
 			Self::get_env_default("ACCESS_TOKEN_LIFETIME_MINUTES", "10")
 				.parse::<i64>()
 				.unwrap(),

@@ -13,9 +13,12 @@ pub enum Error {
 	/// Opaque internal server error
 	#[error("internal server error")]
 	InternalServerError,
-	#[error("not found")]
 	/// Resource not found
+	#[error("not found")]
 	NotFound,
+	/// Any error related to logging in
+	#[error(transparent)]
+	LoginError(#[from] LoginError),
 	/// Invalid or missing token
 	#[error(transparent)]
 	TokenError(#[from] TokenError),
@@ -57,8 +60,8 @@ impl IntoResponse for Error {
 		let status = match self {
 			Self::Duplicate(_) => StatusCode::CONFLICT,
 			Self::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
+			Self::LoginError(_) | Self::TokenError(_) => StatusCode::FORBIDDEN,
 			Self::NotFound => StatusCode::NOT_FOUND,
-			Self::TokenError(_) => StatusCode::FORBIDDEN,
 			Self::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
 		};
 
@@ -90,7 +93,12 @@ pub enum InternalServerError {
 
 impl From<argon2::password_hash::Error> for Error {
 	fn from(err: argon2::password_hash::Error) -> Self {
-		InternalServerError::HashError(err).into()
+		match err {
+			argon2::password_hash::Error::Password => {
+				LoginError::InvalidPassword.into()
+			},
+			_ => InternalServerError::HashError(err).into(),
+		}
 	}
 }
 
@@ -132,6 +140,19 @@ impl From<deadpool_diesel::PoolError> for Error {
 	fn from(value: deadpool_diesel::PoolError) -> Self {
 		InternalServerError::PoolError(value).into()
 	}
+}
+
+/// Any error related to logging in
+#[derive(Debug, Error)]
+pub enum LoginError {
+	#[error("no profile with username '{0}' was found")]
+	UnknownUsername(String),
+	#[error("no profile with email '{0}' was found")]
+	UnknownEmail(String),
+	#[error("invalid password")]
+	InvalidPassword,
+	#[error("profile is still awaiting email verification")]
+	PendingEmailVerification,
 }
 
 /// Any error related to a token
