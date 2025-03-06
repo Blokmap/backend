@@ -5,6 +5,8 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use diesel::{RunQueryDsl, sql_query};
 use serde_json::{Value, json};
+use axum::extract::State;
+use axum::response::NoContent;
 
 use crate::DbPool;
 use crate::error::Error;
@@ -16,10 +18,10 @@ pub mod location;
 /// Check if the database connection and webserver are functional
 pub(crate) async fn healthcheck(
 	State(pool): State<DbPool>,
-) -> Result<(StatusCode, Json<Value>), Error> {
+) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;
 
 	conn.interact(|conn| sql_query("SELECT 1").execute(conn)).await??;
 
-	Ok((StatusCode::OK, Json(json!({ "status": "ok" }))))
+	Ok(NoContent)
 }

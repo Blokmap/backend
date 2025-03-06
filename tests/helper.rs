@@ -14,7 +14,7 @@ const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
 /// Global test database provider
 pub static TEST_DATABASE_FIXTURE: LazyLock<TestDatabaseFixture> =
-	LazyLock::new(|| TestDatabaseFixture::new());
+	LazyLock::new(TestDatabaseFixture::new);
 
 /// A RAII guard provider which generates temporary test databases
 pub struct TestDatabaseFixture {
@@ -43,11 +43,13 @@ pub async fn get_test_app() -> (DatabaseGuard, Router) {
 
 impl TestDatabaseFixture {
 	fn new() -> Self {
-		// tracing_subscriber::fmt()
-		// 	.pretty()
-		// 	.with_thread_names(true)
-		// 	.with_max_level(tracing::Level::DEBUG)
-		// 	.init();
+		if Ok("true".to_string()) == std::env::var("CI") {
+			tracing_subscriber::fmt()
+				.pretty()
+				.with_thread_names(true)
+				.with_max_level(tracing::Level::DEBUG)
+				.init();
+		}
 
 		let database_url = std::env::var("DATABASE_URL").unwrap();
 		let (base_url, _) = database_url.rsplit_once('/').unwrap();
@@ -64,9 +66,12 @@ impl TestDatabaseFixture {
 	}
 
 	/// Acquire a new [`DatabaseGuard`] for accessing a temporary test database
+	///
+	/// # Panics
+	/// Panics if creating a database fails
 	pub async fn acquire(&self) -> DatabaseGuard {
 		let uuid = Uuid::new_v4().simple().to_string();
-		let database_name = format!("test_{}", uuid);
+		let database_name = format!("test_{uuid}");
 		let database_url = format!("{}/{}", self.base_url, database_name);
 
 		let root_conn = self
@@ -93,6 +98,10 @@ impl TestDatabaseFixture {
 
 impl DatabaseGuard {
 	/// Create a new database pool for this test database guard
+	///
+	/// # Panics
+	/// Panics if creation fails
+	#[must_use]
 	pub fn create_pool(&self) -> DbPool {
 		let manager = Manager::new(
 			self.database_url.to_string(),

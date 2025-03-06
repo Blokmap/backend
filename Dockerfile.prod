@@ -1,0 +1,31 @@
+FROM clux/muslrust:1.85.0-stable AS build
+
+RUN cargo new --vcs none --bin --edition 2024 blokmap
+
+# muslrust starts in /volume
+WORKDIR /volume/blokmap
+
+COPY ./.cargo ./Cargo.toml ./Cargo.lock ./
+
+RUN cargo build --release --bin blokmap
+
+RUN rm -r ./src
+RUN rm ./target/x86_64-unknown-linux-musl/release/deps/blokmap*
+
+COPY ./src ./src
+
+RUN cargo build --release --bin blokmap
+
+# Run
+FROM alpine:latest
+
+RUN apk add --no-cache curl
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
+	CMD curl -f http://localhost/healthcheck || exit 1
+
+WORKDIR /blokmap
+
+COPY --from=build /volume/blokmap/target/x86_64-unknown-linux-musl/release/blokmap .
+
+CMD [ "./blokmap" ]

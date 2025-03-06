@@ -26,13 +26,11 @@ pub fn get_app_router(state: AppState) -> Router {
 		.nest("/translation", get_translation_routes())
         .nest("/location", get_location_routes());
 
-	// Return the routes nested with `/api` to make sure
-	// that all routes are prefixed with `/api`.
 	Router::new()
-		.nest("/api/", api_routes)
-		.with_state(state)
+		.merge(api_routes)
 		.layer(TraceLayer::new_for_http())
 		.layer(TimeoutLayer::new(Duration::from_secs(5)))
+		.with_state(state)
 }
 
 /// Get the profile routes.
