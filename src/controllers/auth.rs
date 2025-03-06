@@ -5,9 +5,9 @@ use std::sync::LazyLock;
 use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use axum::Json;
 use axum::extract::{Path, State};
 use axum::response::NoContent;
+use axum::{Extension, Json};
 use axum_extra::extract::PrivateCookieJar;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::Utc;
@@ -17,7 +17,7 @@ use uuid::Uuid;
 use validator::Validate;
 use validator_derive::Validate;
 
-use crate::models::{InsertableProfile, Profile};
+use crate::models::{InsertableProfile, Profile, ProfileId};
 use crate::{Config, DbPool, Error, TokenError};
 
 static USERNAME_REGEX: LazyLock<Regex> =
@@ -77,6 +77,13 @@ pub(crate) async fn register_profile(
 
 	// todo!("send confirmation email");
 
+	info!(
+		"registered new profile id: {} username: {} email: {}",
+		new_profile.id,
+		new_profile.username,
+		new_profile.pending_email.clone().unwrap()
+	);
+
 	Ok(Json(new_profile))
 }
 
@@ -97,6 +104,8 @@ pub(crate) async fn confirm_email(
 
 	let conn = pool.get().await?;
 	profile.confirm_email(conn).await?;
+
+	info!("confirmed email for profile {}", profile.id);
 
 	Ok(NoContent)
 }
@@ -133,6 +142,8 @@ pub(crate) async fn login_profile_with_username(
 
 	let jar = jar.add(access_token);
 
+	info!("logged in profile {} with username", profile.id);
+
 	Ok((jar, NoContent))
 }
 
@@ -168,6 +179,8 @@ pub(crate) async fn login_profile_with_email(
 
 	let jar = jar.add(access_token);
 
+	info!("logged in profile {} with email", profile.id);
+
 	Ok((jar, NoContent))
 }
 
@@ -175,6 +188,7 @@ pub(crate) async fn login_profile_with_email(
 pub(crate) async fn logout_profile(
 	State(config): State<Config>,
 	jar: PrivateCookieJar,
+	Extension(profile_id): Extension<ProfileId>,
 ) -> Result<(PrivateCookieJar, NoContent), Error> {
 	let secure = config.production;
 
@@ -187,6 +201,8 @@ pub(crate) async fn logout_profile(
 		.secure(secure);
 
 	let jar = jar.add(revoked_access_token);
+
+	info!("logged out profile {profile_id}");
 
 	Ok((jar, NoContent))
 }

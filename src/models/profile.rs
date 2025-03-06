@@ -8,13 +8,19 @@ use serde::{Deserialize, Serialize};
 use crate::schema::profile;
 use crate::{DbConn, Error};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) struct ProfileId(pub(crate) i32);
 
 impl Deref for ProfileId {
 	type Target = i32;
 
 	fn deref(&self) -> &Self::Target { &self.0 }
+}
+
+impl std::fmt::Display for ProfileId {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{}", self.0)
+	}
 }
 
 #[derive(Clone, DbEnum, Debug)]
