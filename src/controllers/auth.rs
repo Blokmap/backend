@@ -6,6 +6,7 @@ use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use axum::extract::{Path, State};
+use axum::http::StatusCode;
 use axum::response::NoContent;
 use axum::{Extension, Json};
 use axum_extra::extract::PrivateCookieJar;
@@ -52,7 +53,7 @@ pub(crate) async fn register_profile(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,
 	Json(register_data): Json<RegisterRequest>,
-) -> Result<Json<Profile>, Error> {
+) -> Result<(StatusCode, Json<Profile>), Error> {
 	register_data.validate()?;
 
 	let salt = SaltString::generate(&mut OsRng);
@@ -84,7 +85,7 @@ pub(crate) async fn register_profile(
 		new_profile.pending_email.clone().unwrap()
 	);
 
-	Ok(Json(new_profile))
+	Ok((StatusCode::CREATED, Json(new_profile)))
 }
 
 #[instrument(skip(pool))]
@@ -110,10 +111,10 @@ pub(crate) async fn confirm_email(
 	Ok(NoContent)
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct LoginUsernameRequest {
-	username: String,
-	password: String,
+	pub username: String,
+	pub password: String,
 }
 
 #[instrument(skip(pool, config))]
@@ -147,10 +148,10 @@ pub(crate) async fn login_profile_with_username(
 	Ok((jar, NoContent))
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct LoginEmailRequest {
-	email:    String,
-	password: String,
+	pub email:    String,
+	pub password: String,
 }
 
 #[instrument(skip(pool, config))]

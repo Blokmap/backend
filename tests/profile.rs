@@ -1,20 +1,22 @@
-use axum::body::Body;
-use axum::http::{Request, StatusCode};
-use tower::ServiceExt;
+use axum::http::StatusCode;
+use blokmap::controllers::auth::LoginUsernameRequest;
 
 mod helper;
 use helper::get_test_app;
 
 #[tokio::test]
 async fn test_get_profiles() {
-	let (_guard, app) = get_test_app().await;
+	let (_guard, test_server) = get_test_app().await;
 
-	let response = app
-		.oneshot(
-			Request::builder().uri("/profile").body(Body::empty()).unwrap(),
-		)
-		.await
-		.unwrap();
+	test_server
+		.post("/auth/login/username")
+		.json(&LoginUsernameRequest {
+			username: "bob".to_string(),
+			password: "bobdebouwer1234!".to_string(),
+		})
+		.await;
 
-	assert_eq!(response.status(), StatusCode::OK);
+	let response = test_server.get("/profile").await;
+
+	assert_eq!(response.status_code(), StatusCode::OK);
 }

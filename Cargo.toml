@@ -57,6 +57,7 @@ validator = "0.20.0"
 validator_derive = "0.20.0"
 
 [dev-dependencies]
+axum-test = "17.2.0"
 diesel_migrations = { version = "2.2.0", features = ["postgres"] }
 futures = "0.3.31"
 http-body-util = "0.1.2"

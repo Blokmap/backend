@@ -1,7 +1,9 @@
 use std::sync::LazyLock;
 
-use axum::Router;
+use axum::http::StatusCode;
 use axum_extra::extract::cookie::Key;
+use axum_test::TestServer;
+use blokmap::controllers::auth::RegisterRequest;
 use blokmap::{AppState, Config, DbConn, DbPool, routes};
 use deadpool_diesel::postgres::{Manager, Pool};
 use diesel_migrations::{
@@ -31,7 +33,10 @@ pub struct DatabaseGuard {
 }
 
 /// Get a test axum app with a oneshot database for running tests
-pub async fn get_test_app() -> (DatabaseGuard, Router) {
+///
+/// # Panics
+/// Panics if building a test user fails
+pub async fn get_test_app() -> (DatabaseGuard, TestServer) {
 	let config = Config::from_env();
 
 	let test_pool_guard = (*TEST_DATABASE_FIXTURE).acquire().await;
@@ -40,8 +45,22 @@ pub async fn get_test_app() -> (DatabaseGuard, Router) {
 	let cookie_jar_key = Key::from(&[0u8; 64]);
 
 	let state = AppState { config, database_pool: test_pool, cookie_jar_key };
+	let app = routes::get_app_router(state);
 
-	(test_pool_guard, routes::get_app_router(state))
+	let test_server = TestServer::builder().save_cookies().build(app).unwrap();
+
+	let response = test_server
+		.post("/auth/register")
+		.json(&RegisterRequest {
+			username: "bob".to_string(),
+			password: "bobdebouwer1234!".to_string(),
+			email:    "bob@example.com".to_string(),
+		})
+		.await;
+
+	assert_eq!(response.status_code(), StatusCode::CREATED);
+
+	(test_pool_guard, test_server)
 }
 
 impl TestDatabaseFixture {
