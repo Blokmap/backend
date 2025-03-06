@@ -29,6 +29,7 @@ pub enum ProfileState {
 #[derive(Clone, Debug, Identifiable, Queryable, Selectable, Serialize)]
 #[diesel(table_name = profile)]
 pub struct Profile {
+	#[serde(skip)]
 	pub id:                              i32,
 	pub username:                        String,
 	#[serde(skip)]
