@@ -23,16 +23,19 @@ impl std::fmt::Display for ProfileId {
 	}
 }
 
-#[derive(Clone, DbEnum, Debug)]
+#[derive(Clone, DbEnum, Debug, Default)]
 #[ExistingTypePath = "crate::schema::sql_types::ProfileState"]
 pub enum ProfileState {
+	#[default]
 	PendingEmailVerification,
 	Active,
 	Disabled,
 }
 
 /// A single profile
-#[derive(Clone, Debug, Identifiable, Queryable, Selectable, Serialize)]
+#[derive(
+	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
+)]
 #[diesel(table_name = profile)]
 pub struct Profile {
 	#[serde(skip)]
