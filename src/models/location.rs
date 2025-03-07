@@ -32,6 +32,12 @@ pub struct Location {
 	pub updated_at:      DateTime<Utc>,
 }
 
+impl Location {
+    pub fn get_cell_idx(latitude: f64, longitude: f64) -> i32 {
+        0
+    }
+}
+
 #[derive(Queryable, Identifiable, Associations, Serialize, Debug)]
 #[diesel(belongs_to(Location))]
 #[diesel(table_name = crate::schema::opening_time)]

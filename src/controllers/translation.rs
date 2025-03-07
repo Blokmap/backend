@@ -23,9 +23,8 @@ pub(crate) async fn create_translation(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let translation: NewTranslation = translation.into();
-
-	let translation = translation.insert(conn).await?;
+    let translation: NewTranslation = translation.into();
+	let translation: Translation = translation.insert(&conn).await?;
 
 	Ok((StatusCode::CREATED, Json(translation)))
 }
@@ -58,7 +57,7 @@ pub(crate) async fn get_translation(
 	let conn = pool.get().await?;
 
 	let translation =
-		Translation::get_by_key_and_language(key, language, conn).await?;
+		Translation::get_by_key_and_language(key, language, &conn).await?;
 
 	Ok(Json(translation))
 }
@@ -71,7 +70,7 @@ pub(crate) async fn get_bulk_translations(
 ) -> Result<Json<Vec<Translation>>, Error> {
 	let conn = pool.get().await?;
 
-	let translations = Translation::get_by_key(key, conn).await?;
+	let translations = Translation::get_by_key(key, &conn).await?;
 
 	Ok(Json(translations))
 }
@@ -84,7 +83,7 @@ pub(crate) async fn delete_translation(
 ) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;
 
-	Translation::delete_by_key_and_language(key, language, conn).await?;
+	Translation::delete_by_key_and_language(key, language, &conn).await?;
 
 	Ok(NoContent)
 }
@@ -97,7 +96,7 @@ pub(crate) async fn delete_bulk_translations(
 ) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;
 
-	Translation::delete_by_key(key, conn).await?;
+	Translation::delete_by_key(key, &conn).await?;
 
 	Ok(NoContent)
 }
