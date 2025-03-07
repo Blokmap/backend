@@ -1,13 +1,14 @@
 use axum::http::StatusCode;
 use blokmap::controllers::auth::LoginUsernameRequest;
 
-mod helper;
+mod common;
+
 use blokmap::models::Profile;
-use helper::get_test_app;
+use common::get_test_app;
 
 #[tokio::test]
 async fn get_all_profiles() {
-	let (_guard, test_server) = get_test_app(true).await;
+	let (_guard, _stub, test_server) = get_test_app(true).await;
 
 	test_server
 		.post("/auth/login/username")
@@ -24,7 +25,7 @@ async fn get_all_profiles() {
 
 #[tokio::test]
 async fn get_current_profile() {
-	let (_guard, test_server) = get_test_app(true).await;
+	let (_guard, _stub, test_server) = get_test_app(true).await;
 
 	test_server
 		.post("/auth/login/username")

@@ -1,10 +1,11 @@
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::{Argon2, PasswordHasher};
 use axum_extra::extract::cookie::Key;
 use axum_test::TestServer;
+use blokmap::mailer::{Mailer, StubMailbox};
 use blokmap::{AppState, Config, DbConn, DbPool, routes};
 use deadpool_diesel::postgres::{Manager, Pool};
 use diesel_migrations::{
@@ -13,6 +14,8 @@ use diesel_migrations::{
 	embed_migrations,
 };
 use uuid::Uuid;
+
+pub mod wrappers;
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
@@ -33,11 +36,14 @@ pub struct DatabaseGuard {
 	database_url:  String,
 }
 
-/// Get a test axum app with a oneshot database for running tests
+/// Get a test axum app with a oneshot database and stub mailbox for running
+/// tests
 ///
 /// # Panics
 /// Panics if building a test user fails
-pub async fn get_test_app(create_user: bool) -> (DatabaseGuard, TestServer) {
+pub async fn get_test_app(
+	create_user: bool,
+) -> (DatabaseGuard, Arc<StubMailbox>, TestServer) {
 	let config = Config::from_env();
 
 	let test_pool_guard = (*TEST_DATABASE_FIXTURE).acquire().await;
@@ -45,8 +51,16 @@ pub async fn get_test_app(create_user: bool) -> (DatabaseGuard, TestServer) {
 
 	let cookie_jar_key = Key::from(&[0u8; 64]);
 
-	let state =
-		AppState { config, database_pool: test_pool.clone(), cookie_jar_key };
+	let stub_mailbox = config.create_stub_mailbox();
+
+	let mailer = Mailer::new(&config, stub_mailbox.clone());
+
+	let state = AppState {
+		config,
+		database_pool: test_pool.clone(),
+		cookie_jar_key,
+		mailer,
+	};
 	let app = routes::get_app_router(state);
 
 	let test_server = TestServer::builder().save_cookies().build(app).unwrap();
@@ -76,7 +90,7 @@ pub async fn get_test_app(create_user: bool) -> (DatabaseGuard, TestServer) {
 		.unwrap();
 	}
 
-	(test_pool_guard, test_server)
+	(test_pool_guard, stub_mailbox.unwrap(), test_server)
 }
 
 impl TestDatabaseFixture {

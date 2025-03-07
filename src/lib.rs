@@ -11,6 +11,7 @@ mod config;
 mod error;
 
 pub mod controllers;
+pub mod mailer;
 pub mod middleware;
 pub mod models;
 pub mod routes;
@@ -18,6 +19,7 @@ pub mod schema;
 
 pub use config::Config;
 pub use error::*;
+use mailer::Mailer;
 
 /// An entire database pool
 pub type DbPool = Pool;
@@ -31,6 +33,7 @@ pub struct AppState {
 	pub config:         Config,
 	pub database_pool:  DbPool,
 	pub cookie_jar_key: Key,
+	pub mailer:         Mailer,
 }
 
 impl FromRef<AppState> for Config {
@@ -43,4 +46,8 @@ impl FromRef<AppState> for DbPool {
 
 impl FromRef<AppState> for Key {
 	fn from_ref(input: &AppState) -> Self { input.cookie_jar_key.clone() }
+}
+
+impl FromRef<AppState> for Mailer {
+	fn from_ref(input: &AppState) -> Self { input.mailer.clone() }
 }

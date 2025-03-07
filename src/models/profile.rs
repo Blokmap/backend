@@ -3,6 +3,7 @@ use std::ops::Deref;
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use diesel_derive_enum::DbEnum;
+use lettre::message::Mailbox;
 use serde::{Deserialize, Serialize};
 
 use crate::schema::profile;
@@ -59,6 +60,31 @@ pub struct Profile {
 	pub state:                           ProfileState,
 	pub created_at:                      NaiveDateTime,
 	pub last_login_at:                   NaiveDateTime,
+}
+
+impl TryFrom<&Profile> for Mailbox {
+	type Error = Error;
+
+	fn try_from(value: &Profile) -> Result<Mailbox, Error> {
+		if value.pending_email.is_some() {
+			Ok(Mailbox::new(
+				Some(value.username.to_string()),
+				value.pending_email.as_ref().unwrap().parse()?,
+			))
+		} else if value.email.is_some() {
+			Ok(Mailbox::new(
+				Some(value.username.to_string()),
+				value.email.as_ref().unwrap().parse()?,
+			))
+		} else {
+			error!(
+				"mailer error -- failed to create mailbox, no email found for \
+				 profile {}",
+				value.id
+			);
+			Err(Error::InternalServerError)
+		}
+	}
 }
 
 #[derive(Clone, Debug, Deserialize, Insertable, Serialize)]

@@ -1,5 +1,10 @@
+use std::sync::Arc;
+
 use chrono::Duration;
 use deadpool_diesel::postgres::{Manager, Pool};
+use lettre::Address;
+
+use crate::mailer::StubMailbox;
 
 /// Configuration settings for the application
 #[derive(Clone, Debug)]
@@ -12,6 +17,11 @@ pub struct Config {
 
 	pub access_token_name:     String,
 	pub access_token_lifetime: time::Duration,
+
+	pub email_address:       Address,
+	pub email_queue_size:    usize,
+	pub email_smtp_server:   String,
+	pub email_smtp_password: String,
 }
 
 impl Config {
@@ -53,12 +63,33 @@ impl Config {
 				.unwrap(),
 		);
 
+		let email_address =
+			Self::get_env_default("EMAIL_ADDRESS", "blokmap@gmail.com")
+				.parse::<Address>()
+				.expect("INVALID EMAIL ADDRESS");
+		let email_queue_size = Self::get_env_default("EMAIL_QUEUE_SIZE", "32")
+			.parse::<usize>()
+			.expect("INVALID EMAIL QUEUE SIZE");
+		let email_smtp_server =
+			Self::get_env_default("EMAIL_SMTP_SERVER", "stub");
+		let email_smtp_password =
+			std::fs::read_to_string("/run/secrets/smtp-password")
+				.unwrap_or_else(|_| {
+					warn!("SMTP PASSWORD not set, using default");
+
+					String::new()
+				});
+
 		Self {
 			database_url,
 			production,
 			email_confirmation_token_lifetime,
 			access_token_name,
 			access_token_lifetime,
+			email_address,
+			email_queue_size,
+			email_smtp_server,
+			email_smtp_password,
 		}
 	}
 
@@ -74,5 +105,15 @@ impl Config {
 		);
 
 		Pool::builder(manager).build().unwrap()
+	}
+
+	/// Create a stub mailbox based on the current config
+	#[must_use]
+	pub fn create_stub_mailbox(&self) -> Option<Arc<StubMailbox>> {
+		if self.email_smtp_server != "stub" {
+			return None;
+		}
+
+		Some(Arc::new(StubMailbox::default()))
 	}
 }

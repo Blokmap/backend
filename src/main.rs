@@ -9,6 +9,7 @@ extern crate diesel;
 extern crate tracing;
 
 use axum_extra::extract::cookie::Key;
+use blokmap::mailer::Mailer;
 use blokmap::{AppState, Config, routes};
 use tokio::net::TcpListener;
 use tokio::signal;
@@ -35,11 +36,16 @@ async fn main() {
 			.expect("COULD NOT READ COOKIE JAR KEY"),
 	);
 
+	let stub_mailbox = config.create_stub_mailbox();
+
+	let mailer = Mailer::new(&config, stub_mailbox);
+
 	// Crate the app router and listener.
 	let router = routes::get_app_router(AppState {
 		config,
 		database_pool,
 		cookie_jar_key,
+		mailer,
 	});
 	let listener = TcpListener::bind("0.0.0.0:80").await.unwrap();
 

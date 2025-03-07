@@ -18,6 +18,7 @@ use uuid::Uuid;
 use validator::Validate;
 use validator_derive::Validate;
 
+use crate::mailer::Mailer;
 use crate::models::{InsertableProfile, Profile, ProfileId};
 use crate::{Config, DbPool, Error, TokenError};
 
@@ -64,10 +65,11 @@ pub struct RegisterRequest {
 	pub email:    String,
 }
 
-#[instrument(skip(pool, config))]
+#[instrument(skip_all)]
 pub(crate) async fn register_profile(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,
+	State(mailer): State<Mailer>,
 	Json(register_data): Json<RegisterRequest>,
 ) -> Result<(StatusCode, Json<Profile>), Error> {
 	register_data.validate()?;
@@ -92,7 +94,13 @@ pub(crate) async fn register_profile(
 	let conn = pool.get().await?;
 	let new_profile = insertable_profile.insert(conn).await?;
 
-	// todo!("send confirmation email");
+	let mail = mailer.try_build_message(
+		&new_profile,
+		"Confirm your email",
+		&format!("Please confirm your email by going to {}", "/foo"),
+	)?;
+
+	mailer.send(mail).await?;
 
 	info!(
 		"registered new profile id: {} username: {} email: {}",
@@ -104,7 +112,7 @@ pub(crate) async fn register_profile(
 	Ok((StatusCode::CREATED, Json(new_profile)))
 }
 
-#[instrument(skip(pool, config))]
+#[instrument(skip(pool, config, jar))]
 pub(crate) async fn confirm_email(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,
@@ -138,7 +146,7 @@ pub struct LoginUsernameRequest {
 	pub password: String,
 }
 
-#[instrument(skip(pool, config))]
+#[instrument(skip_all)]
 pub(crate) async fn login_profile_with_username(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,
@@ -166,7 +174,7 @@ pub struct LoginEmailRequest {
 	pub password: String,
 }
 
-#[instrument(skip(pool, config))]
+#[instrument(skip_all)]
 pub(crate) async fn login_profile_with_email(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,
@@ -188,7 +196,7 @@ pub(crate) async fn login_profile_with_email(
 	Ok((jar, NoContent))
 }
 
-#[instrument(skip(config))]
+#[instrument(skip(config, jar))]
 pub(crate) async fn logout_profile(
 	State(config): State<Config>,
 	jar: PrivateCookieJar,

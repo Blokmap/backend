@@ -3,6 +3,7 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use thiserror::Error;
+use tokio::sync::mpsc;
 
 /// Top level application error, can be converted into a [`Response`]
 #[derive(Debug, Error)]
@@ -86,6 +87,18 @@ pub enum InternalServerError {
 	/// Error hashing some value
 	#[error("hash error -- {0:?}")]
 	HashError(argon2::password_hash::Error),
+	/// Malformed email
+	#[error("invalid email -- {0:?}")]
+	InvalidEmail(lettre::address::AddressError),
+	/// Mailer stopped unexpectedly
+	#[error("mailer stopped -- {0:?}")]
+	MailerStopped(mpsc::error::SendError<lettre::Message>),
+	/// Mail queue is full
+	#[error("mail queue full -- {0:?}")]
+	MailQueueFull(mpsc::error::TrySendError<lettre::Message>),
+	/// Generic mailer error
+	#[error("mail error -- {0:?}")]
+	MailError(lettre::error::Error),
 	/// Error acquiring database pool connection
 	#[error("database pool error -- {0:?}")]
 	PoolError(deadpool_diesel::PoolError),
@@ -139,6 +152,30 @@ impl From<diesel::result::Error> for Error {
 impl From<deadpool_diesel::PoolError> for Error {
 	fn from(value: deadpool_diesel::PoolError) -> Self {
 		InternalServerError::PoolError(value).into()
+	}
+}
+
+impl From<lettre::address::AddressError> for Error {
+	fn from(err: lettre::address::AddressError) -> Self {
+		InternalServerError::InvalidEmail(err).into()
+	}
+}
+
+impl From<mpsc::error::SendError<lettre::Message>> for Error {
+	fn from(err: mpsc::error::SendError<lettre::Message>) -> Self {
+		InternalServerError::MailerStopped(err).into()
+	}
+}
+
+impl From<mpsc::error::TrySendError<lettre::Message>> for Error {
+	fn from(err: mpsc::error::TrySendError<lettre::Message>) -> Self {
+		InternalServerError::MailQueueFull(err).into()
+	}
+}
+
+impl From<lettre::error::Error> for Error {
+	fn from(err: lettre::error::Error) -> Self {
+		InternalServerError::MailError(err).into()
 	}
 }
 

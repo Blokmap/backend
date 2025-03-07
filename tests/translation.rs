@@ -7,12 +7,13 @@ use blokmap::controllers::translation::{
 use blokmap::models::{Language, Translation};
 use serde_json::{Value, json};
 
-mod helper;
-use helper::get_test_app;
+mod common;
+
+use common::get_test_app;
 
 #[tokio::test]
 async fn create_translation() {
-	let (_guard, test_server) = get_test_app(true).await;
+	let (_guard, _stub, test_server) = get_test_app(true).await;
 
 	test_server
 		.post("/auth/login/username")
@@ -56,7 +57,7 @@ async fn create_translation() {
 
 #[tokio::test]
 async fn get_invalid_translations() {
-	let (_guard, test_server) = get_test_app(true).await;
+	let (_guard, _stub, test_server) = get_test_app(true).await;
 
 	test_server
 		.post("/auth/login/username")
