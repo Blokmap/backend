@@ -29,7 +29,7 @@ impl LocationRequest {
 		excerpt_key: Uuid,
 		description_key: Uuid,
 	) -> NewLocation {
-		let cell_idx = Location::get_cell_idx(self.latitude, self.longitude);
+		let (idx, idy) = Location::get_cell_idx(self.latitude, self.longitude);
 
 		NewLocation {
 			name: self.name,
@@ -45,7 +45,8 @@ impl LocationRequest {
 			province: self.province,
 			latitude: self.latitude,
 			longitude: self.longitude,
-			cell_idx,
+            cell_idx: idx,
+            cell_idy: idy,
 		}
 	}
 }

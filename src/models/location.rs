@@ -7,6 +7,9 @@ use crate::DbConn;
 use crate::error::Error;
 use crate::schema::location;
 
+// The size of a cell in the grid.
+const CELL_SIZE: f64 = 0.045;
+
 #[derive(
 	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
 )]
@@ -28,14 +31,21 @@ pub struct Location {
 	pub latitude:        f64,
 	pub longitude:       f64,
 	pub cell_idx:        i32,
+	pub cell_idy:        i32,
 	pub created_at:      DateTime<Utc>,
 	pub updated_at:      DateTime<Utc>,
 }
 
 impl Location {
-    pub fn get_cell_idx(latitude: f64, longitude: f64) -> i32 {
-        0
-    }
+	pub fn get_cell_idx(latitude: f64, longitude: f64) -> (i32, i32) {
+		let lat = latitude;
+		let lon = longitude;
+
+		let x = ((lon + 180.0) / CELL_SIZE).floor();
+		let y = ((lat + 90.0) / CELL_SIZE).floor();
+
+		(x as i32, y as i32)
+	}
 }
 
 #[derive(Queryable, Identifiable, Associations, Serialize, Debug)]
@@ -70,6 +80,7 @@ pub struct NewLocation {
 	pub latitude:        f64,
 	pub longitude:       f64,
 	pub cell_idx:        i32,
+	pub cell_idy:        i32,
 }
 
 impl NewLocation {

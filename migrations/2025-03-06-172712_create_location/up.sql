@@ -6,7 +6,7 @@ CREATE TABLE location (
     excerpt_key     UUID NOT NULL,
     seat_count      INTEGER NOT NULL,
     is_reservable   BOOLEAN NOT NULL,
-    is_visible         BOOLEAN NOT NULL,
+    is_visible      BOOLEAN NOT NULL,
     street          TEXT NOT NULL,
     number          TEXT NOT NULL,
     zip             TEXT NOT NULL,
@@ -15,6 +15,7 @@ CREATE TABLE location (
     latitude        DOUBLE PRECISION NOT NULL,
     longitude       DOUBLE PRECISION NOT NULL,
     cell_idx        INTEGER NOT NULL,
+    cell_idy        INTEGER NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
