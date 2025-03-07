@@ -4,8 +4,7 @@ use deadpool_diesel::postgres::{Manager, Pool};
 /// Configuration settings for the application
 #[derive(Clone, Debug)]
 pub struct Config {
-	pub database_url: String,
-
+	pub database_url:          String,
 	pub access_token_name:     String,
 	pub access_token_lifetime: TimeDelta,
 }
