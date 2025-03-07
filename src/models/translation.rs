@@ -8,7 +8,9 @@ use crate::DbConn;
 use crate::error::Error;
 use crate::schema::translation;
 
-#[derive(Clone, DbEnum, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(
+	Clone, Copy, DbEnum, Debug, Deserialize, PartialEq, Eq, Serialize, Hash,
+)]
 #[ExistingTypePath = "crate::schema::sql_types::Language"]
 pub enum Language {
 	Nl,
@@ -18,9 +20,10 @@ pub enum Language {
 }
 
 #[derive(
-	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
+	Clone, Debug, Deserialize, Serialize, Identifiable, Queryable, Selectable,
 )]
 #[diesel(table_name = translation)]
+#[serde(rename_all = "camelCase")]
 pub struct Translation {
 	pub id:         i32,
 	pub language:   Language,
@@ -32,14 +35,14 @@ pub struct Translation {
 
 #[derive(Debug, Deserialize, Clone, Insertable)]
 #[diesel(table_name = translation)]
-pub struct InsertableTranslation {
+pub struct NewTranslation {
 	pub language: Language,
 	pub key:      Uuid,
 	pub text:     String,
 }
 
-impl InsertableTranslation {
-	/// Insert this [`InsertableTranslation`]
+impl NewTranslation {
+	/// Insert this [`NewTranslation`]
 	pub(crate) async fn insert(
 		self,
 		conn: DbConn,
@@ -58,11 +61,11 @@ impl InsertableTranslation {
 		Ok(new_translation)
 	}
 
-	/// Insert a list of [`InsertableTranslation`]s in a single transaction
+	/// Insert a list of [`NewTranslation`]s in a single transaction
 	pub(crate) async fn bulk_insert(
 		translations: Vec<Self>,
-		conn: DbConn,
-	) -> Result<Vec<Translation>, Error> {
+		conn: &DbConn,
+	) -> Result<(Uuid, Vec<Translation>), Error> {
 		let translations = conn
 			.interact(|conn| {
 				conn.transaction(|conn| {
@@ -76,10 +79,13 @@ impl InsertableTranslation {
 			})
 			.await??;
 
-		Ok(translations)
+		let key = translations.first().map(|t| t.key).unwrap();
+
+		Ok((key, translations))
 	}
 }
 
+/// Translation service functions.
 impl Translation {
 	// /// Get a list of all [`Translation`]s
 	// pub(crate) async fn get_all(conn: DbConn) -> Result<Vec<Self>, Error> {

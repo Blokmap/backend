@@ -11,10 +11,12 @@ pub struct Config {
 }
 
 impl Config {
+	/// Get an environment variable or panic if it is not set.
 	fn get_env(var: &str) -> String {
 		std::env::var(var).unwrap_or_else(|_| panic!("{var} must be set"))
 	}
 
+	/// Get an environment variable or use a default value.
 	fn get_env_default(var: &str, default: impl Into<String>) -> String {
 		std::env::var(var).unwrap_or_else(|_| {
 			warn!("{var} not set, using default");
@@ -33,6 +35,7 @@ impl Config {
 
 		let access_token_name =
 			Self::get_env_default("ACCESS_TOKEN_NAME", "access_token");
+
 		let access_token_lifetime = TimeDelta::minutes(
 			Self::get_env_default("ACCESS_TOKEN_LIFETIME_MINUTES", "10")
 				.parse::<i64>()

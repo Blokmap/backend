@@ -11,9 +11,37 @@ pub mod sql_types {
 }
 
 diesel::table! {
-	alembic_version (version_num) {
-		#[max_length = 32]
-		version_num -> Varchar,
+	location (id) {
+		id -> Int4,
+		name -> Text,
+		description_key -> Uuid,
+		excerpt_key -> Uuid,
+		seat_count -> Int4,
+		is_reservable -> Bool,
+		is_visible -> Bool,
+		street -> Text,
+		number -> Text,
+		zip -> Text,
+		city -> Text,
+		province -> Text,
+		latitude -> Float8,
+		longitude -> Float8,
+		cell_idx -> Int4,
+		created_at -> Timestamptz,
+		updated_at -> Timestamptz,
+	}
+}
+
+diesel::table! {
+	opening_time (id) {
+		id -> Int4,
+		location_id -> Int4,
+		start_time -> Timestamptz,
+		end_time -> Timestamptz,
+		seat_count -> Nullable<Int4>,
+		is_reservable -> Nullable<Bool>,
+		created_at -> Timestamptz,
+		updated_at -> Timestamptz,
 	}
 }
 
@@ -51,8 +79,11 @@ diesel::table! {
 	}
 }
 
+diesel::joinable!(opening_time -> location (location_id));
+
 diesel::allow_tables_to_appear_in_same_query!(
-	alembic_version,
+	location,
+	opening_time,
 	profile,
 	translation,
 );
