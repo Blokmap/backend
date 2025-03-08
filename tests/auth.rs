@@ -61,7 +61,7 @@ async fn register_invalid_username_start() {
 	);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn register_invalid_username_symbols() {
 	let (_guard, mailbox, test_server) = get_test_app(false).await;
 
@@ -88,18 +88,21 @@ async fn register_invalid_username_symbols() {
 	);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn register_username_too_short() {
-	let (_guard, _mailbox, test_server) = get_test_app(false).await;
+	let (_guard, mailbox, test_server) = get_test_app(false).await;
 
-	let response = test_server
-		.post("/auth/register")
-		.json(&RegisterRequest {
-			username: "a".to_string(),
-			password: "bobdebouwer1234!".to_string(),
-			email:    "bob@example.com".to_string(),
-		})
-		.await;
+	let response = expect_no_mail(mailbox, async || {
+		test_server
+			.post("/auth/register")
+			.json(&RegisterRequest {
+				username: "a".to_string(),
+				password: "bobdebouwer1234!".to_string(),
+				email:    "bob@example.com".to_string(),
+			})
+			.await
+	})
+	.await;
 
 	let body = response.text();
 
@@ -110,20 +113,23 @@ async fn register_username_too_short() {
 	);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn register_username_too_long() {
-	let (_guard, _mailbox, test_server) = get_test_app(false).await;
+	let (_guard, mailbox, test_server) = get_test_app(false).await;
 
-	let response = test_server
-		.post("/auth/register")
-		.json(&RegisterRequest {
-			username:
-				"zijne-majesteit-antonius-gregorius-albertus-III-van-brugge"
-					.to_string(),
-			password: "bobdebouwer1234!".to_string(),
-			email:    "bob@example.com".to_string(),
-		})
-		.await;
+	let response = expect_no_mail(mailbox, async || {
+		test_server
+			.post("/auth/register")
+			.json(&RegisterRequest {
+				username:
+					"zijne-majesteit-antonius-gregorius-albertus-III-van-brugge"
+						.to_string(),
+				password: "bobdebouwer1234!".to_string(),
+				email:    "bob@example.com".to_string(),
+			})
+			.await
+	})
+	.await;
 
 	let body = response.text();
 
@@ -134,18 +140,21 @@ async fn register_username_too_long() {
 	);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn register_password_too_short() {
-	let (_guard, _mailbox, test_server) = get_test_app(false).await;
+	let (_guard, mailbox, test_server) = get_test_app(false).await;
 
-	let response = test_server
-		.post("/auth/register")
-		.json(&RegisterRequest {
-			username: "bob".to_string(),
-			password: "123".to_string(),
-			email:    "bob@example.com".to_string(),
-		})
-		.await;
+	let response = expect_no_mail(mailbox, async || {
+		test_server
+			.post("/auth/register")
+			.json(&RegisterRequest {
+				username: "bob".to_string(),
+				password: "123".to_string(),
+				email:    "bob@example.com".to_string(),
+			})
+			.await
+	})
+	.await;
 
 	let body = response.text();
 
@@ -156,18 +165,21 @@ async fn register_password_too_short() {
 	);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn register_invalid_email() {
-	let (_guard, _mailbox, test_server) = get_test_app(false).await;
+	let (_guard, mailbox, test_server) = get_test_app(false).await;
 
-	let response = test_server
-		.post("/auth/register")
-		.json(&RegisterRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
-			email:    "appel".to_string(),
-		})
-		.await;
+	let response = expect_no_mail(mailbox, async || {
+		test_server
+			.post("/auth/register")
+			.json(&RegisterRequest {
+				username: "bob".to_string(),
+				password: "bobdebouwer1234!".to_string(),
+				email:    "appel".to_string(),
+			})
+			.await
+	})
+	.await;
 
 	let body = response.text();
 
@@ -175,18 +187,21 @@ async fn register_invalid_email() {
 	assert_eq!(body, "invalid email".to_string());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn confirm_email() {
-	let (guard, _mailbox, test_server) = get_test_app(false).await;
+	let (guard, mailbox, test_server) = get_test_app(false).await;
 
-	test_server
-		.post("/auth/register")
-		.json(&RegisterRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
-			email:    "bob@example.com".to_string(),
-		})
-		.await;
+	expect_mail(mailbox, async || {
+		test_server
+			.post("/auth/register")
+			.json(&RegisterRequest {
+				username: "bob".to_string(),
+				password: "bobdebouwer1234!".to_string(),
+				email:    "bob@example.com".to_string(),
+			})
+			.await;
+	})
+	.await;
 
 	let conn = guard.create_pool().get().await.unwrap();
 	let email_confirmation_token: Option<String> = conn
@@ -224,7 +239,7 @@ async fn confirm_email() {
 	assert_eq!(body.email, Some("bob@example.com".to_string()));
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn login_username() {
 	let (_guard, _mailbox, test_server) = get_test_app(true).await;
 
@@ -241,7 +256,7 @@ async fn login_username() {
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn login_email() {
 	let (_guard, _mailbox, test_server) = get_test_app(true).await;
 
@@ -258,7 +273,7 @@ async fn login_email() {
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn logout() {
 	let (_guard, _mailbox, test_server) = get_test_app(true).await;
 
