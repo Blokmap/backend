@@ -218,7 +218,7 @@ async fn register_duplicate_email() {
 	let body = response.text();
 
 	assert_eq!(response.status_code(), StatusCode::CONFLICT);
-	assert_eq!(body, "pending is already in use".to_string());
+	assert_eq!(body, "email is already in use".to_string());
 }
 
 #[tokio::test(flavor = "multi_thread")]

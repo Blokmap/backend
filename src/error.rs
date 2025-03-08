@@ -1,5 +1,8 @@
 //! Library-wide error types and [`From`] impls
 
+use std::collections::HashMap;
+use std::sync::LazyLock;
+
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use thiserror::Error;
@@ -121,6 +124,15 @@ impl From<deadpool_diesel::InteractError> for Error {
 	}
 }
 
+static CONSTRAINT_TO_COLUMN: LazyLock<HashMap<&str, &str>> =
+	LazyLock::new(|| {
+		HashMap::from([
+			("profile_username_key", "username"),
+			("profile_email_key", "email"),
+			("profile_pending_email_key", "email"),
+		])
+	});
+
 impl From<diesel::result::Error> for Error {
 	fn from(err: diesel::result::Error) -> Self {
 		match &err {
@@ -133,16 +145,12 @@ impl From<diesel::result::Error> for Error {
 				// postgres
 				let constraint_name = info.constraint_name().unwrap();
 
-				// Standard constaint names in postgres are
-				// {tablename}_{columnname}_{suffix}
-				let Some(field) = constraint_name.split('_').nth(1) else {
-					return InternalServerError::ConstraintError(
-						constraint_name.to_string(),
-					)
-					.into();
-				};
-
-				Self::Duplicate(format!("{field} is already in use"))
+				match CONSTRAINT_TO_COLUMN.get(constraint_name) {
+					Some(field) => {
+						Self::Duplicate(format!("{field} is already in use"))
+					},
+					None => InternalServerError::DatabaseError(err).into(),
+				}
 			},
 			_ => InternalServerError::DatabaseError(err).into(),
 		}
