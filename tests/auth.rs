@@ -9,23 +9,24 @@ mod common;
 
 use blokmap::models::Profile;
 use common::get_test_app;
-use common::wrappers::{expect_mail, expect_mail_to, expect_no_mail};
+use common::wrappers::{expect_mail_to, expect_no_mail};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register() {
 	let (_guard, mailbox, test_server) = get_test_app(false).await;
 
-	let response = expect_mail(mailbox, async || {
-		test_server
-			.post("/auth/register")
-			.json(&RegisterRequest {
-				username: "bob".to_string(),
-				password: "bobdebouwer1234!".to_string(),
-				email:    "bob@example.com".to_string(),
-			})
-			.await
-	})
-	.await;
+	let response =
+		expect_mail_to(mailbox, vec!["bob@example.com"], async || {
+			test_server
+				.post("/auth/register")
+				.json(&RegisterRequest {
+					username: "bob".to_string(),
+					password: "bobdebouwer1234!".to_string(),
+					email:    "bob@example.com".to_string(),
+				})
+				.await
+		})
+		.await;
 
 	let body = response.json::<Profile>();
 
@@ -222,10 +223,32 @@ async fn register_duplicate_email() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn register_duplicate_username() {
+	let (_guard, mailbox, test_server) = get_test_app(true).await;
+
+	let response = expect_no_mail(mailbox, async || {
+		test_server
+			.post("/auth/register")
+			.json(&RegisterRequest {
+				username: "bob".to_string(),
+				password: "bobdebouwer1234!".to_string(),
+				email:    "bob2@example.com".to_string(),
+			})
+			.await
+	})
+	.await;
+
+	let body = response.text();
+
+	assert_eq!(response.status_code(), StatusCode::CONFLICT);
+	assert_eq!(body, "username is already in use".to_string());
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn confirm_email() {
 	let (guard, mailbox, test_server) = get_test_app(false).await;
 
-	expect_mail(mailbox, async || {
+	expect_mail_to(mailbox, vec!["bob@example.com"], async || {
 		test_server
 			.post("/auth/register")
 			.json(&RegisterRequest {
