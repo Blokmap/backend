@@ -23,7 +23,7 @@ pub(crate) async fn create_translation(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-    let translation: NewTranslation = translation.into();
+	let translation: NewTranslation = translation.into();
 	let translation: Translation = translation.insert(&conn).await?;
 
 	Ok((StatusCode::CREATED, Json(translation)))

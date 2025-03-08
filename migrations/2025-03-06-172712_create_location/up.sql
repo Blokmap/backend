@@ -14,14 +14,9 @@ CREATE TABLE location (
     province        TEXT NOT NULL,
     latitude        DOUBLE PRECISION NOT NULL,
     longitude       DOUBLE PRECISION NOT NULL,
-    cell_idx        INTEGER NOT NULL,
-    cell_idy        INTEGER NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
--- Indexes for locations
-CREATE INDEX idx_location_cell ON location(cell_idx);
 
 -- Automatically update `updated_at`
 SELECT diesel_manage_updated_at('location');

@@ -33,58 +33,6 @@ pub struct Translation {
 	pub updated_at: NaiveDateTime,
 }
 
-#[derive(Debug, Deserialize, Clone, Insertable)]
-#[diesel(table_name = translation)]
-pub struct NewTranslation {
-	pub language: Language,
-	pub key:      Uuid,
-	pub text:     String,
-}
-
-impl NewTranslation {
-	/// Insert this [`NewTranslation`]
-	pub(crate) async fn insert(
-		self,
-		conn: &DbConn,
-	) -> Result<Translation, Error> {
-		let new_translation = conn
-			.interact(|conn| {
-				use self::translation::dsl::*;
-
-				diesel::insert_into(translation)
-					.values(self)
-					.returning(Translation::as_returning())
-					.get_result(conn)
-			})
-			.await??;
-
-		Ok(new_translation)
-	}
-
-    /// Insert a list of [`NewTranslation`]s in a single transaction
-    pub(crate) async fn bulk_insert(
-        translations: Vec<Self>,
-        conn: &DbConn,
-    ) -> Result<(Uuid, Vec<Translation>), Error> {
-        let translations = conn
-            .interact(|conn| {
-                conn.transaction(|conn| {
-                    use self::translation::dsl::*;
-
-                    diesel::insert_into(translation)
-                        .values(translations)
-                        .returning(Translation::as_returning())
-                        .get_results(conn)
-                })
-            })
-            .await??;
-
-        let key = translations.first().map(|t| t.key).unwrap();
-
-        Ok((key, translations))
-    }
-}
-
 /// Translation service functions.
 impl Translation {
 	// /// Get a list of all [`Translation`]s
@@ -177,4 +125,62 @@ impl Translation {
 
 		Ok(())
 	}
+}
+
+#[derive(Debug, Deserialize, Clone, Insertable)]
+#[diesel(table_name = translation)]
+pub struct NewTranslation {
+	pub language: Language,
+	pub key:      Uuid,
+	pub text:     String,
+}
+
+impl NewTranslation {
+	/// Insert this [`NewTranslation`]
+	pub(crate) async fn insert(
+		self,
+		conn: &DbConn,
+	) -> Result<Translation, Error> {
+		let new_translation = conn
+			.interact(|conn| {
+				use self::translation::dsl::*;
+
+				diesel::insert_into(translation)
+					.values(self)
+					.returning(Translation::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(new_translation)
+	}
+
+	/// Insert a list of [`NewTranslation`]s in a single transaction
+	pub(crate) async fn bulk_insert(
+		translations: Vec<Self>,
+		conn: &DbConn,
+	) -> Result<(Uuid, Vec<Translation>), Error> {
+		let translations = conn
+			.interact(|conn| {
+				conn.transaction(|conn| {
+					use self::translation::dsl::*;
+
+					diesel::insert_into(translation)
+						.values(translations)
+						.returning(Translation::as_returning())
+						.get_results(conn)
+				})
+			})
+			.await??;
+
+		let key = translations.first().map(|t| t.key).unwrap();
+
+		Ok((key, translations))
+	}
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateTranslation {
+    
 }

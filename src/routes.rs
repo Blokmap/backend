@@ -7,7 +7,7 @@ use tower_http::trace::TraceLayer;
 
 use crate::AppState;
 use crate::controllers::healthcheck;
-use crate::controllers::location::create_location;
+use crate::controllers::location::{create_location, get_locations};
 use crate::controllers::profile::get_all_profiles;
 use crate::controllers::translation::{
 	create_bulk_translations,
@@ -54,5 +54,5 @@ fn get_translation_routes() -> Router<AppState> {
 }
 
 fn get_location_routes() -> Router<AppState> {
-	Router::new().route("/", post(create_location))
+	Router::new().route("/", post(create_location).get(get_locations))
 }

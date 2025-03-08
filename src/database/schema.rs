@@ -26,8 +26,6 @@ diesel::table! {
         province -> Text,
         latitude -> Float8,
         longitude -> Float8,
-        cell_idx -> Int4,
-        cell_idy -> Int4,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -5,10 +7,8 @@ use uuid::Uuid;
 
 use crate::DbConn;
 use crate::error::Error;
+use crate::models::Translation;
 use crate::schema::location;
-
-// The size of a cell in the grid.
-const CELL_SIZE: f64 = 0.045;
 
 #[derive(
 	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
@@ -30,21 +30,39 @@ pub struct Location {
 	pub province:        String,
 	pub latitude:        f64,
 	pub longitude:       f64,
-	pub cell_idx:        i32,
-	pub cell_idy:        i32,
 	pub created_at:      DateTime<Utc>,
 	pub updated_at:      DateTime<Utc>,
 }
 
 impl Location {
-	pub fn get_cell_idx(latitude: f64, longitude: f64) -> (i32, i32) {
-		let lat = latitude;
-		let lon = longitude;
+	/// Get a [`Location`] by its id.
+	pub(crate) async fn get_by_id(
+		loc_id: i32,
+		conn: &DbConn,
+	) -> Result<Location, Error> {
+		let location = conn
+			.interact(move |conn| {
+				use self::location::dsl::*;
 
-		let x = ((lon + 180.0) / CELL_SIZE).floor();
-		let y = ((lat + 90.0) / CELL_SIZE).floor();
+				location
+					.select(Location::as_select())
+					.filter(id.eq(loc_id))
+					.get_result(conn)
+			})
+			.await??;
 
-		(x as i32, y as i32)
+		Ok(location)
+	}
+
+	/// Get all [`Location`]s.
+	pub(crate) async fn get_all(
+		conn: &DbConn,
+	) -> Result<Vec<Location>, Error> {
+		use crate::schema::{location, translation};
+
+		let results = conn.interact(|conn| {}).await?;
+
+		Ok(vec!())
 	}
 }
 
@@ -79,12 +97,10 @@ pub struct NewLocation {
 	pub province:        String,
 	pub latitude:        f64,
 	pub longitude:       f64,
-	pub cell_idx:        i32,
-	pub cell_idy:        i32,
 }
 
 impl NewLocation {
-	/// Insert this [`NewLocation`]
+	/// Insert this [`NewLocation`] into the database.
 	pub(crate) async fn insert(self, conn: &DbConn) -> Result<Location, Error> {
 		let location = conn
 			.interact(|conn| {
@@ -109,4 +125,18 @@ pub struct NewOpeningTime {
 	pub end_time:      DateTime<Utc>,
 	pub seat_count:    Option<i32>,
 	pub is_reservable: Option<bool>,
+}
+
+pub struct UpdateLocation {
+	pub name:          Option<String>,
+	pub seat_count:    Option<i32>,
+	pub is_reservable: Option<bool>,
+	pub is_visible:    Option<bool>,
+	pub street:        Option<String>,
+	pub number:        Option<String>,
+	pub zip:           Option<String>,
+	pub city:          Option<String>,
+	pub province:      Option<String>,
+	pub latitude:      Option<f64>,
+	pub longitude:     Option<f64>,
 }
