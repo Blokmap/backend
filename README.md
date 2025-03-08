@@ -2,6 +2,8 @@
 
 ## **Requirements**
 
+- [Rustup Nightly](https://rustup.rs/)
+
 ## **Project Installation**
 
 
