@@ -11,68 +11,71 @@ use blokmap::models::Profile;
 use common::get_test_app;
 use common::wrappers::{expect_mail, expect_no_mail};
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn register() {
-	let (_guard, stub, test_server) = get_test_app(false).await;
+	let (_guard, mailbox, test_server) = get_test_app(false).await;
 
-	expect_mail(stub, async || {
-		let response = test_server
+	let response = expect_mail(mailbox, async || {
+		test_server
 			.post("/auth/register")
 			.json(&RegisterRequest {
 				username: "bob".to_string(),
 				password: "bobdebouwer1234!".to_string(),
 				email:    "bob@example.com".to_string(),
 			})
-			.await;
-
-		let body = response.json::<Profile>();
-
-		assert_eq!(response.status_code(), StatusCode::CREATED);
-		assert_eq!(body.username, "bob".to_string());
-		assert_eq!(body.email, None);
+			.await
 	})
 	.await;
+
+	let body = response.json::<Profile>();
+
+	assert_eq!(response.status_code(), StatusCode::CREATED);
+	assert_eq!(body.username, "bob".to_string());
+	assert_eq!(body.email, None);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn register_invalid_username_start() {
-	let (_guard, stub, test_server) = get_test_app(false).await;
+	let (_guard, mailbox, test_server) = get_test_app(false).await;
 
-	expect_no_mail(stub, async || {
-		let response = test_server
+	let response = expect_no_mail(mailbox, async || {
+		test_server
 			.post("/auth/register")
 			.json(&RegisterRequest {
 				username: "123".to_string(),
 				password: "bobdebouwer1234!".to_string(),
 				email:    "bob@example.com".to_string(),
 			})
-			.await;
-
-		let body = response.text();
-
-		assert_eq!(response.status_code(), StatusCode::UNPROCESSABLE_ENTITY);
-		assert_eq!(
-			body,
-			"username must start with a letter and only contain letters, \
-			 numbers, dashes, or underscores"
-				.to_string()
-		);
+			.await
 	})
 	.await;
+
+	let body = response.text();
+
+	assert_eq!(response.status_code(), StatusCode::UNPROCESSABLE_ENTITY);
+	assert_eq!(
+		body,
+		"username must start with a letter and only contain letters, numbers, \
+		 dashes, or underscores"
+			.to_string()
+	);
 }
 
 #[tokio::test]
 async fn register_invalid_username_symbols() {
-	let (_guard, _stub, test_server) = get_test_app(false).await;
+	let (_guard, mailbox, test_server) = get_test_app(false).await;
 
-	let response = test_server
-		.post("/auth/register")
-		.json(&RegisterRequest {
-			username: "abc.".to_string(),
-			password: "bobdebouwer1234!".to_string(),
-			email:    "bob@example.com".to_string(),
-		})
-		.await;
+	let response = expect_no_mail(mailbox, async || {
+		test_server
+			.post("/auth/register")
+			.json(&RegisterRequest {
+				username: "abc.".to_string(),
+				password: "bobdebouwer1234!".to_string(),
+				email:    "bob@example.com".to_string(),
+			})
+			.await
+	})
+	.await;
 
 	let body = response.text();
 
@@ -87,7 +90,7 @@ async fn register_invalid_username_symbols() {
 
 #[tokio::test]
 async fn register_username_too_short() {
-	let (_guard, _stub, test_server) = get_test_app(false).await;
+	let (_guard, _mailbox, test_server) = get_test_app(false).await;
 
 	let response = test_server
 		.post("/auth/register")
@@ -109,7 +112,7 @@ async fn register_username_too_short() {
 
 #[tokio::test]
 async fn register_username_too_long() {
-	let (_guard, _stub, test_server) = get_test_app(false).await;
+	let (_guard, _mailbox, test_server) = get_test_app(false).await;
 
 	let response = test_server
 		.post("/auth/register")
@@ -133,7 +136,7 @@ async fn register_username_too_long() {
 
 #[tokio::test]
 async fn register_password_too_short() {
-	let (_guard, _stub, test_server) = get_test_app(false).await;
+	let (_guard, _mailbox, test_server) = get_test_app(false).await;
 
 	let response = test_server
 		.post("/auth/register")
@@ -155,7 +158,7 @@ async fn register_password_too_short() {
 
 #[tokio::test]
 async fn register_invalid_email() {
-	let (_guard, _stub, test_server) = get_test_app(false).await;
+	let (_guard, _mailbox, test_server) = get_test_app(false).await;
 
 	let response = test_server
 		.post("/auth/register")
@@ -174,7 +177,7 @@ async fn register_invalid_email() {
 
 #[tokio::test]
 async fn confirm_email() {
-	let (guard, _stub, test_server) = get_test_app(false).await;
+	let (guard, _mailbox, test_server) = get_test_app(false).await;
 
 	test_server
 		.post("/auth/register")
@@ -223,7 +226,7 @@ async fn confirm_email() {
 
 #[tokio::test]
 async fn login_username() {
-	let (_guard, _stub, test_server) = get_test_app(true).await;
+	let (_guard, _mailbox, test_server) = get_test_app(true).await;
 
 	let response = test_server
 		.post("/auth/login/username")
@@ -240,7 +243,7 @@ async fn login_username() {
 
 #[tokio::test]
 async fn login_email() {
-	let (_guard, _stub, test_server) = get_test_app(true).await;
+	let (_guard, _mailbox, test_server) = get_test_app(true).await;
 
 	let response = test_server
 		.post("/auth/login/email")
@@ -257,7 +260,7 @@ async fn login_email() {
 
 #[tokio::test]
 async fn logout() {
-	let (_guard, _stub, test_server) = get_test_app(true).await;
+	let (_guard, _mailbox, test_server) = get_test_app(true).await;
 
 	let response = test_server
 		.post("/auth/login/username")

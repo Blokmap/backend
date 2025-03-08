@@ -18,8 +18,8 @@ pub struct Mailer {
 /// A fake mailbox to keep track of mails sent in tests
 #[derive(Default)]
 pub struct StubMailbox {
-	pub mailbox: Mutex<Vec<Message>>,
-	pub signal:  Condvar,
+	pub mailbox:     Mutex<Vec<Message>>,
+	pub mail_signal: Condvar,
 }
 
 impl Mailer {
@@ -34,6 +34,7 @@ impl Mailer {
 		if config.email_smtp_server == "stub" {
 			assert!(stub_mailer.is_some(), "MISSING STUB MAILER");
 
+			info!("spawning stub thread");
 			tokio::spawn(Self::start_stub_sender(rx, stub_mailer.unwrap()));
 		} else {
 			tokio::spawn(Self::start_smtp_sender(
@@ -68,8 +69,8 @@ impl Mailer {
 	///
 	/// # Errors
 	/// Fails if the mail queue is full
+	#[instrument(skip_all)]
 	pub fn try_send(&self, message: Message) -> Result<(), Error> {
-		info!("trysent");
 		Ok(self.send_queue.try_send(message)?)
 	}
 
@@ -77,8 +78,8 @@ impl Mailer {
 	///
 	/// # Errors
 	/// Fails if the other end of the mail queue was unexpectedly closed
+	#[instrument(skip_all)]
 	pub async fn send(&self, message: Message) -> Result<(), Error> {
-		info!("sent");
 		Ok(self.send_queue.send(message).await?)
 	}
 
@@ -87,17 +88,15 @@ impl Mailer {
 	async fn start_stub_sender(
 		mut rx: mpsc::Receiver<Message>,
 		stub_mailer: Arc<StubMailbox>,
-	) -> impl Send + 'static {
+	) {
 		while let Some(mail) = rx.recv().await {
 			let mail_pretty =
 				String::from_utf8_lossy(&mail.formatted()).to_string();
 
-			info!("received");
-
 			{
 				let mut mailbox = stub_mailer.mailbox.lock();
 				mailbox.push(mail);
-				stub_mailer.signal.notify_all();
+				stub_mailer.mail_signal.notify_all();
 			}
 
 			info!(
@@ -117,7 +116,7 @@ impl Mailer {
 		address: Address,
 		server: String,
 		password: String,
-	) -> impl Send + 'static {
+	) {
 		let transport = SmtpTransport::starttls_relay(&server)
 			.expect("STARTTLS ERROR")
 			.credentials(Credentials::new(address.to_string(), password))
