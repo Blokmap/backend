@@ -12,6 +12,10 @@ See the [deploy](https://github.com/Blokmap/deploy) repository for instructions 
 
 Since we are working with a dockerized application, some commands need to be run inside the container. We provided a `Makefile` for these cases.
 
+The testing commands will require the application to run locally, this requires
+setting certain environment variables. To this end an example
+[`.env`](./.env.example) file has been provided.
+
 ### Database Management
 
 ```sh
