@@ -105,6 +105,9 @@ pub enum InternalServerError {
 	/// Error acquiring database pool connection
 	#[error("database pool error -- {0:?}")]
 	PoolError(deadpool_diesel::PoolError),
+	/// Error executing some redis operation
+	#[error("redis error -- {0:?}")]
+	RedisError(redis::RedisError),
 }
 
 impl From<argon2::password_hash::Error> for Error {
@@ -184,6 +187,12 @@ impl From<mpsc::error::TrySendError<lettre::Message>> for Error {
 impl From<lettre::error::Error> for Error {
 	fn from(err: lettre::error::Error) -> Self {
 		InternalServerError::MailError(err).into()
+	}
+}
+
+impl From<redis::RedisError> for Error {
+	fn from(err: redis::RedisError) -> Self {
+		InternalServerError::RedisError(err).into()
 	}
 }
 

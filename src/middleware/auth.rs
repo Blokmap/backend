@@ -7,11 +7,14 @@ use axum::RequestExt;
 use axum::body::Body;
 use axum::extract::Request;
 use axum::http::{Response, StatusCode};
+use axum::response::IntoResponse;
 use axum_extra::extract::PrivateCookieJar;
 use tower::{Layer, Service};
+use uuid::Uuid;
 
-use crate::AppState;
+use crate::models::ephemeral::Session;
 use crate::models::{Profile, ProfileId};
+use crate::{AppState, Error};
 
 #[derive(Clone)]
 pub struct AuthLayer {
@@ -59,7 +62,7 @@ where
 		self.inner.poll_ready(cx)
 	}
 
-	#[instrument(skip(self))]
+	#[instrument(skip_all)]
 	fn call(&mut self, mut req: Request<Body>) -> Self::Future {
 		let cloned_inner = self.inner.clone();
 		let mut inner = std::mem::replace(&mut self.inner, cloned_inner);
@@ -72,50 +75,97 @@ where
 				.await
 				.unwrap();
 
-			let Some(access_token) = jar.get(&state.config.access_token_name)
-			else {
-				info!("missing access token");
-
-				return Ok(Response::builder()
-					.status(StatusCode::FORBIDDEN)
-					.body(().into())
-					.unwrap());
-			};
-
-			let Ok(profile_id) = access_token.value().parse::<i32>() else {
-				info!("invalid access token");
-
-				return Ok(Response::builder()
-					.status(StatusCode::FORBIDDEN)
-					.body(().into())
-					.unwrap());
-			};
-
 			let conn = match state.database_pool.get().await {
 				Ok(conn) => conn,
-				Err(e) => {
-					error!("database error -- {e}");
-
-					return Ok(Response::builder()
-						.status(StatusCode::INTERNAL_SERVER_ERROR)
-						.body(().into())
-						.unwrap());
-				},
+				Err(e) => return Ok(Error::from(e).into_response()),
 			};
 
-			if Profile::exists(profile_id, conn).await.is_ok_and(|x| x) {
-				let profile_id = ProfileId(profile_id);
+			let mut r_conn = state.redis_connection;
+
+			let Some(refresh_token) = jar.get(&state.config.refresh_token_name)
+			else {
+				info!("got request without valid refresh token");
+
+				return Ok(Response::builder()
+					.status(StatusCode::UNAUTHORIZED)
+					.body(().into())
+					.unwrap());
+			};
+
+			let Some(access_token) = jar.get(&state.config.access_token_name)
+			else {
+				// Unwrap is safe as correctly signed refresh tokens are always
+				// i32
+				let profile_id = refresh_token.value().parse::<i32>().unwrap();
+
+				let exists = match Profile::exists(profile_id, &conn).await {
+					Ok(b) => b,
+					Err(e) => return Ok(e.into_response()),
+				};
+
+				if !exists {
+					warn!(
+						"attempted to create tokens for unknown profile {}",
+						profile_id
+					);
+
+					return Ok(Response::builder()
+						.status(StatusCode::FORBIDDEN)
+						.body(().into())
+						.unwrap());
+				}
+
+				let profile = match Profile::get(profile_id, &conn).await {
+					Ok(p) => p,
+					Err(e) => return Ok(e.into_response()),
+				};
+
+				let session =
+					match Session::create(&state.config, &profile, &mut r_conn)
+						.await
+					{
+						Ok(s) => s,
+						Err(e) => return Ok(e.into_response()),
+					};
+
+				let access_token_cookie =
+					session.to_access_token_cookie(&state.config);
+				let refresh_token_cookie =
+					session.to_refresh_token_cookie(&state.config);
+
+				let jar =
+					jar.add(access_token_cookie).add(refresh_token_cookie);
+
+				let profile_id = ProfileId(session.profile_id);
 				req.extensions_mut().insert(profile_id);
 
-				inner.call(req).await
-			} else {
-				info!("unknown profile");
+				return inner
+					.call(req)
+					.await
+					.map(|res| (jar, res).into_response());
+			};
 
-				Ok(Response::builder()
+			// Unwrap is safe as correctly signed access tokens are always Uuids
+			let session_id = access_token.value().parse::<Uuid>().unwrap();
+
+			let session = match Session::get(&session_id, &mut r_conn).await {
+				Ok(s) => s,
+				Err(e) => return Ok(e.into_response()),
+			};
+
+			let Some(session) = session else {
+				warn!("attempted to authorize unknown session {}", session_id);
+
+				return Ok(Response::builder()
 					.status(StatusCode::FORBIDDEN)
 					.body(().into())
-					.unwrap())
-			}
+					.unwrap());
+			};
+
+			let profile_id = ProfileId(session.profile_id);
+			req.extensions_mut().insert(profile_id);
+
+			inner.call(req).await
 		})
 	}
 }

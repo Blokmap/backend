@@ -1,4 +1,4 @@
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
 use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
@@ -6,48 +6,36 @@ use argon2::{Argon2, PasswordHasher};
 use axum_extra::extract::cookie::Key;
 use axum_test::TestServer;
 use blokmap::mailer::{Mailer, StubMailbox};
-use blokmap::{AppState, Config, DbConn, DbPool, routes};
-use deadpool_diesel::postgres::{Manager, Pool};
-use diesel_migrations::{
-	EmbeddedMigrations,
-	MigrationHarness,
-	embed_migrations,
-};
-use uuid::Uuid;
+use blokmap::{AppState, Config, routes};
+use mock_redis::{RedisUrlGuard, RedisUrlLock};
 
 pub mod wrappers;
 
-const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
+mod mock_db;
+mod mock_redis;
 
-/// Global test database provider
-pub static TEST_DATABASE_FIXTURE: LazyLock<TestDatabaseFixture> =
-	LazyLock::new(TestDatabaseFixture::new);
+use mock_db::{DatabaseGuard, TEST_DATABASE_FIXTURE};
 
-/// A RAII guard provider which generates temporary test databases
-pub struct TestDatabaseFixture {
-	base_url:  String,
-	root_pool: DbPool,
+#[allow(dead_code)]
+pub struct TestEnv {
+	pub app:          TestServer,
+	pub db_guard:     DatabaseGuard,
+	pub redis_guard:  RedisUrlGuard,
+	pub stub_mailbox: Arc<StubMailbox>,
 }
 
-/// A test database RAII guard
-pub struct DatabaseGuard {
-	root_conn:     DbConn,
-	database_name: String,
-	database_url:  String,
-}
-
-/// Get a test axum app with a oneshot database and stub mailbox for running
-/// tests
+/// Get a test environment with mocked resources for running tests
 ///
 /// # Panics
 /// Panics if building a test user fails
-pub async fn get_test_app(
-	create_user: bool,
-) -> (DatabaseGuard, Arc<StubMailbox>, TestServer) {
+pub async fn get_test_env(create_user: bool) -> TestEnv {
 	let config = Config::from_env();
 
 	let test_pool_guard = (*TEST_DATABASE_FIXTURE).acquire().await;
 	let test_pool = test_pool_guard.create_pool();
+
+	let redis_url_guard = RedisUrlLock::get();
+	let redis_connection = redis_url_guard.connect().await;
 
 	let cookie_jar_key = Key::from(&[0u8; 64]);
 
@@ -58,6 +46,7 @@ pub async fn get_test_app(
 	let state = AppState {
 		config,
 		database_pool: test_pool.clone(),
+		redis_connection,
 		cookie_jar_key,
 		mailer,
 	};
@@ -90,107 +79,10 @@ pub async fn get_test_app(
 		.unwrap();
 	}
 
-	(test_pool_guard, stub_mailbox.unwrap(), test_server)
-}
-
-impl TestDatabaseFixture {
-	fn new() -> Self {
-		if Ok("true".to_string()) == std::env::var("CI") {
-			tracing_subscriber::fmt()
-				.pretty()
-				.with_thread_names(true)
-				.with_max_level(tracing::Level::DEBUG)
-				.init();
-		}
-
-		let database_url = std::env::var("DATABASE_URL").unwrap();
-		let (base_url, _) = database_url.rsplit_once('/').unwrap();
-		let base_url = base_url.to_string();
-
-		let manager = Manager::new(
-			database_url.to_string(),
-			deadpool_diesel::Runtime::Tokio1,
-		);
-
-		let root_pool = Pool::builder(manager).build().unwrap();
-
-		Self { base_url, root_pool }
-	}
-
-	/// Acquire a new [`DatabaseGuard`] for accessing a temporary test database
-	///
-	/// # Panics
-	/// Panics if creating a database fails
-	pub async fn acquire(&self) -> DatabaseGuard {
-		let uuid = Uuid::new_v4().simple().to_string();
-		let database_name = format!("test_{uuid}");
-		let database_url = format!("{}/{}", self.base_url, database_name);
-
-		let root_conn = self
-			.root_pool
-			.get()
-			.await
-			.expect("could not get root pool connection");
-
-		let create_db_query = format!("CREATE DATABASE {database_name};");
-
-		root_conn
-			.interact(|conn| {
-				use diesel::prelude::*;
-
-				diesel::sql_query(create_db_query).execute(conn)
-			})
-			.await
-			.expect("could not interact with root connection")
-			.expect("could not create test database");
-
-		DatabaseGuard { root_conn, database_name, database_url }
-	}
-}
-
-impl DatabaseGuard {
-	/// Create a new database pool for this test database guard
-	///
-	/// # Panics
-	/// Panics if creation fails
-	#[must_use]
-	pub fn create_pool(&self) -> DbPool {
-		let manager = Manager::new(
-			self.database_url.to_string(),
-			deadpool_diesel::Runtime::Tokio1,
-		);
-
-		let pool = Pool::builder(manager).build().unwrap();
-
-		futures::executor::block_on(async {
-			let conn = pool.get().await.unwrap();
-			conn.interact(|conn| {
-				conn.run_pending_migrations(MIGRATIONS).map(|_| ())
-			})
-			.await
-			.unwrap()
-			.unwrap();
-		});
-
-		pool
-	}
-}
-
-impl Drop for DatabaseGuard {
-	fn drop(&mut self) {
-		let drop_db_query =
-			format!("DROP DATABASE {} WITH (FORCE);", self.database_name);
-
-		futures::executor::block_on(async move {
-			self.root_conn
-				.interact(|conn| {
-					use diesel::prelude::*;
-
-					diesel::sql_query(drop_db_query).execute(conn)
-				})
-				.await
-				.expect("could not interact with root connection")
-				.expect("could not drop test database");
-		});
+	TestEnv {
+		app:          test_server,
+		db_guard:     test_pool_guard,
+		redis_guard:  redis_url_guard,
+		stub_mailbox: stub_mailbox.unwrap(),
 	}
 }

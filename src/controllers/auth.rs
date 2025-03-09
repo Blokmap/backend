@@ -10,7 +10,6 @@ use axum::http::StatusCode;
 use axum::response::NoContent;
 use axum::{Extension, Json};
 use axum_extra::extract::PrivateCookieJar;
-use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::Utc;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -19,27 +18,12 @@ use validator::Validate;
 use validator_derive::Validate;
 
 use crate::mailer::Mailer;
+use crate::models::ephemeral::Session;
 use crate::models::{InsertableProfile, Profile, ProfileId};
-use crate::{Config, DbPool, Error, TokenError};
+use crate::{Config, DbPool, Error, RedisConn, TokenError};
 
 static USERNAME_REGEX: LazyLock<Regex> =
 	LazyLock::new(|| Regex::new(r"^[a-zA-Z][a-zA-Z0-9-_]*$").unwrap());
-
-fn make_access_token_cookie(
-	config: &Config,
-	data: &impl ToString,
-) -> Cookie<'static> {
-	let secure = config.production;
-
-	Cookie::build((config.access_token_name.clone(), data.to_string()))
-		.domain("")
-		.http_only(true)
-		.max_age(config.access_token_lifetime)
-		.path("/")
-		.same_site(SameSite::Lax)
-		.secure(secure)
-		.into()
-}
 
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]
 pub struct RegisterRequest {
@@ -92,7 +76,7 @@ pub(crate) async fn register_profile(
 	};
 
 	let conn = pool.get().await?;
-	let new_profile = insertable_profile.insert(conn).await?;
+	let new_profile = insertable_profile.insert(&conn).await?;
 
 	let mail = mailer.try_build_message(
 		&new_profile,
@@ -115,12 +99,14 @@ pub(crate) async fn register_profile(
 #[instrument(skip(pool, config, jar))]
 pub(crate) async fn confirm_email(
 	State(pool): State<DbPool>,
+	State(mut r_conn): State<RedisConn>,
 	State(config): State<Config>,
 	jar: PrivateCookieJar,
 	Path(token): Path<String>,
 ) -> Result<(PrivateCookieJar, NoContent), Error> {
 	let conn = pool.get().await?;
-	let profile = Profile::get_by_email_confirmation_token(token, conn).await?;
+	let profile =
+		Profile::get_by_email_confirmation_token(token, &conn).await?;
 
 	// Unwrap is safe because profiles with a confirmation token will always
 	// have a token expiry
@@ -129,13 +115,17 @@ pub(crate) async fn confirm_email(
 		return Err(TokenError::ExpiredEmailToken.into());
 	}
 
-	let conn = pool.get().await?;
-	profile.confirm_email(conn).await?;
+	profile.confirm_email(&conn).await?;
 
-	let access_token = make_access_token_cookie(&config, &profile.id);
-	let jar = jar.add(access_token);
+	let session = Session::create(&config, &profile, &mut r_conn).await?;
+	let access_token_cookie = session.to_access_token_cookie(&config);
+	let refresh_token_cookie = session.to_refresh_token_cookie(&config);
+
+	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
 
 	info!("confirmed email for profile {}", profile.id);
+
+	profile.update_last_login(&conn).await?;
 
 	Ok((jar, NoContent))
 }
@@ -149,19 +139,23 @@ pub struct LoginUsernameRequest {
 #[instrument(skip_all)]
 pub(crate) async fn login_profile_with_username(
 	State(pool): State<DbPool>,
+	State(mut r_conn): State<RedisConn>,
 	State(config): State<Config>,
 	jar: PrivateCookieJar,
 	Json(login_data): Json<LoginUsernameRequest>,
 ) -> Result<(PrivateCookieJar, NoContent), Error> {
 	let conn = pool.get().await?;
-	let profile = Profile::get_by_username(login_data.username, conn).await?;
+	let profile = Profile::get_by_username(login_data.username, &conn).await?;
 
 	let password_hash = PasswordHash::new(&profile.password_hash)?;
 	Argon2::default()
 		.verify_password(login_data.password.as_bytes(), &password_hash)?;
 
-	let access_token = make_access_token_cookie(&config, &profile.id);
-	let jar = jar.add(access_token);
+	let session = Session::create(&config, &profile, &mut r_conn).await?;
+	let access_token_cookie = session.to_access_token_cookie(&config);
+	let refresh_token_cookie = session.to_refresh_token_cookie(&config);
+
+	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
 
 	info!("logged in profile {} with username", profile.id);
 
@@ -177,19 +171,23 @@ pub struct LoginEmailRequest {
 #[instrument(skip_all)]
 pub(crate) async fn login_profile_with_email(
 	State(pool): State<DbPool>,
+	State(mut r_conn): State<RedisConn>,
 	State(config): State<Config>,
 	jar: PrivateCookieJar,
 	Json(login_data): Json<LoginEmailRequest>,
 ) -> Result<(PrivateCookieJar, NoContent), Error> {
 	let conn = pool.get().await?;
-	let profile = Profile::get_by_email(login_data.email, conn).await?;
+	let profile = Profile::get_by_email(login_data.email, &conn).await?;
 
 	let password_hash = PasswordHash::new(&profile.password_hash)?;
 	Argon2::default()
 		.verify_password(login_data.password.as_bytes(), &password_hash)?;
 
-	let access_token = make_access_token_cookie(&config, &profile.id);
-	let jar = jar.add(access_token);
+	let session = Session::create(&config, &profile, &mut r_conn).await?;
+	let access_token_cookie = session.to_access_token_cookie(&config);
+	let refresh_token_cookie = session.to_refresh_token_cookie(&config);
+
+	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
 
 	info!("logged in profile {} with email", profile.id);
 

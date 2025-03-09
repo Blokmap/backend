@@ -4,13 +4,14 @@ use blokmap::controllers::auth::LoginUsernameRequest;
 mod common;
 
 use blokmap::models::Profile;
-use common::get_test_app;
+use common::get_test_env;
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn get_all_profiles() {
-	let (_guard, _stub, test_server) = get_test_app(true).await;
+	let env = get_test_env(true).await;
 
-	test_server
+	let response = env
+		.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
 			username: "bob".to_string(),
@@ -18,16 +19,18 @@ async fn get_all_profiles() {
 		})
 		.await;
 
-	let response = test_server.get("/profile").await;
+	let _access_token = response.cookie("blokmap_access_token");
+
+	let response = env.app.get("/profile").await;
 
 	assert_eq!(response.status_code(), StatusCode::OK);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn get_current_profile() {
-	let (_guard, _stub, test_server) = get_test_app(true).await;
+	let env = get_test_env(true).await;
 
-	test_server
+	env.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
 			username: "bob".to_string(),
@@ -35,7 +38,7 @@ async fn get_current_profile() {
 		})
 		.await;
 
-	let response = test_server.get("/profile/me").await;
+	let response = env.app.get("/profile/me").await;
 	let body = response.json::<Profile>();
 
 	assert_eq!(response.status_code(), StatusCode::OK);

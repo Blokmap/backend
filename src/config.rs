@@ -4,12 +4,14 @@ use chrono::Duration;
 use deadpool_diesel::postgres::{Manager, Pool};
 use lettre::Address;
 
+use crate::RedisConn;
 use crate::mailer::StubMailbox;
 
 /// Configuration settings for the application
 #[derive(Clone, Debug)]
 pub struct Config {
 	pub database_url: String,
+	pub redis_url:    String,
 
 	pub production: bool,
 
@@ -17,6 +19,9 @@ pub struct Config {
 
 	pub access_token_name:     String,
 	pub access_token_lifetime: time::Duration,
+
+	pub refresh_token_name:     String,
+	pub refresh_token_lifetime: time::Duration,
 
 	pub email_address:       Address,
 	pub email_queue_size:    usize,
@@ -44,6 +49,7 @@ impl Config {
 	#[must_use]
 	pub fn from_env() -> Self {
 		let database_url = Self::get_env("DATABASE_URL");
+		let redis_url = Self::get_env("REDIS_URL");
 
 		let production = Self::get_env_default("PRODUCTION", "false")
 			.parse::<bool>()
@@ -56,9 +62,19 @@ impl Config {
 		);
 
 		let access_token_name =
-			Self::get_env_default("ACCESS_TOKEN_NAME", "access_token");
+			Self::get_env_default("ACCESS_TOKEN_NAME", "blokmap_access_token");
 		let access_token_lifetime = time::Duration::minutes(
 			Self::get_env_default("ACCESS_TOKEN_LIFETIME_MINUTES", "10")
+				.parse::<i64>()
+				.unwrap(),
+		);
+
+		let refresh_token_name = Self::get_env_default(
+			"REFRESH_TOKEN_NAME",
+			"blokmap_refresh_token",
+		);
+		let refresh_token_lifetime = time::Duration::minutes(
+			Self::get_env_default("REFRESH_TOKEN_LIFETIME_MINUTES", "10080") // 1 week
 				.parse::<i64>()
 				.unwrap(),
 		);
@@ -82,10 +98,13 @@ impl Config {
 
 		Self {
 			database_url,
+			redis_url,
 			production,
 			email_confirmation_token_lifetime,
 			access_token_name,
 			access_token_lifetime,
+			refresh_token_name,
+			refresh_token_lifetime,
 			email_address,
 			email_queue_size,
 			email_smtp_server,
@@ -115,5 +134,19 @@ impl Config {
 		}
 
 		Some(Arc::new(StubMailbox::default()))
+	}
+
+	/// Create a connection to the cache
+	///
+	/// # Panics
+	/// Panics if connecting fails
+	pub async fn create_redis_connection(&self) -> RedisConn {
+		let client = redis::Client::open(self.redis_url.as_str())
+			.expect("COULD NOT CREATE REDIS CLIENT");
+
+		client
+			.get_multiplexed_async_connection()
+			.await
+			.expect("COULD NOT CONNECT TO REDIS")
 	}
 }

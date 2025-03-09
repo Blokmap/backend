@@ -8,16 +8,16 @@ use blokmap::controllers::auth::{
 mod common;
 
 use blokmap::models::Profile;
-use common::get_test_app;
+use common::get_test_env;
 use common::wrappers::{expect_mail_to, expect_no_mail};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register() {
-	let (_guard, mailbox, test_server) = get_test_app(false).await;
+	let env = get_test_env(false).await;
 
 	let response =
-		expect_mail_to(mailbox, vec!["bob@example.com"], async || {
-			test_server
+		expect_mail_to(env.stub_mailbox, vec!["bob@example.com"], async || {
+			env.app
 				.post("/auth/register")
 				.json(&RegisterRequest {
 					username: "bob".to_string(),
@@ -30,6 +30,8 @@ async fn register() {
 
 	let body = response.json::<Profile>();
 
+	assert!(response.maybe_cookie("blokmap_access_token").is_none());
+
 	assert_eq!(response.status_code(), StatusCode::CREATED);
 	assert_eq!(body.username, "bob".to_string());
 	assert_eq!(body.email, None);
@@ -37,10 +39,10 @@ async fn register() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_invalid_username_start() {
-	let (_guard, mailbox, test_server) = get_test_app(false).await;
+	let env = get_test_env(false).await;
 
-	let response = expect_no_mail(mailbox, async || {
-		test_server
+	let response = expect_no_mail(env.stub_mailbox, async || {
+		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
 				username: "123".to_string(),
@@ -64,10 +66,10 @@ async fn register_invalid_username_start() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_invalid_username_symbols() {
-	let (_guard, mailbox, test_server) = get_test_app(false).await;
+	let env = get_test_env(false).await;
 
-	let response = expect_no_mail(mailbox, async || {
-		test_server
+	let response = expect_no_mail(env.stub_mailbox, async || {
+		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
 				username: "abc.".to_string(),
@@ -91,10 +93,10 @@ async fn register_invalid_username_symbols() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_username_too_short() {
-	let (_guard, mailbox, test_server) = get_test_app(false).await;
+	let env = get_test_env(false).await;
 
-	let response = expect_no_mail(mailbox, async || {
-		test_server
+	let response = expect_no_mail(env.stub_mailbox, async || {
+		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
 				username: "a".to_string(),
@@ -116,10 +118,10 @@ async fn register_username_too_short() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_username_too_long() {
-	let (_guard, mailbox, test_server) = get_test_app(false).await;
+	let env = get_test_env(false).await;
 
-	let response = expect_no_mail(mailbox, async || {
-		test_server
+	let response = expect_no_mail(env.stub_mailbox, async || {
+		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
 				username:
@@ -143,10 +145,10 @@ async fn register_username_too_long() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_password_too_short() {
-	let (_guard, mailbox, test_server) = get_test_app(false).await;
+	let env = get_test_env(false).await;
 
-	let response = expect_no_mail(mailbox, async || {
-		test_server
+	let response = expect_no_mail(env.stub_mailbox, async || {
+		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
 				username: "bob".to_string(),
@@ -168,10 +170,10 @@ async fn register_password_too_short() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_invalid_email() {
-	let (_guard, mailbox, test_server) = get_test_app(false).await;
+	let env = get_test_env(false).await;
 
-	let response = expect_no_mail(mailbox, async || {
-		test_server
+	let response = expect_no_mail(env.stub_mailbox, async || {
+		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
 				username: "bob".to_string(),
@@ -190,22 +192,26 @@ async fn register_invalid_email() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_duplicate_email() {
-	let (_guard, mailbox, test_server) = get_test_app(false).await;
+	let env = get_test_env(false).await;
 
-	expect_mail_to(mailbox.clone(), vec!["bob@example.com"], async || {
-		test_server
-			.post("/auth/register")
-			.json(&RegisterRequest {
-				username: "bob".to_string(),
-				password: "bobdebouwer1234!".to_string(),
-				email:    "bob@example.com".to_string(),
-			})
-			.await
-	})
+	expect_mail_to(
+		env.stub_mailbox.clone(),
+		vec!["bob@example.com"],
+		async || {
+			env.app
+				.post("/auth/register")
+				.json(&RegisterRequest {
+					username: "bob".to_string(),
+					password: "bobdebouwer1234!".to_string(),
+					email:    "bob@example.com".to_string(),
+				})
+				.await
+		},
+	)
 	.await;
 
-	let response = expect_no_mail(mailbox, async || {
-		test_server
+	let response = expect_no_mail(env.stub_mailbox, async || {
+		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
 				username: "bob2".to_string(),
@@ -224,10 +230,10 @@ async fn register_duplicate_email() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_duplicate_username() {
-	let (_guard, mailbox, test_server) = get_test_app(true).await;
+	let env = get_test_env(true).await;
 
-	let response = expect_no_mail(mailbox, async || {
-		test_server
+	let response = expect_no_mail(env.stub_mailbox, async || {
+		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
 				username: "bob".to_string(),
@@ -238,6 +244,8 @@ async fn register_duplicate_username() {
 	})
 	.await;
 
+	assert!(response.maybe_cookie("blokmap_access_token").is_none());
+
 	let body = response.text();
 
 	assert_eq!(response.status_code(), StatusCode::CONFLICT);
@@ -246,10 +254,10 @@ async fn register_duplicate_username() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn confirm_email() {
-	let (guard, mailbox, test_server) = get_test_app(false).await;
+	let env = get_test_env(false).await;
 
-	expect_mail_to(mailbox, vec!["bob@example.com"], async || {
-		test_server
+	expect_mail_to(env.stub_mailbox, vec!["bob@example.com"], async || {
+		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
 				username: "bob".to_string(),
@@ -260,7 +268,7 @@ async fn confirm_email() {
 	})
 	.await;
 
-	let conn = guard.create_pool().get().await.unwrap();
+	let conn = env.db_guard.create_pool().get().await.unwrap();
 	let email_confirmation_token: Option<String> = conn
 		.interact(|conn| {
 			use blokmap::schema::profile::dsl::*;
@@ -277,18 +285,19 @@ async fn confirm_email() {
 
 	assert!(email_confirmation_token.is_some());
 
-	let response = test_server
+	let response = env
+		.app
 		.post(&format!(
 			"/auth/confirm_email/{}",
 			email_confirmation_token.unwrap()
 		))
 		.await;
 
-	let _access_token = response.cookie("access_token");
+	let _access_token = response.cookie("blokmap_access_token");
 
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
-	let response = test_server.get("/profile/me").await;
+	let response = env.app.get("/profile/me").await;
 	let body = response.json::<Profile>();
 
 	assert_eq!(response.status_code(), StatusCode::OK);
@@ -298,9 +307,10 @@ async fn confirm_email() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn login_username() {
-	let (_guard, _mailbox, test_server) = get_test_app(true).await;
+	let env = get_test_env(true).await;
 
-	let response = test_server
+	let response = env
+		.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
 			username: "bob".to_string(),
@@ -308,16 +318,17 @@ async fn login_username() {
 		})
 		.await;
 
-	let _access_token = response.cookie("access_token");
+	let _access_token = response.cookie("blokmap_access_token");
 
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn login_email() {
-	let (_guard, _mailbox, test_server) = get_test_app(true).await;
+	let env = get_test_env(true).await;
 
-	let response = test_server
+	let response = env
+		.app
 		.post("/auth/login/email")
 		.json(&LoginEmailRequest {
 			email:    "bob@example.com".to_string(),
@@ -325,16 +336,17 @@ async fn login_email() {
 		})
 		.await;
 
-	let _access_token = response.cookie("access_token");
+	let _access_token = response.cookie("blokmap_access_token");
 
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn logout() {
-	let (_guard, _mailbox, test_server) = get_test_app(true).await;
+	let env = get_test_env(true).await;
 
-	let response = test_server
+	let response = env
+		.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
 			username: "bob".to_string(),
@@ -342,13 +354,13 @@ async fn logout() {
 		})
 		.await;
 
-	let _access_token = response.cookie("access_token");
+	let _access_token = response.cookie("blokmap_access_token");
 
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
-	let response = test_server.post("/auth/logout").await;
+	let response = env.app.post("/auth/logout").await;
 
-	let access_token = response.cookie("access_token");
+	let access_token = response.cookie("blokmap_access_token");
 
 	assert_eq!(access_token.max_age(), Some(time::Duration::ZERO));
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);

@@ -9,13 +9,13 @@ use serde_json::{Value, json};
 
 mod common;
 
-use common::get_test_app;
+use common::get_test_env;
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn create_translation() {
-	let (_guard, _stub, test_server) = get_test_app(true).await;
+	let env = get_test_env(true).await;
 
-	test_server
+	env.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
 			username: "bob".to_string(),
@@ -23,7 +23,8 @@ async fn create_translation() {
 		})
 		.await;
 
-	let create_response = test_server
+	let create_response = env
+		.app
 		.post("/translation")
 		.json(&CreateTranslationRequest {
 			language: Language::En,
@@ -39,7 +40,8 @@ async fn create_translation() {
 	assert_eq!(create_body.new_translation.language, Language::En);
 	assert_eq!(create_body.new_translation.text, "foo".to_string());
 
-	let get_response = test_server
+	let get_response = env
+		.app
 		.get(&format!(
 			"/translation/{}/{:?}",
 			create_body.key, create_body.new_translation.language
@@ -55,11 +57,11 @@ async fn create_translation() {
 	assert_eq!(get_body.text, "foo".to_string());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn get_invalid_translations() {
-	let (_guard, _stub, test_server) = get_test_app(true).await;
+	let env = get_test_env(true).await;
 
-	test_server
+	env.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
 			username: "bob".to_string(),
@@ -67,7 +69,8 @@ async fn get_invalid_translations() {
 		})
 		.await;
 
-	let response = test_server
+	let response = env
+		.app
 		.get("/translation/urn:uuid:A1A2A3A4-B1B2-C1C2-D1D2-D3D4D5D6D7D8")
 		.await;
 

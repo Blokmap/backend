@@ -30,6 +30,7 @@ async fn main() {
 	// and create a database pool.
 	let config = Config::from_env();
 	let database_pool = config.create_database_pool();
+	let redis_connection = config.create_redis_connection().await;
 
 	let cookie_jar_key = Key::from(
 		&std::fs::read("/run/secrets/cookie-jar-key")
@@ -44,6 +45,7 @@ async fn main() {
 	let router = routes::get_app_router(AppState {
 		config,
 		database_pool,
+		redis_connection,
 		cookie_jar_key,
 		mailer,
 	});

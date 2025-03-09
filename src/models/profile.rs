@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use chrono::NaiveDateTime;
+use chrono::{NaiveDateTime, Utc};
 use diesel::prelude::*;
 use diesel_derive_enum::DbEnum;
 use lettre::message::Mailbox;
@@ -35,7 +35,14 @@ pub enum ProfileState {
 
 /// A single profile
 #[derive(
-	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
+	AsChangeset,
+	Clone,
+	Debug,
+	Deserialize,
+	Identifiable,
+	Queryable,
+	Selectable,
+	Serialize,
 )]
 #[diesel(table_name = profile)]
 pub struct Profile {
@@ -103,7 +110,7 @@ pub struct InsertableProfile {
 
 impl InsertableProfile {
 	/// Insert this [`InsertableProfile`]
-	pub(crate) async fn insert(self, conn: DbConn) -> Result<Profile, Error> {
+	pub(crate) async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
 		let profile = conn
 			.interact(|conn| {
 				use self::profile::dsl::*;
@@ -123,7 +130,7 @@ impl Profile {
 	/// Get a [`Profile`] given its id
 	pub(crate) async fn get(
 		query_id: i32,
-		conn: DbConn,
+		conn: &DbConn,
 	) -> Result<Self, Error> {
 		let profiles = conn
 			.interact(move |conn| {
@@ -136,8 +143,24 @@ impl Profile {
 		Ok(profiles)
 	}
 
+	/// Update a given [`Profile`]
+	pub(crate) async fn update(self, conn: &DbConn) -> Result<Self, Error> {
+		let new = conn
+			.interact(|conn| {
+				use self::profile::dsl::*;
+
+				diesel::update(profile.find(self.id))
+					.set(self)
+					.returning(Profile::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(new)
+	}
+
 	/// Get a list of all [`Profile`]s
-	pub(crate) async fn get_all(conn: DbConn) -> Result<Vec<Self>, Error> {
+	pub(crate) async fn get_all(conn: &DbConn) -> Result<Vec<Self>, Error> {
 		use self::profile::dsl::*;
 
 		let profiles = conn.interact(|conn| profile.load(conn)).await??;
@@ -148,7 +171,7 @@ impl Profile {
 	/// Check if a [`Profile`] with a given id exists
 	pub(crate) async fn exists(
 		query_id: i32,
-		conn: DbConn,
+		conn: &DbConn,
 	) -> Result<bool, Error> {
 		let exists = conn
 			.interact(move |conn| {
@@ -162,10 +185,42 @@ impl Profile {
 		Ok(exists)
 	}
 
+	/// Get a [`Profile`] given its username
+	pub(crate) async fn get_by_username(
+		query_username: String,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let profile = conn
+			.interact(|conn| {
+				use self::profile::dsl::*;
+
+				profile.filter(username.eq(query_username)).first(conn)
+			})
+			.await??;
+
+		Ok(profile)
+	}
+
+	/// Get a [`Profile`] given its email
+	pub(crate) async fn get_by_email(
+		query_email: String,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let profile = conn
+			.interact(|conn| {
+				use self::profile::dsl::*;
+
+				profile.filter(email.eq(query_email)).first(conn)
+			})
+			.await??;
+
+		Ok(profile)
+	}
+
 	/// Get a profile given its email confirmation token
 	pub(crate) async fn get_by_email_confirmation_token(
 		token: String,
-		conn: DbConn,
+		conn: &DbConn,
 	) -> Result<Self, Error> {
 		let profile = conn
 			.interact(|conn| {
@@ -181,7 +236,7 @@ impl Profile {
 	/// Confirm the pending email for a [`Profile`]
 	pub(crate) async fn confirm_email(
 		&self,
-		conn: DbConn,
+		conn: &DbConn,
 	) -> Result<(), Error> {
 		let self_id = self.id;
 		let pending = self.pending_email.clone().unwrap();
@@ -203,35 +258,13 @@ impl Profile {
 		Ok(())
 	}
 
-	/// Get a [`Profile`] given its username
-	pub(crate) async fn get_by_username(
-		query_username: String,
-		conn: DbConn,
+	/// Set the `last_login_at` field to the current datetime for the given
+	/// [`Profile`]
+	pub(crate) async fn update_last_login(
+		mut self,
+		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let profile = conn
-			.interact(|conn| {
-				use self::profile::dsl::*;
-
-				profile.filter(username.eq(query_username)).first(conn)
-			})
-			.await??;
-
-		Ok(profile)
-	}
-
-	/// Get a [`Profile`] given its email
-	pub(crate) async fn get_by_email(
-		query_email: String,
-		conn: DbConn,
-	) -> Result<Self, Error> {
-		let profile = conn
-			.interact(|conn| {
-				use self::profile::dsl::*;
-
-				profile.filter(email.eq(query_email)).first(conn)
-			})
-			.await??;
-
-		Ok(profile)
+		self.last_login_at = Utc::now().naive_utc();
+		self.update(conn).await
 	}
 }
