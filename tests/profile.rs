@@ -1,14 +1,14 @@
 use axum::http::StatusCode;
 use blokmap::controllers::auth::LoginUsernameRequest;
+use blokmap::models::Profile;
 
 mod common;
 
-use blokmap::models::Profile;
-use common::get_test_env;
+use common::TestEnv;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn get_all_profiles() {
-	let env = get_test_env(true).await;
+	let env = TestEnv::new().await.create_test_user().await;
 
 	let response = env
 		.app
@@ -28,7 +28,7 @@ async fn get_all_profiles() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn get_current_profile() {
-	let env = get_test_env(true).await;
+	let env = TestEnv::new().await.create_test_user().await;
 
 	env.app
 		.post("/auth/login/username")

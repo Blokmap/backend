@@ -4,16 +4,16 @@ use blokmap::controllers::auth::{
 	LoginUsernameRequest,
 	RegisterRequest,
 };
+use blokmap::models::Profile;
 
 mod common;
 
-use blokmap::models::Profile;
-use common::get_test_env;
+use common::TestEnv;
 use common::wrappers::{expect_mail_to, expect_no_mail};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register() {
-	let env = get_test_env(false).await;
+	let env = TestEnv::new().await;
 
 	let response =
 		expect_mail_to(env.stub_mailbox, vec!["bob@example.com"], async || {
@@ -39,7 +39,7 @@ async fn register() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_invalid_username_start() {
-	let env = get_test_env(false).await;
+	let env = TestEnv::new().await;
 
 	let response = expect_no_mail(env.stub_mailbox, async || {
 		env.app
@@ -66,7 +66,7 @@ async fn register_invalid_username_start() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_invalid_username_symbols() {
-	let env = get_test_env(false).await;
+	let env = TestEnv::new().await;
 
 	let response = expect_no_mail(env.stub_mailbox, async || {
 		env.app
@@ -93,7 +93,7 @@ async fn register_invalid_username_symbols() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_username_too_short() {
-	let env = get_test_env(false).await;
+	let env = TestEnv::new().await;
 
 	let response = expect_no_mail(env.stub_mailbox, async || {
 		env.app
@@ -118,7 +118,7 @@ async fn register_username_too_short() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_username_too_long() {
-	let env = get_test_env(false).await;
+	let env = TestEnv::new().await;
 
 	let response = expect_no_mail(env.stub_mailbox, async || {
 		env.app
@@ -145,7 +145,7 @@ async fn register_username_too_long() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_password_too_short() {
-	let env = get_test_env(false).await;
+	let env = TestEnv::new().await;
 
 	let response = expect_no_mail(env.stub_mailbox, async || {
 		env.app
@@ -170,7 +170,7 @@ async fn register_password_too_short() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_invalid_email() {
-	let env = get_test_env(false).await;
+	let env = TestEnv::new().await;
 
 	let response = expect_no_mail(env.stub_mailbox, async || {
 		env.app
@@ -192,7 +192,7 @@ async fn register_invalid_email() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_duplicate_email() {
-	let env = get_test_env(false).await;
+	let env = TestEnv::new().await;
 
 	expect_mail_to(
 		env.stub_mailbox.clone(),
@@ -230,7 +230,7 @@ async fn register_duplicate_email() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_duplicate_username() {
-	let env = get_test_env(true).await;
+	let env = TestEnv::new().await.create_test_user().await;
 
 	let response = expect_no_mail(env.stub_mailbox, async || {
 		env.app
@@ -254,7 +254,7 @@ async fn register_duplicate_username() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn confirm_email() {
-	let env = get_test_env(false).await;
+	let env = TestEnv::new().await;
 
 	expect_mail_to(env.stub_mailbox, vec!["bob@example.com"], async || {
 		env.app
@@ -307,7 +307,7 @@ async fn confirm_email() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn login_username() {
-	let env = get_test_env(true).await;
+	let env = TestEnv::new().await.create_test_user().await;
 
 	let response = env
 		.app
@@ -325,7 +325,7 @@ async fn login_username() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn login_email() {
-	let env = get_test_env(true).await;
+	let env = TestEnv::new().await.create_test_user().await;
 
 	let response = env
 		.app
@@ -343,7 +343,7 @@ async fn login_email() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn logout() {
-	let env = get_test_env(true).await;
+	let env = TestEnv::new().await.create_test_user().await;
 
 	let response = env
 		.app

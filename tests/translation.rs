@@ -9,11 +9,11 @@ use serde_json::{Value, json};
 
 mod common;
 
-use common::get_test_env;
+use common::TestEnv;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn create_translation() {
-	let env = get_test_env(true).await;
+	let env = TestEnv::new().await.create_test_user().await;
 
 	env.app
 		.post("/auth/login/username")
@@ -59,7 +59,7 @@ async fn create_translation() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn get_invalid_translations() {
-	let env = get_test_env(true).await;
+	let env = TestEnv::new().await.create_test_user().await;
 
 	env.app
 		.post("/auth/login/username")
