@@ -77,11 +77,19 @@ pub(crate) async fn register_profile(
 
 	let conn = pool.get().await?;
 	let new_profile = insertable_profile.insert(&conn).await?;
+	// Unwrap is safe as the token was explicitly set in the insertable profile
+	let confirmation_token =
+		new_profile.email_confirmation_token.clone().unwrap();
+
+	let confirmation_url = format!(
+		"{}/confirm_email/{}",
+		config.frontend_url, confirmation_token,
+	);
 
 	let mail = mailer.try_build_message(
 		&new_profile,
 		"Confirm your email",
-		&format!("Please confirm your email by going to {}", "/foo"),
+		&format!("Please confirm your email by going to {confirmation_url}"),
 	)?;
 
 	mailer.send(mail).await?;

@@ -15,6 +15,8 @@ pub struct Config {
 
 	pub production: bool,
 
+	pub frontend_url: String,
+
 	pub email_confirmation_token_lifetime: Duration,
 
 	pub access_token_name:     String,
@@ -54,6 +56,8 @@ impl Config {
 		let production = Self::get_env_default("PRODUCTION", "false")
 			.parse::<bool>()
 			.unwrap();
+
+		let frontend_url = Self::get_env("FRONTEND_URL");
 
 		let email_confirmation_token_lifetime = Duration::minutes(
 			Self::get_env_default("EMAIL_CONFIRMATION_TOKEN_LIFETIME", "5")
@@ -100,6 +104,7 @@ impl Config {
 			database_url,
 			redis_url,
 			production,
+			frontend_url,
 			email_confirmation_token_lifetime,
 			access_token_name,
 			access_token_lifetime,
