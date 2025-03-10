@@ -1,0 +1,30 @@
+tag-prefix: v
+
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+change-title-escapes: '\<*_&'
+
+latest: true
+
+categories:
+  - title: Features
+    labels:
+      - feat
+      - perf
+  - title: Bug Fixes
+    labels:
+      - fix
+  - title: Documentation
+    labels:
+      - docs
+  - title: Maintenance
+    labels:
+      - build
+      - ci
+      - refactor
+      - style
+      - test
+
+template: |
+  # Changes
+
+  $CHANGES
