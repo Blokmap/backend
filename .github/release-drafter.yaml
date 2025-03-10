@@ -3,8 +3,6 @@ tag-prefix: v
 change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
 change-title-escapes: '\<*_&'
 
-latest: true
-
 categories:
   - title: Features
     labels:
