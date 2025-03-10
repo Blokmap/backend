@@ -12,6 +12,7 @@ categories:
       - perf
   - title: Bug Fixes
     labels:
+      - bug
       - fix
   - title: Documentation
     labels:
