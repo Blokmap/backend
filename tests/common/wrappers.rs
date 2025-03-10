@@ -65,7 +65,7 @@ impl TestEnv {
 	/// Call a closure and check that it creates at least 1 email addressed to
 	/// the given list of receivers
 	#[allow(dead_code)]
-	pub async fn expect_mail_to<F, R, T>(&self, receivers: Vec<&str>, f: F) -> T
+	pub async fn expect_mail_to<F, R, T>(&self, receivers: &[&str], f: F) -> T
 	where
 		F: FnOnce() -> R,
 		R: Future<Output = T>,
@@ -94,7 +94,7 @@ impl TestEnv {
 
 		let last_mail = mailbox.last().unwrap();
 		let receivers = receivers
-			.into_iter()
+			.iter()
 			.map(|e| e.parse().unwrap())
 			.collect::<Vec<Address>>();
 

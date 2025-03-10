@@ -15,7 +15,7 @@ async fn register() {
 	let env = TestEnv::new().await;
 
 	let response = env
-		.expect_mail_to(vec!["bob@example.com"], async || {
+		.expect_mail_to(&["bob@example.com"], async || {
 			env.app
 				.post("/auth/register")
 				.json(&RegisterRequest {
@@ -199,7 +199,7 @@ async fn register_invalid_email() {
 async fn register_duplicate_email() {
 	let env = TestEnv::new().await;
 
-	env.expect_mail_to(vec!["bob@example.com"], async || {
+	env.expect_mail_to(&["bob@example.com"], async || {
 		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
@@ -259,7 +259,7 @@ async fn register_duplicate_username() {
 async fn confirm_email() {
 	let env = TestEnv::new().await;
 
-	env.expect_mail_to(vec!["bob@example.com"], async || {
+	env.expect_mail_to(&["bob@example.com"], async || {
 		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
