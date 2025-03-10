@@ -32,8 +32,8 @@ jobs:
         needs: [lint-format]
         env:
             # The test job doesn't run in a container and so can't use docker DNS
-            DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test
-            REDIS_URL: redis://127.0.0.1:6379
+            DATABASE_URL: postgresql://test:test@127.0.0.1:15432/test
+            REDIS_URL: redis://127.0.0.1:16379
             FRONTEND_URL: stub
 
         services:
@@ -45,12 +45,12 @@ jobs:
                     POSTGRES_PASSWORD: test
                     POSTGRES_DB: test
                 ports:
-                  - "5432:5432"
+                  - "15432:5432"
 
             test-redis:
                 image: redis:7-alpine
                 ports:
-                  - "6379:6379"
+                  - "16379:6379"
 
         steps:
           - name: Checkout code
