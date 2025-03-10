@@ -7,10 +7,9 @@ use super::TestEnv;
 impl TestEnv {
 	/// Call a closure and check that it creates no emails
 	#[allow(dead_code)]
-	pub async fn expect_no_mail<F, R, T>(&self, f: F) -> T
+	pub async fn expect_no_mail<F, T>(&self, f: F) -> T
 	where
-		F: FnOnce() -> R,
-		R: Future<Output = T>,
+		F: AsyncFnOnce() -> T,
 	{
 		let outbox_size = { self.stub_mailbox.mailbox.lock().len() };
 
@@ -32,10 +31,9 @@ impl TestEnv {
 
 	/// Call a closure and check that it creates at least 1 email
 	#[allow(dead_code)]
-	pub async fn expect_mail<F, R, T>(&self, f: F) -> T
+	pub async fn expect_mail<F, T>(&self, f: F) -> T
 	where
-		F: FnOnce() -> R,
-		R: Future<Output = T>,
+		F: AsyncFnOnce() -> T,
 	{
 		let outbox_size = { self.stub_mailbox.mailbox.lock().len() };
 
@@ -65,10 +63,9 @@ impl TestEnv {
 	/// Call a closure and check that it creates at least 1 email addressed to
 	/// the given list of receivers
 	#[allow(dead_code)]
-	pub async fn expect_mail_to<F, R, T>(&self, receivers: &[&str], f: F) -> T
+	pub async fn expect_mail_to<F, T>(&self, receivers: &[&str], f: F) -> T
 	where
-		F: FnOnce() -> R,
-		R: Future<Output = T>,
+		F: AsyncFnOnce() -> T,
 	{
 		let outbox_size = { self.stub_mailbox.mailbox.lock().len() };
 
