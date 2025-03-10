@@ -9,14 +9,13 @@ use blokmap::models::Profile;
 mod common;
 
 use common::TestEnv;
-use common::wrappers::{expect_mail_to, expect_no_mail};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register() {
 	let env = TestEnv::new().await;
 
-	let response =
-		expect_mail_to(env.stub_mailbox, vec!["bob@example.com"], async || {
+	let response = env
+		.expect_mail_to(vec!["bob@example.com"], async || {
 			env.app
 				.post("/auth/register")
 				.json(&RegisterRequest {
@@ -41,17 +40,18 @@ async fn register() {
 async fn register_invalid_username_start() {
 	let env = TestEnv::new().await;
 
-	let response = expect_no_mail(env.stub_mailbox, async || {
-		env.app
-			.post("/auth/register")
-			.json(&RegisterRequest {
-				username: "123".to_string(),
-				password: "bobdebouwer1234!".to_string(),
-				email:    "bob@example.com".to_string(),
-			})
-			.await
-	})
-	.await;
+	let response = env
+		.expect_no_mail(async || {
+			env.app
+				.post("/auth/register")
+				.json(&RegisterRequest {
+					username: "123".to_string(),
+					password: "bobdebouwer1234!".to_string(),
+					email:    "bob@example.com".to_string(),
+				})
+				.await
+		})
+		.await;
 
 	let body = response.text();
 
@@ -68,17 +68,18 @@ async fn register_invalid_username_start() {
 async fn register_invalid_username_symbols() {
 	let env = TestEnv::new().await;
 
-	let response = expect_no_mail(env.stub_mailbox, async || {
-		env.app
-			.post("/auth/register")
-			.json(&RegisterRequest {
-				username: "abc.".to_string(),
-				password: "bobdebouwer1234!".to_string(),
-				email:    "bob@example.com".to_string(),
-			})
-			.await
-	})
-	.await;
+	let response = env
+		.expect_no_mail(async || {
+			env.app
+				.post("/auth/register")
+				.json(&RegisterRequest {
+					username: "abc.".to_string(),
+					password: "bobdebouwer1234!".to_string(),
+					email:    "bob@example.com".to_string(),
+				})
+				.await
+		})
+		.await;
 
 	let body = response.text();
 
@@ -95,17 +96,18 @@ async fn register_invalid_username_symbols() {
 async fn register_username_too_short() {
 	let env = TestEnv::new().await;
 
-	let response = expect_no_mail(env.stub_mailbox, async || {
-		env.app
-			.post("/auth/register")
-			.json(&RegisterRequest {
-				username: "a".to_string(),
-				password: "bobdebouwer1234!".to_string(),
-				email:    "bob@example.com".to_string(),
-			})
-			.await
-	})
-	.await;
+	let response = env
+		.expect_no_mail(async || {
+			env.app
+				.post("/auth/register")
+				.json(&RegisterRequest {
+					username: "a".to_string(),
+					password: "bobdebouwer1234!".to_string(),
+					email:    "bob@example.com".to_string(),
+				})
+				.await
+		})
+		.await;
 
 	let body = response.text();
 
@@ -120,8 +122,9 @@ async fn register_username_too_short() {
 async fn register_username_too_long() {
 	let env = TestEnv::new().await;
 
-	let response = expect_no_mail(env.stub_mailbox, async || {
-		env.app
+	let response = env
+		.expect_no_mail(async || {
+			env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
 				username:
@@ -131,8 +134,8 @@ async fn register_username_too_long() {
 				email:    "bob@example.com".to_string(),
 			})
 			.await
-	})
-	.await;
+		})
+		.await;
 
 	let body = response.text();
 
@@ -147,17 +150,18 @@ async fn register_username_too_long() {
 async fn register_password_too_short() {
 	let env = TestEnv::new().await;
 
-	let response = expect_no_mail(env.stub_mailbox, async || {
-		env.app
-			.post("/auth/register")
-			.json(&RegisterRequest {
-				username: "bob".to_string(),
-				password: "123".to_string(),
-				email:    "bob@example.com".to_string(),
-			})
-			.await
-	})
-	.await;
+	let response = env
+		.expect_no_mail(async || {
+			env.app
+				.post("/auth/register")
+				.json(&RegisterRequest {
+					username: "bob".to_string(),
+					password: "123".to_string(),
+					email:    "bob@example.com".to_string(),
+				})
+				.await
+		})
+		.await;
 
 	let body = response.text();
 
@@ -172,17 +176,18 @@ async fn register_password_too_short() {
 async fn register_invalid_email() {
 	let env = TestEnv::new().await;
 
-	let response = expect_no_mail(env.stub_mailbox, async || {
-		env.app
-			.post("/auth/register")
-			.json(&RegisterRequest {
-				username: "bob".to_string(),
-				password: "bobdebouwer1234!".to_string(),
-				email:    "appel".to_string(),
-			})
-			.await
-	})
-	.await;
+	let response = env
+		.expect_no_mail(async || {
+			env.app
+				.post("/auth/register")
+				.json(&RegisterRequest {
+					username: "bob".to_string(),
+					password: "bobdebouwer1234!".to_string(),
+					email:    "appel".to_string(),
+				})
+				.await
+		})
+		.await;
 
 	let body = response.text();
 
@@ -194,33 +199,30 @@ async fn register_invalid_email() {
 async fn register_duplicate_email() {
 	let env = TestEnv::new().await;
 
-	expect_mail_to(
-		env.stub_mailbox.clone(),
-		vec!["bob@example.com"],
-		async || {
-			env.app
-				.post("/auth/register")
-				.json(&RegisterRequest {
-					username: "bob".to_string(),
-					password: "bobdebouwer1234!".to_string(),
-					email:    "bob@example.com".to_string(),
-				})
-				.await
-		},
-	)
-	.await;
-
-	let response = expect_no_mail(env.stub_mailbox, async || {
+	env.expect_mail_to(vec!["bob@example.com"], async || {
 		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
-				username: "bob2".to_string(),
+				username: "bob".to_string(),
 				password: "bobdebouwer1234!".to_string(),
 				email:    "bob@example.com".to_string(),
 			})
 			.await
 	})
 	.await;
+
+	let response = env
+		.expect_no_mail(async || {
+			env.app
+				.post("/auth/register")
+				.json(&RegisterRequest {
+					username: "bob2".to_string(),
+					password: "bobdebouwer1234!".to_string(),
+					email:    "bob@example.com".to_string(),
+				})
+				.await
+		})
+		.await;
 
 	let body = response.text();
 
@@ -232,17 +234,18 @@ async fn register_duplicate_email() {
 async fn register_duplicate_username() {
 	let env = TestEnv::new().await.create_test_user().await;
 
-	let response = expect_no_mail(env.stub_mailbox, async || {
-		env.app
-			.post("/auth/register")
-			.json(&RegisterRequest {
-				username: "bob".to_string(),
-				password: "bobdebouwer1234!".to_string(),
-				email:    "bob2@example.com".to_string(),
-			})
-			.await
-	})
-	.await;
+	let response = env
+		.expect_no_mail(async || {
+			env.app
+				.post("/auth/register")
+				.json(&RegisterRequest {
+					username: "bob".to_string(),
+					password: "bobdebouwer1234!".to_string(),
+					email:    "bob2@example.com".to_string(),
+				})
+				.await
+		})
+		.await;
 
 	assert!(response.maybe_cookie("blokmap_access_token").is_none());
 
@@ -256,7 +259,7 @@ async fn register_duplicate_username() {
 async fn confirm_email() {
 	let env = TestEnv::new().await;
 
-	expect_mail_to(env.stub_mailbox, vec!["bob@example.com"], async || {
+	env.expect_mail_to(vec!["bob@example.com"], async || {
 		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
