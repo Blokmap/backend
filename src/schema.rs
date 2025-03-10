@@ -11,13 +11,6 @@ pub mod sql_types {
 }
 
 diesel::table! {
-	alembic_version (version_num) {
-		#[max_length = 32]
-		version_num -> Varchar,
-	}
-}
-
-diesel::table! {
 	use diesel::sql_types::*;
 	use super::sql_types::ProfileState;
 
@@ -34,6 +27,7 @@ diesel::table! {
 		admin -> Bool,
 		state -> ProfileState,
 		created_at -> Timestamp,
+		last_login_at -> Timestamp,
 	}
 }
 
@@ -51,8 +45,4 @@ diesel::table! {
 	}
 }
 
-diesel::allow_tables_to_appear_in_same_query!(
-	alembic_version,
-	profile,
-	translation,
-);
+diesel::allow_tables_to_appear_in_same_query!(profile, translation,);

@@ -3,17 +3,24 @@
 #[macro_use]
 extern crate tracing;
 
-pub mod config;
+use axum::extract::FromRef;
+use axum_extra::extract::cookie::Key;
+use deadpool_diesel::postgres::{Object, Pool};
+
+mod config;
+mod error;
+
+pub mod controllers;
+pub mod mailer;
+pub mod middleware;
+pub mod models;
 pub mod routes;
 pub mod schema;
 
-pub mod controllers;
-pub mod error;
-pub mod models;
-
-use axum::extract::FromRef;
 pub use config::Config;
-use deadpool_diesel::postgres::{Object, Pool};
+pub use error::*;
+use mailer::Mailer;
+use redis::aio::MultiplexedConnection;
 
 /// An entire database pool
 pub type DbPool = Pool;
@@ -21,11 +28,17 @@ pub type DbPool = Pool;
 /// A single database connection
 pub type DbConn = Object;
 
+/// A redis cache connection
+pub type RedisConn = MultiplexedConnection;
+
 /// Common state of the app
 #[derive(Clone)]
 pub struct AppState {
-	pub config:        Config,
-	pub database_pool: DbPool,
+	pub config:           Config,
+	pub database_pool:    DbPool,
+	pub redis_connection: RedisConn,
+	pub cookie_jar_key:   Key,
+	pub mailer:           Mailer,
 }
 
 impl FromRef<AppState> for Config {
@@ -34,4 +47,16 @@ impl FromRef<AppState> for Config {
 
 impl FromRef<AppState> for DbPool {
 	fn from_ref(input: &AppState) -> Self { input.database_pool.clone() }
+}
+
+impl FromRef<AppState> for RedisConn {
+	fn from_ref(input: &AppState) -> Self { input.redis_connection.clone() }
+}
+
+impl FromRef<AppState> for Key {
+	fn from_ref(input: &AppState) -> Self { input.cookie_jar_key.clone() }
+}
+
+impl FromRef<AppState> for Mailer {
+	fn from_ref(input: &AppState) -> Self { input.mailer.clone() }
 }

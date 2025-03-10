@@ -1,12 +1,12 @@
-CREATE TYPE Language AS ENUM ('nl', 'en', 'fr', 'de');
+CREATE TYPE LANGUAGE AS ENUM ('nl', 'en', 'fr', 'de');
 
 CREATE TABLE translation (
 	id         SERIAL    PRIMARY KEY,
-	language   Language  NOT NULL,
+	language   LANGUAGE  NOT NULL,
 	key        UUID      NOT NULL,
 	text       TEXT      NOT NULL,
-	created_at TIMESTAMP NOT NULL     DEFAULT now(),
-	updated_at TIMESTAMP NOT NULL     DEFAULT now(),
+	created_at TIMESTAMP NOT NULL     DEFAULT NOW(),
+	updated_at TIMESTAMP NOT NULL     DEFAULT NOW(),
 
 	UNIQUE (language, key)
 );

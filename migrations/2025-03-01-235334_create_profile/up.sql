@@ -12,5 +12,6 @@ CREATE TABLE profile (
 	email_confirmation_token_expiry TIMESTAMP,
 	admin                           BOOLEAN       NOT NULL         DEFAULT false,
 	state                           PROFILE_STATE NOT NULL         DEFAULT 'pending_email_verification',
-	created_at                      TIMESTAMP     NOT NULL         DEFAULT now()
+	created_at                      TIMESTAMP     NOT NULL         DEFAULT NOW(),
+	last_login_at                   TIMESTAMP     NOT NULL         DEFAULT NOW()
 );

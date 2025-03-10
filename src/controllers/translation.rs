@@ -7,9 +7,8 @@ use axum::response::{IntoResponse, NoContent};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::DbPool;
-use crate::error::Error;
 use crate::models::{InsertableTranslation, Language, Translation};
+use crate::{DbPool, Error};
 
 /// The data needed to make a new [`Translation`]
 #[derive(Debug, Deserialize, Serialize)]
