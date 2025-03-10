@@ -4,99 +4,83 @@ use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
-use uuid::Uuid;
 
-use super::schema::translation::{
-	BulkTranslationsRequest,
-	BulkTranslationsResponse,
-	TranslationRequest,
-};
 use crate::DbPool;
 use crate::error::Error;
-use crate::models::{Language, NewTranslation, Translation};
+use crate::models::{Translation, UpdateTranslation};
+use crate::schemas::translation::{
+	CreateTranslationRequest,
+	TranslationResponse,
+	UpdateTranslationRequest,
+};
 
-/// Create and store a single translation in the database
+/// Create and store a single translation in the database.
 #[instrument(skip(pool))]
 pub(crate) async fn create_translation(
 	State(pool): State<DbPool>,
-	Json(translation): Json<TranslationRequest>,
+	Json(request): Json<CreateTranslationRequest>,
 ) -> Result<impl IntoResponse, Error> {
+	// Get a connection from the pool.
 	let conn = pool.get().await?;
 
-	let translation: NewTranslation = translation.into();
-	let translation: Translation = translation.insert(&conn).await?;
+	// Insert the translation into the database.
+	let translation = request.translation.insert(&conn).await?;
 
-	Ok((StatusCode::CREATED, Json(translation)))
-}
+	// Return a response with the created translation.
+	let response = TranslationResponse::from(translation);
 
-/// Create and store a list of translation in the database
-#[instrument(skip(pool))]
-pub(crate) async fn create_bulk_translations(
-	State(pool): State<DbPool>,
-	Json(bulk): Json<BulkTranslationsRequest>,
-) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let (_, translations) =
-		NewTranslation::bulk_insert(bulk.into(), &conn).await?;
-
-	let translations = translations
-		.into_iter()
-		.map(|translation| (translation.language, translation))
-		.collect();
-
-	Ok((StatusCode::CREATED, Json(BulkTranslationsResponse(translations))))
+	Ok((StatusCode::CREATED, Json(response)))
 }
 
 /// Get a specific translation with a given key and language
 #[instrument(skip(pool))]
 pub(crate) async fn get_translation(
 	State(pool): State<DbPool>,
-	Path((key, language)): Path<(Uuid, Language)>,
-) -> Result<Json<Translation>, Error> {
+	Path(id): Path<i32>,
+) -> Result<impl IntoResponse, Error> {
+	// Get a connection from the pool.
 	let conn = pool.get().await?;
 
-	let translation =
-		Translation::get_by_key_and_language(key, language, &conn).await?;
+	// Get the translation from the database.
+	let translation = Translation::get_by_id(id, &conn).await?;
 
-	Ok(Json(translation))
+	// Return a response with the translation.
+	let response = TranslationResponse::from(translation);
+
+	Ok((StatusCode::OK, Json(response)))
 }
 
-/// Get all translations with a given key
-#[instrument(skip(pool))]
-pub(crate) async fn get_bulk_translations(
-	State(pool): State<DbPool>,
-	Path(key): Path<Uuid>,
-) -> Result<Json<Vec<Translation>>, Error> {
-	let conn = pool.get().await?;
-
-	let translations = Translation::get_by_key(key, &conn).await?;
-
-	Ok(Json(translations))
-}
-
-/// Delete the translation with the given key and language
+/// Delete the translation with the given id.
 #[instrument(skip(pool))]
 pub(crate) async fn delete_translation(
 	State(pool): State<DbPool>,
-	Path((key, language)): Path<(Uuid, Language)>,
-) -> Result<NoContent, Error> {
+	Path(id): Path<i32>,
+) -> Result<impl IntoResponse, Error> {
+	// Get a connection from the pool.
 	let conn = pool.get().await?;
 
-	Translation::delete_by_key_and_language(key, language, &conn).await?;
+	// Delete the translation from the database.
+	Translation::delete_by_id(id, &conn).await?;
 
-	Ok(NoContent)
+	// Return a response with no content.
+	Ok((StatusCode::NO_CONTENT, NoContent))
 }
 
-/// Delete all translations with a given key
+/// Update the translation with the given id.
 #[instrument(skip(pool))]
-pub(crate) async fn delete_bulk_translations(
+pub(crate) async fn update_translation(
 	State(pool): State<DbPool>,
-	Path(key): Path<Uuid>,
-) -> Result<NoContent, Error> {
+	Path(id): Path<i32>,
+	Json(request): Json<UpdateTranslationRequest>,
+) -> Result<impl IntoResponse, Error> {
+	// Get a connection from the pool.
 	let conn = pool.get().await?;
 
-	Translation::delete_by_key(key, &conn).await?;
+	// Update the translation in the database.
+	let translation = request.translation.update(id, &conn).await?;
 
-	Ok(NoContent)
+	// Return a response with the updated translation.
+	let response = TranslationResponse::from(translation);
+
+	Ok((StatusCode::OK, Json(response)))
 }

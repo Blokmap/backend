@@ -4,16 +4,16 @@
 extern crate tracing;
 
 pub mod config;
-pub mod database;
 pub mod routes;
 
 pub mod controllers;
 pub mod error;
 pub mod models;
+pub mod schema;
+pub mod schemas;
 
 use axum::extract::FromRef;
 pub use config::Config;
-pub use database::schema;
 use deadpool_diesel::postgres::{Object, Pool};
 
 /// An entire database pool

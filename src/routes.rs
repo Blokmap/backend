@@ -7,15 +7,19 @@ use tower_http::trace::TraceLayer;
 
 use crate::AppState;
 use crate::controllers::healthcheck;
-use crate::controllers::location::{create_location, get_locations};
+use crate::controllers::location::{
+	create_location,
+	delete_location,
+	get_location,
+	get_locations,
+	update_location,
+};
 use crate::controllers::profile::get_all_profiles;
 use crate::controllers::translation::{
-	create_bulk_translations,
 	create_translation,
-	delete_bulk_translations,
 	delete_translation,
-	get_bulk_translations,
 	get_translation,
+	update_translation,
 };
 
 /// Get the app router.
@@ -40,19 +44,18 @@ fn get_profile_routes() -> Router<AppState> {
 
 /// Get the translation routes.
 fn get_translation_routes() -> Router<AppState> {
-	Router::new()
-		.route("/", post(create_translation))
-		.route("/bulk", post(create_bulk_translations))
-		.route(
-			"/{key}",
-			get(get_bulk_translations).delete(delete_bulk_translations),
-		)
-		.route(
-			"/{key}/{language}",
-			get(get_translation).delete(delete_translation),
-		)
+	Router::new().route("/", post(create_translation)).route(
+		"/{id}",
+		get(get_translation)
+			.delete(delete_translation)
+			.post(update_translation),
+	)
 }
 
+/// Get the location routes.
 fn get_location_routes() -> Router<AppState> {
-	Router::new().route("/", post(create_location).get(get_locations))
+	Router::new().route("/", post(create_location).get(get_locations)).route(
+		"/{id}",
+		get(get_location).post(update_location).delete(delete_location),
+	)
 }

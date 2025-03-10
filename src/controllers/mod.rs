@@ -9,7 +9,6 @@ use crate::error::Error;
 
 pub mod location;
 pub mod profile;
-pub mod schema;
 pub mod translation;
 
 /// Check if the database connection and webserver are functional

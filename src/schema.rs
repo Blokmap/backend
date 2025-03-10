@@ -2,10 +2,6 @@
 
 pub mod sql_types {
     #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
-    #[diesel(postgres_type(name = "language"))]
-    pub struct Language;
-
-    #[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "profile_state"))]
     pub struct ProfileState;
 }
@@ -14,8 +10,8 @@ diesel::table! {
     location (id) {
         id -> Int4,
         name -> Text,
-        description_key -> Uuid,
-        excerpt_key -> Uuid,
+        description_id -> Int4,
+        excerpt_id -> Int4,
         seat_count -> Int4,
         is_reservable -> Bool,
         is_visible -> Bool,
@@ -65,14 +61,12 @@ diesel::table! {
 }
 
 diesel::table! {
-    use diesel::sql_types::*;
-    use super::sql_types::Language;
-
     translation (id) {
         id -> Int4,
-        language -> Language,
-        key -> Uuid,
-        text -> Text,
+        nl -> Nullable<Text>,
+        en -> Nullable<Text>,
+        fr -> Nullable<Text>,
+        de -> Nullable<Text>,
         created_at -> Timestamp,
         updated_at -> Timestamp,
     }

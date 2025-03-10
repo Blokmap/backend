@@ -1,0 +1,31 @@
+thread 'main' panicked at /rust/deps/annotate-snippets-0.9.2/src/display_list/from_snippet.rs:275:9:
+SourceAnnotation range `(80, 81)` is bigger than source length `60`
+stack backtrace:
+   0:     0x7f1b703cb1e5 - std::backtrace::Backtrace::create::h7208eedda1338435
+   1:     0x7f1b6e7a9105 - std::backtrace::Backtrace::force_capture::hee67edab44cd7c83
+   2:     0x7f1b6d9199be - std[20d29db3e999c305]::panicking::update_hook::<alloc[e1570dfcc331507b]::boxed::Box<rustc_driver_impl[633be37e059aaf16]::install_ice_hook::{closure#1}>>::{closure#0}
+   3:     0x7f1b6e7c1a13 - std::panicking::rust_panic_with_hook::hb92b3172308f4e8b
+   4:     0x7f1b6e7c170a - std::panicking::begin_panic_handler::{{closure}}::hbf0e4f1d78818dec
+   5:     0x7f1b6e7bef39 - std::sys::backtrace::__rust_end_short_backtrace::hfc58a21f6afae4ae
+   6:     0x7f1b6e7c13cd - rust_begin_unwind
+   7:     0x7f1b6b45be40 - core::panicking::panic_fmt::h52a3de72b5c008c5
+   8:     0x60184b58217d - <annotate_snippets[4274ade940a36283]::display_list::structs::DisplayList as core[7509374bb9bacf81]::convert::From<annotate_snippets[4274ade940a36283]::snippet::Snippet>>::from
+   9:     0x60184b3ad892 - <rustfmt_nightly[8bef2c5348bbd989]::format_report_formatter::FormatReportFormatter as core[7509374bb9bacf81]::fmt::Display>::fmt
+  10:     0x7f1b6f0057e2 - core::fmt::write::h73a1e37ddefe0a4f
+  11:     0x7f1b6e7b2dfe - <&std::io::stdio::Stderr as std::io::Write>::write_fmt::h0f2abac5f5e3548b
+  12:     0x7f1b6e7b3818 - std::io::stdio::_eprint::hbdd3b0ab288005db
+  13:     0x60184b2ac24f - rustfmt[ce1aaa3c9c957e5c]::format_and_emit_report::<std[20d29db3e999c305]::io::stdio::Stdout>
+  14:     0x60184b2aacef - rustfmt[ce1aaa3c9c957e5c]::execute
+  15:     0x60184b2a5bdf - rustfmt[ce1aaa3c9c957e5c]::main
+  16:     0x60184b29c443 - std[20d29db3e999c305]::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
+  17:     0x60184b29c9b9 - std[20d29db3e999c305]::rt::lang_start::<()>::{closure#0}
+  18:     0x7f1b6ff2699e - std::rt::lang_start_internal::h71fef5e5f25ac3f5
+  19:     0x60184b2ad278 - main
+  20:     0x7f1b69f0f488 - <unknown>
+  21:     0x7f1b69f0f54c - __libc_start_main
+  22:     0x60184b28dcf9 - <unknown>
+  23:                0x0 - <unknown>
+
+
+rustc version: 1.87.0-nightly (e16a049ad 2025-03-03)
+platform: x86_64-unknown-linux-gnu

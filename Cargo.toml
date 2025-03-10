@@ -46,6 +46,7 @@ tracing-subscriber = "0.3.19"
 uuid = { version = "1.15.1", features = ["v4", "serde"] }
 validator = "0.20.0"
 validator_derive = "0.20.0"
+diesel-derive-newtype = "2.1.2"
 
 [dev-dependencies]
 diesel_migrations = { version = "2.2.0", features = ["postgres"] }
