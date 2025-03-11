@@ -27,8 +27,8 @@ pub fn get_app_router(state: AppState) -> Router {
 	let api_routes = Router::new()
 		.route("/healthcheck", get(healthcheck))
 		.nest("/profile", get_profile_routes())
-		.nest("/translation", get_translation_routes())
-		.nest("/location", get_location_routes());
+		.nest("/translations", get_translation_routes())
+		.nest("/locations", get_location_routes());
 
 	Router::new()
 		.merge(api_routes)

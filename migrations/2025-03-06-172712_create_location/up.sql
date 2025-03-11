@@ -14,8 +14,8 @@ CREATE TABLE location (
     province       TEXT             NOT NULL,
     latitude       DOUBLE PRECISION NOT NULL,
     longitude      DOUBLE PRECISION NOT NULL,
-    created_at     TIMESTAMPTZ      NOT NULL DEFAULT now(),
-    updated_at     TIMESTAMPTZ      NOT NULL DEFAULT now(),
+    created_at     TIMESTAMPTZ      NOT NULL    DEFAULT now(),
+    updated_at     TIMESTAMPTZ      NOT NULL    DEFAULT now(),
 
     CONSTRAINT fk_description_id
     FOREIGN KEY (description_id)
@@ -33,14 +33,14 @@ SELECT diesel_manage_updated_at('location');
 
 -- Create opening_times table
 CREATE TABLE opening_time (
-    id            SERIAL PRIMARY KEY,
-    location_id   INTEGER NOT NULL,
+    id            SERIAL      PRIMARY KEY,
+    location_id   INTEGER     NOT NULL,
     start_time    TIMESTAMPTZ NOT NULL,
     end_time      TIMESTAMPTZ NOT NULL,
     seat_count    INTEGER,
     is_reservable BOOLEAN,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at    TIMESTAMPTZ NOT NULL    DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL    DEFAULT now(),
 
     CONSTRAINT fk_location_id
     FOREIGN KEY (location_id)

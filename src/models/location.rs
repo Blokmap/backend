@@ -8,6 +8,15 @@ use crate::DbConn;
 use crate::error::Error;
 use crate::schema::{location, translation};
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Bounds {
+	pub north_east_lat: f64,
+	pub north_east_lng: f64,
+	pub south_west_lat: f64,
+	pub south_west_lng: f64,
+}
+
 #[derive(
 	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
 )]
@@ -33,39 +42,31 @@ pub struct Location {
 }
 
 impl Location {
-	/// Get a [`Location`] by its id.
+	/// Get a [`Location`] by its id and include its [`Translation`]s.
 	pub(crate) async fn get_by_id(
 		loc_id: i32,
 		conn: &DbConn,
 	) -> Result<(Location, Translation, Translation), Error> {
-		// Create explicit aliases for translation table
-		let description = diesel::alias!(translation as description);
-		let excerpt = diesel::alias!(translation as excerpt);
-
 		let result = conn
 			.interact(move |conn| {
-				use crate::schema::location::dsl::*;
-
-				// Base query
-				let query = location.filter(id.eq(loc_id)).into_boxed();
-
-				// First left join for description translation
-				let query =
-					query.left_join(description.on(
-						description_id.eq(description.field(translation::id)),
-					));
-
-				// Second left join for excerpt translation
-				let query = query.left_join(
-					excerpt.on(excerpt_id.eq(excerpt.field(translation::id))),
+				let (description, excerpt) = diesel::alias!(
+					translation as description,
+					translation as excerpt
 				);
 
-				// Select all three entities with nullables
-				query
+				location::table
+					.filter(location::id.eq(loc_id))
+					.inner_join(
+						description.on(location::description_id
+							.eq(description.field(translation::id))),
+					)
+					.inner_join(excerpt.on(
+						location::excerpt_id.eq(excerpt.field(translation::id)),
+					))
 					.select((
-						Location::as_select(),
-						Translation::as_select(),
-						Translation::as_select(),
+						location::all_columns,
+						description.fields(translation::all_columns),
+						excerpt.fields(translation::all_columns),
 					))
 					.first(conn)
 			})
@@ -74,13 +75,44 @@ impl Location {
 		Ok(result)
 	}
 
-	/// Get all [`Location`]s.
-	pub(crate) async fn get_all(conn: &DbConn) -> Result<Vec<Location>, Error> {
+	/// Get all [`Location`]s and include their [`Translation`]s.
+	pub(crate) async fn get_all(
+		bounds: Bounds,
+		conn: &DbConn,
+	) -> Result<Vec<(Location, Translation, Translation)>, Error> {
 		let locations = conn
 			.interact(move |conn| {
-				use self::location::dsl::*;
+				// Alias the translation table twice to join it twice.
+				let (description, excerpt) = diesel::alias!(
+					translation as description,
+					translation as excerpt
+				);
 
-				location.select(Location::as_select()).load(conn)
+				// Get the bounds for the locations.
+				let (north_lat, north_lng) =
+					(bounds.north_east_lat, bounds.north_east_lng);
+				let (south_lat, south_lng) =
+					(bounds.south_west_lat, bounds.south_west_lng);
+
+				location::table
+					.filter(
+						location::latitude.between(south_lat, north_lat).and(
+							location::longitude.between(south_lng, north_lng),
+						),
+					)
+					.inner_join(
+						description.on(location::description_id
+							.eq(description.field(translation::id))),
+					)
+					.inner_join(excerpt.on(
+						location::excerpt_id.eq(excerpt.field(translation::id)),
+					))
+					.select((
+						location::all_columns,
+						description.fields(translation::all_columns),
+						excerpt.fields(translation::all_columns),
+					))
+					.load(conn)
 			})
 			.await??;
 
