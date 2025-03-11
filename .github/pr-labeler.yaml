@@ -1,0 +1,8 @@
+build: ["build/*"]
+ci: ["ci/*", "cicd/*", "cd/*"]
+docs: ["doc/*", "docs/*", "documentation/*"]
+feat: ["feat/*", "feature/*"]
+bug: ["fix/*", "bug/*", "bugfix/*"]
+perf: ["perf/*", "performance/*"]
+refactor: ["refactor/*"]
+test: ["test/*"]
