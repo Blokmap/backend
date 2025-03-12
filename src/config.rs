@@ -32,10 +32,12 @@ pub struct Config {
 }
 
 impl Config {
+	/// Get an environment variable or panic if it is not set.
 	fn get_env(var: &str) -> String {
 		std::env::var(var).unwrap_or_else(|_| panic!("{var} must be set"))
 	}
 
+	/// Get an environment variable or use a default value.
 	fn get_env_default(var: &str, default: impl Into<String>) -> String {
 		std::env::var(var).unwrap_or_else(|_| {
 			warn!("{var} not set, using default");

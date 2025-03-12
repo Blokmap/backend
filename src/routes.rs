@@ -16,14 +16,19 @@ use crate::controllers::auth::{
 	register_profile,
 };
 use crate::controllers::healthcheck;
+use crate::controllers::location::{
+	create_location,
+	delete_location,
+	get_location,
+	get_locations,
+	update_location,
+};
 use crate::controllers::profile::{get_all_profiles, get_current_profile};
 use crate::controllers::translation::{
-	create_bulk_translations,
 	create_translation,
-	delete_bulk_translations,
 	delete_translation,
-	get_bulk_translations,
 	get_translation,
+	update_translation,
 };
 use crate::middleware::AuthLayer;
 
@@ -31,14 +36,15 @@ use crate::middleware::AuthLayer;
 pub fn get_app_router(state: AppState) -> Router {
 	let api_routes = Router::new()
 		.route("/healthcheck", get(healthcheck))
+		.nest(
+			"/translations",
+			get_translation_routes().route_layer(AuthLayer::new(state.clone())),
+		)
+		.nest("/locations", get_location_routes())
 		.nest("/auth", get_auth_routes(&state))
 		.nest(
 			"/profile",
 			get_profile_routes().route_layer(AuthLayer::new(state.clone())),
-		)
-		.nest(
-			"/translation",
-			get_translation_routes().route_layer(AuthLayer::new(state.clone())),
 		);
 
 	Router::new()
@@ -52,6 +58,7 @@ pub fn get_app_router(state: AppState) -> Router {
 		.with_state(state)
 }
 
+/// Get the auth routes.
 fn get_auth_routes(state: &AppState) -> Router<AppState> {
 	Router::new()
 		.route("/register", post(register_profile))
@@ -64,22 +71,27 @@ fn get_auth_routes(state: &AppState) -> Router<AppState> {
 		)
 }
 
+/// Get the profile routes.
 fn get_profile_routes() -> Router<AppState> {
 	Router::new()
 		.route("/", get(get_all_profiles))
 		.route("/me", get(get_current_profile))
 }
 
+/// Get the translation routes.
 fn get_translation_routes() -> Router<AppState> {
-	Router::new()
-		.route("/", post(create_translation))
-		.route("/bulk", post(create_bulk_translations))
-		.route(
-			"/{key}",
-			get(get_bulk_translations).delete(delete_bulk_translations),
-		)
-		.route(
-			"/{key}/{language}",
-			get(get_translation).delete(delete_translation),
-		)
+	Router::new().route("/", post(create_translation)).route(
+		"/{id}",
+		get(get_translation)
+			.delete(delete_translation)
+			.post(update_translation),
+	)
+}
+
+/// Get the location routes.
+fn get_location_routes() -> Router<AppState> {
+	Router::new().route("/", post(create_location).get(get_locations)).route(
+		"/{id}",
+		get(get_location).post(update_location).delete(delete_location),
+	)
 }

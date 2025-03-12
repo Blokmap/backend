@@ -1,6 +1,7 @@
 .git/
 .github/
 
+migrations/
 target/
 tests/
 
