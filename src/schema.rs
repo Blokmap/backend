@@ -57,6 +57,7 @@ diesel::table! {
 		admin -> Bool,
 		state -> ProfileState,
 		created_at -> Timestamp,
+		last_login_at -> Timestamp,
 	}
 }
 

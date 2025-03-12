@@ -2,6 +2,7 @@ name: Build and release a new docker image
 
 permissions:
     packages: write
+    contents: read
 
 on:
     push:
@@ -11,7 +12,19 @@ jobs:
     ci:
         uses: ./.github/workflows/ci.yaml
 
-    release-backend:
+    create-release-draft:
+        runs-on: self-hosted
+        needs: ci
+        permissions:
+            contents: write
+        steps:
+          - uses: release-drafter/release-drafter@v6
+            with:
+                config-name: release-drafter.yaml
+            env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    release-backend-package:
         runs-on: self-hosted
         needs: ci
         steps:
@@ -43,7 +56,7 @@ jobs:
                 cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-backend:buildcache
                 cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-backend:buildcache,mode=max
 
-    release-migrations:
+    release-migrations-package:
         runs-on: self-hosted
         needs: ci
         steps:
@@ -77,7 +90,7 @@ jobs:
 
     deploy:
         runs-on: self-hosted
-        needs: [release-backend, release-migrations]
+        needs: [release-backend-package, release-migrations-package]
         steps:
           - name: Run migrations
             uses: appleboy/ssh-action@v1.2.1

@@ -2,9 +2,8 @@ use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::DbConn;
-use crate::error::Error;
 use crate::schema::translation;
+use crate::{DbConn, Error};
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize, Hash)]
 pub enum Language {

@@ -10,4 +10,5 @@ RUN cargo binstall diesel_cli
 
 COPY ./migrations ./migrations
 
-CMD [ "diesel", "migration", "run" ]
+ENTRYPOINT [ "diesel" ]
+CMD [ "migration", "run" ]

@@ -3,13 +3,16 @@
 
 migrations/
 target/
+tests/
 
 .dockerignore
 .editorconfig
 .gitignore
 
 diesel.toml
-Dockerfile
+Dockerfile.dev
+Dockerfile.migrations
+Dockerfile.prod
 LICENSE
 Makefile
 README.md

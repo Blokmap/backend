@@ -5,6 +5,7 @@ mod profile;
 mod translation;
 
 pub use location::*;
+pub mod ephemeral;
 pub use profile::*;
 use serde::{Deserialize, Deserializer};
 pub use translation::*;
