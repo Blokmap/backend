@@ -104,6 +104,41 @@ pub(crate) async fn register_profile(
 	Ok((StatusCode::CREATED, Json(new_profile)))
 }
 
+pub(crate) async fn resend_confirmation_email(
+	State(pool): State<DbPool>,
+	State(config): State<Config>,
+	State(mailer): State<Mailer>,
+	Path(profile_id): Path<i32>,
+) -> Result<NoContent, Error> {
+	let conn = pool.get().await?;
+	let mut profile = Profile::get(profile_id, &conn).await?;
+
+	let email_confirmation_token = Uuid::new_v4().to_string();
+	let email_confirmation_token_expiry =
+		Utc::now().naive_utc() + config.email_confirmation_token_lifetime;
+
+	profile.email_confirmation_token = Some(email_confirmation_token.clone());
+	profile.email_confirmation_token_expiry =
+		Some(email_confirmation_token_expiry);
+
+	let profile = profile.update(&conn).await?;
+
+	let confirmation_url = format!(
+		"{}/confirm_email/{}",
+		config.frontend_url, email_confirmation_token,
+	);
+
+	let mail = mailer.try_build_message(
+		&profile,
+		"Confirm your email",
+		&format!("Please confirm your email by going to {confirmation_url}"),
+	)?;
+
+	mailer.send(mail).await?;
+
+	Ok(NoContent)
+}
+
 #[instrument(skip(pool, config, jar))]
 pub(crate) async fn confirm_email(
 	State(pool): State<DbPool>,

@@ -366,6 +366,88 @@ async fn confirm_email_expired_token() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn resend_confirmation_email() {
+	let env = TestEnv::new().await;
+
+	env.expect_mail_to(&["bob@example.com"], async || {
+		env.app
+			.post("/auth/register")
+			.json(&RegisterRequest {
+				username: "bob".to_string(),
+				password: "bobdebouwer1234!".to_string(),
+				email:    "bob@example.com".to_string(),
+			})
+			.await;
+	})
+	.await;
+
+	let conn = env.db_guard.create_pool().get().await.unwrap();
+	let old_profile: Profile = conn
+		.interact(|conn| {
+			use blokmap::schema::profile::dsl::*;
+			use diesel::prelude::*;
+
+			profile.filter(username.eq("bob")).get_result(conn)
+		})
+		.await
+		.unwrap()
+		.unwrap();
+
+	let old_token = old_profile.email_confirmation_token.clone();
+	let old_expiry = old_profile.email_confirmation_token_expiry;
+
+	assert!(old_token.is_some());
+
+	env.expect_mail_to(&["bob@example.com"], async || {
+		env.app
+			.post(&format!(
+				"/auth/resend_confirmation_email/{}",
+				old_profile.id
+			))
+			.json(&RegisterRequest {
+				username: "bob".to_string(),
+				password: "bobdebouwer1234!".to_string(),
+				email:    "bob@example.com".to_string(),
+			})
+			.await;
+	})
+	.await;
+
+	let new_profile: Profile = conn
+		.interact(|conn| {
+			use blokmap::schema::profile::dsl::*;
+			use diesel::prelude::*;
+
+			profile.filter(username.eq("bob")).get_result(conn)
+		})
+		.await
+		.unwrap()
+		.unwrap();
+
+	let new_token = new_profile.email_confirmation_token.clone();
+	let new_expiry = new_profile.email_confirmation_token_expiry;
+
+	assert_ne!(old_token, new_token);
+	assert_ne!(old_expiry, new_expiry);
+
+	let response = env
+		.app
+		.post(&format!("/auth/confirm_email/{}", new_token.unwrap()))
+		.await;
+
+	let _access_token = response.cookie("blokmap_access_token");
+
+	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
+
+	let response = env.app.get("/profile/me").await;
+	let body = response.json::<Profile>();
+
+	assert_eq!(response.status_code(), StatusCode::OK);
+	assert_eq!(body.username, "bob".to_string());
+	assert_eq!(body.email, Some("bob@example.com".to_string()));
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn login_username() {
 	let env = TestEnv::new().await.create_test_user().await;
 
