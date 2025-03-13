@@ -136,6 +136,8 @@ pub(crate) async fn resend_confirmation_email(
 
 	mailer.send(mail).await?;
 
+	info!("sent new email confirmation email for profile {}", profile.id);
+
 	Ok(NoContent)
 }
 
@@ -166,9 +168,9 @@ pub(crate) async fn confirm_email(
 
 	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
 
-	info!("confirmed email for profile {}", profile.id);
+	let profile = profile.update_last_login(&conn).await?;
 
-	profile.update_last_login(&conn).await?;
+	info!("confirmed email for profile {}", profile.id);
 
 	Ok((jar, NoContent))
 }
@@ -199,6 +201,8 @@ pub(crate) async fn login_profile_with_username(
 	let refresh_token_cookie = session.to_refresh_token_cookie(&config);
 
 	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
+
+	let profile = profile.update_last_login(&conn).await?;
 
 	info!("logged in profile {} with username", profile.id);
 
@@ -231,6 +235,8 @@ pub(crate) async fn login_profile_with_email(
 	let refresh_token_cookie = session.to_refresh_token_cookie(&config);
 
 	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
+
+	let profile = profile.update_last_login(&conn).await?;
 
 	info!("logged in profile {} with email", profile.id);
 
