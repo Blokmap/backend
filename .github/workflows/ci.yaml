@@ -48,7 +48,7 @@ jobs:
                   - "15432:5432"
 
             test-redis:
-                image: redis-stack:7.4.0-v3
+                image: redis/redis-stack:7.4.0-v3
                 env:
                     REDIS_ARGS: "--requirepass password --user username on >password ~* allcommands --user default off nopass nocommands"
                 ports:
