@@ -8,6 +8,7 @@ use blokmap::models::Profile;
 
 mod common;
 
+use chrono::Utc;
 use common::TestEnv;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -306,6 +307,62 @@ async fn confirm_email() {
 	assert_eq!(response.status_code(), StatusCode::OK);
 	assert_eq!(body.username, "bob".to_string());
 	assert_eq!(body.email, Some("bob@example.com".to_string()));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn confirm_email_expired_token() {
+	let env = TestEnv::new().await;
+
+	env.expect_mail_to(&["bob@example.com"], async || {
+		env.app
+			.post("/auth/register")
+			.json(&RegisterRequest {
+				username: "bob".to_string(),
+				password: "bobdebouwer1234!".to_string(),
+				email:    "bob@example.com".to_string(),
+			})
+			.await;
+	})
+	.await;
+
+	let conn = env.db_guard.create_pool().get().await.unwrap();
+	let profile: Profile = conn
+		.interact(|conn| {
+			use blokmap::schema::profile::dsl::*;
+			use diesel::prelude::*;
+
+			profile.filter(username.eq("bob")).get_result(conn)
+		})
+		.await
+		.unwrap()
+		.unwrap();
+
+	assert!(profile.email_confirmation_token.is_some());
+
+	let profile_id = profile.id;
+	let new_expiry = Utc::now().naive_utc() - chrono::Duration::days(1);
+
+	conn.interact(move |conn| {
+		use blokmap::schema::profile::dsl::*;
+		use diesel::prelude::*;
+
+		diesel::update(profile.find(profile_id))
+			.set(email_confirmation_token_expiry.eq(new_expiry))
+			.execute(conn)
+	})
+	.await
+	.unwrap()
+	.unwrap();
+
+	let response = env
+		.app
+		.post(&format!(
+			"/auth/confirm_email/{}",
+			profile.email_confirmation_token.unwrap()
+		))
+		.await;
+
+	assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 }
 
 #[tokio::test(flavor = "multi_thread")]
