@@ -33,7 +33,7 @@ jobs:
         env:
             # The test job doesn't run in a container and so can't use docker DNS
             DATABASE_URL: postgresql://test:test@127.0.0.1:15432/test
-            REDIS_URL: redis://127.0.0.1:16379
+            REDIS_URL: redis://username:password@127.0.0.1:16379
             FRONTEND_URL: stub
 
         services:
@@ -48,9 +48,9 @@ jobs:
                   - "15432:5432"
 
             test-redis:
-                image: redis:7-alpine
+                image: redis-stack:7.4.0-v3
                 env:
-                    ALLOW_EMPTY_PASSWORD: yes
+                    REDIS_ARGS: "--requirepass password --user username on >password ~* allcommands --user default off nopass nocommands"
                 ports:
                   - "16379:6379"
 
