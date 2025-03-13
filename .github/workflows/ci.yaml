@@ -49,6 +49,8 @@ jobs:
 
             test-redis:
                 image: redis:7-alpine
+                env:
+                    ALLOW_EMPTY_PASSWORD: yes
                 ports:
                   - "16379:6379"
 
