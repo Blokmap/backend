@@ -17,7 +17,11 @@ use crate::controllers::auth::{
 	resend_confirmation_email,
 };
 use crate::controllers::healthcheck;
-use crate::controllers::profile::{get_all_profiles, get_current_profile};
+use crate::controllers::profile::{
+	get_all_profiles,
+	get_current_profile,
+	update_current_profile,
+};
 use crate::controllers::translation::{
 	create_bulk_translations,
 	create_translation,
@@ -72,7 +76,7 @@ fn get_auth_routes(state: &AppState) -> Router<AppState> {
 fn get_profile_routes() -> Router<AppState> {
 	Router::new()
 		.route("/", get(get_all_profiles))
-		.route("/me", get(get_current_profile))
+		.route("/me", get(get_current_profile).patch(update_current_profile))
 }
 
 fn get_translation_routes() -> Router<AppState> {

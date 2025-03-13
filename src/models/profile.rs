@@ -126,6 +126,35 @@ impl InsertableProfile {
 	}
 }
 
+#[derive(AsChangeset, Clone, Debug, Deserialize, Serialize)]
+#[diesel(table_name = profile)]
+pub struct ProfileUpdate {
+	pub username:      Option<String>,
+	pub pending_email: Option<String>,
+}
+
+impl ProfileUpdate {
+	/// Update a [`Profile`] with the given changes
+	pub(crate) async fn apply_to(
+		self,
+		target_id: i32,
+		conn: &DbConn,
+	) -> Result<Profile, Error> {
+		let new = conn
+			.interact(move |conn| {
+				use self::profile::dsl::*;
+
+				diesel::update(profile.find(target_id))
+					.set(self)
+					.returning(Profile::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(new)
+	}
+}
+
 impl Profile {
 	/// Get a [`Profile`] given its id
 	pub(crate) async fn get(
