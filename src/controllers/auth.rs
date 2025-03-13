@@ -141,7 +141,7 @@ pub(crate) async fn resend_confirmation_email(
 	Ok(NoContent)
 }
 
-#[instrument(skip(pool, config, jar))]
+#[instrument(skip(pool, r_conn, config, jar))]
 pub(crate) async fn confirm_email(
 	State(pool): State<DbPool>,
 	State(mut r_conn): State<RedisConn>,
@@ -171,6 +171,99 @@ pub(crate) async fn confirm_email(
 	let profile = profile.update_last_login(&conn).await?;
 
 	info!("confirmed email for profile {}", profile.id);
+
+	Ok((jar, NoContent))
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PasswordResetRequest {
+	pub username: String,
+}
+
+#[instrument(skip(pool, config, mailer, request))]
+pub(crate) async fn request_password_reset(
+	State(pool): State<DbPool>,
+	State(config): State<Config>,
+	State(mailer): State<Mailer>,
+	Json(request): Json<PasswordResetRequest>,
+) -> Result<NoContent, Error> {
+	let conn = pool.get().await?;
+	let mut profile = Profile::get_by_username(request.username, &conn).await?;
+
+	let password_reset_token = Uuid::new_v4().to_string();
+	let password_reset_token_expiry =
+		Utc::now().naive_utc() + config.password_reset_token_lifetime;
+
+	profile.password_reset_token = Some(password_reset_token.clone());
+	profile.password_reset_token_expiry = Some(password_reset_token_expiry);
+	let profile = profile.update(&conn).await?;
+
+	let reset_url = format!(
+		"{}/reset_password/{}",
+		config.frontend_url, password_reset_token,
+	);
+
+	let mail = mailer.try_build_message(
+		&profile,
+		"Reset your password",
+		&format!("You can reset your password by going to {reset_url}"),
+	)?;
+
+	mailer.send(mail).await?;
+
+	info!("sent password reset email for profile {}", profile.id,);
+
+	Ok(NoContent)
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
+pub struct PasswordResetData {
+	pub token:    String,
+	#[validate(length(
+		min = 16,
+		message = "password must be at least 16 characters long",
+		code = "password-length"
+	))]
+	pub password: String,
+}
+
+#[instrument(skip_all)]
+pub(crate) async fn reset_password(
+	State(pool): State<DbPool>,
+	State(config): State<Config>,
+	State(mut r_conn): State<RedisConn>,
+	jar: PrivateCookieJar,
+	Json(request): Json<PasswordResetData>,
+) -> Result<(PrivateCookieJar, NoContent), Error> {
+	request.validate()?;
+
+	let conn = pool.get().await?;
+	let profile =
+		Profile::get_by_password_reset_token(request.token, &conn).await?;
+
+	// Unwrap is safe because profiles with a reset token will always
+	// have a token expiry
+	let expiry = profile.password_reset_token_expiry.unwrap();
+	if Utc::now().naive_utc() > expiry {
+		return Err(TokenError::ExpiredPasswordToken.into());
+	}
+
+	let salt = SaltString::generate(&mut OsRng);
+	let password_hash = Argon2::default()
+		.hash_password(request.password.as_bytes(), &salt)?
+		.to_string();
+
+	let profile = profile.change_password(password_hash, &conn).await?;
+
+	let session = Session::create(&config, &profile, &mut r_conn).await?;
+	let access_token_cookie = session.to_access_token_cookie(&config);
+	let refresh_token_cookie = session.to_refresh_token_cookie(&config);
+
+	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
+
+	let profile = profile.update_last_login(&conn).await?;
+
+	info!("reset password for profile {}", profile.id);
 
 	Ok((jar, NoContent))
 }

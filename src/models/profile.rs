@@ -262,6 +262,22 @@ impl Profile {
 		Ok(profile)
 	}
 
+	/// Get a profile given its password reset token
+	pub(crate) async fn get_by_password_reset_token(
+		token: String,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let profile = conn
+			.interact(|conn| {
+				use self::profile::dsl::*;
+
+				profile.filter(password_reset_token.eq(token)).first(conn)
+			})
+			.await??;
+
+		Ok(profile)
+	}
+
 	/// Confirm the pending email for a [`Profile`]
 	pub(crate) async fn confirm_email(
 		&self,
@@ -285,6 +301,32 @@ impl Profile {
 		.await??;
 
 		Ok(())
+	}
+
+	/// Change the (hashed) password for a [`Profile`]
+	pub(crate) async fn change_password(
+		&self,
+		new_password_hash: String,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let self_id = self.id;
+
+		let profile = conn
+			.interact(move |conn| {
+				use self::profile::dsl::*;
+
+				diesel::update(profile.find(self_id))
+					.set((
+						password_hash.eq(new_password_hash),
+						password_reset_token.eq(None::<String>),
+						password_reset_token_expiry.eq(None::<NaiveDateTime>),
+					))
+					.returning(Profile::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(profile)
 	}
 
 	/// Set the `last_login_at` field to the current datetime for the given

@@ -2,6 +2,8 @@ use axum::http::StatusCode;
 use blokmap::controllers::auth::{
 	LoginEmailRequest,
 	LoginUsernameRequest,
+	PasswordResetData,
+	PasswordResetRequest,
 	RegisterRequest,
 };
 use blokmap::models::Profile;
@@ -445,6 +447,122 @@ async fn resend_confirmation_email() {
 	assert_eq!(response.status_code(), StatusCode::OK);
 	assert_eq!(body.username, "bob".to_string());
 	assert_eq!(body.email, Some("bob@example.com".to_string()));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn reset_password() {
+	let env = TestEnv::new().await.create_test_user().await;
+
+	let response = env
+		.expect_mail_to(&["bob@example.com"], async || {
+			env.app
+				.post("/auth/request_password_reset")
+				.json(&PasswordResetRequest { username: "bob".to_string() })
+				.await
+		})
+		.await;
+
+	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
+
+	let conn = env.db_guard.create_pool().get().await.unwrap();
+	let password_reset_token: Option<String> = conn
+		.interact(|conn| {
+			use blokmap::schema::profile::dsl::*;
+			use diesel::prelude::*;
+
+			profile
+				.select(password_reset_token)
+				.filter(username.eq("bob"))
+				.get_result(conn)
+		})
+		.await
+		.unwrap()
+		.unwrap();
+
+	assert!(password_reset_token.is_some());
+
+	let response = env
+		.expect_no_mail(async || {
+			env.app
+				.post("/auth/reset_password")
+				.json(&PasswordResetData {
+					token:    password_reset_token.unwrap(),
+					password: "bobdebouwer1234567!".to_string(),
+				})
+				.await
+		})
+		.await;
+
+	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
+
+	let response = env
+		.app
+		.post("/auth/login/username")
+		.json(&LoginUsernameRequest {
+			username: "bob".to_string(),
+			password: "bobdebouwer1234567!".to_string(),
+		})
+		.await;
+
+	let _access_token = response.cookie("blokmap_access_token");
+
+	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn reset_password_expired_token() {
+	let env = TestEnv::new().await.create_test_user().await;
+
+	let response = env
+		.expect_mail_to(&["bob@example.com"], async || {
+			env.app
+				.post("/auth/request_password_reset")
+				.json(&PasswordResetRequest { username: "bob".to_string() })
+				.await
+		})
+		.await;
+
+	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
+
+	let conn = env.db_guard.create_pool().get().await.unwrap();
+	let profile: Profile = conn
+		.interact(|conn| {
+			use blokmap::schema::profile::dsl::*;
+			use diesel::prelude::*;
+
+			profile.filter(username.eq("bob")).get_result(conn)
+		})
+		.await
+		.unwrap()
+		.unwrap();
+
+	assert!(profile.password_reset_token.is_some());
+
+	let profile_id = profile.id;
+	let new_expiry = Utc::now().naive_utc() - chrono::Duration::days(1);
+
+	conn.interact(move |conn| {
+		use blokmap::schema::profile::dsl::*;
+		use diesel::prelude::*;
+
+		diesel::update(profile.find(profile_id))
+			.set(password_reset_token_expiry.eq(new_expiry))
+			.execute(conn)
+	})
+	.await
+	.unwrap()
+	.unwrap();
+
+	let response = env
+		.app
+		.post("/auth/reset_password")
+		.json(&PasswordResetData {
+			token:    profile.password_reset_token.unwrap(),
+			password: "bobdebouwer1234567!".to_string(),
+		})
+		.await;
+
+	assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 }
 
 #[tokio::test(flavor = "multi_thread")]

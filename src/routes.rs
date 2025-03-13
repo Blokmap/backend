@@ -14,7 +14,9 @@ use crate::controllers::auth::{
 	login_profile_with_username,
 	logout_profile,
 	register_profile,
+	request_password_reset,
 	resend_confirmation_email,
+	reset_password,
 };
 use crate::controllers::healthcheck;
 use crate::controllers::profile::{
@@ -65,6 +67,8 @@ fn get_auth_routes(state: &AppState) -> Router<AppState> {
 			"/resend_confirmation_email/{token}",
 			post(resend_confirmation_email),
 		)
+		.route("/request_password_reset", post(request_password_reset))
+		.route("/reset_password", post(reset_password))
 		.route("/login/username", post(login_profile_with_username))
 		.route("/login/email", post(login_profile_with_email))
 		.route(

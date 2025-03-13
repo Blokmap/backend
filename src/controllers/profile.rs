@@ -30,7 +30,7 @@ pub(crate) async fn get_current_profile(
 	Ok(Json(profile))
 }
 
-#[instrument(skip(pool))]
+#[instrument(skip(pool, config, mailer))]
 pub(crate) async fn update_current_profile(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,
