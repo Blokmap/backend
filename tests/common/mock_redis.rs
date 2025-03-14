@@ -5,6 +5,7 @@ use redis::cmd;
 
 const REDIS_CONNECTIONS_LEN: usize = 16;
 
+/// List of available redis URLs
 pub static REDIS_CONNECTION_URLS: LazyLock<
 	[Mutex<&'static str>; REDIS_CONNECTIONS_LEN],
 > = LazyLock::new(|| {
@@ -28,13 +29,15 @@ pub static REDIS_CONNECTION_URLS: LazyLock<
 	]
 });
 
-pub struct RedisUrlLock;
+/// A RAII guard provider to lock down a single redis URL
+pub struct RedisUrlProvider;
 
+/// A RAII guard for a single redis URL
 pub struct RedisUrlGuard(MutexGuard<'static, &'static str>);
 
-impl RedisUrlLock {
-	/// Get a connection to a locked URL
-	pub fn get() -> RedisUrlGuard {
+impl RedisUrlProvider {
+	/// Get a locked redis URL
+	pub fn acquire() -> RedisUrlGuard {
 		RedisUrlGuard(Self::get_redis_connection_url())
 	}
 
@@ -54,6 +57,7 @@ impl RedisUrlLock {
 }
 
 impl RedisUrlGuard {
+	/// Connect to this locked URL
 	pub async fn connect(&self) -> MultiplexedConnection {
 		let client = redis::Client::open(*self.0).unwrap();
 		client.get_multiplexed_async_connection().await.unwrap()
