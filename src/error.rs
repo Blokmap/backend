@@ -214,4 +214,6 @@ pub enum LoginError {
 pub enum TokenError {
 	#[error("email confirmation token has expired")]
 	ExpiredEmailToken,
+	#[error("password reset token has expired")]
+	ExpiredPasswordToken,
 }
