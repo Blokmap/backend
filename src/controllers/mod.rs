@@ -8,6 +8,7 @@ use crate::DbPool;
 use crate::error::Error;
 
 pub mod auth;
+pub mod location;
 pub mod profile;
 pub mod translation;
 

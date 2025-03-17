@@ -74,6 +74,7 @@ impl TestEnv {
 		// Wait for up to 1 second or until a condvar notification is received
 		// to make sure no queued emails are missed
 		let mut mailbox = self.stub_mailbox.mailbox.lock();
+
 		if mailbox.len() == outbox_size {
 			let wait_res = self
 				.stub_mailbox

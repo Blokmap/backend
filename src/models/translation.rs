@@ -1,14 +1,11 @@
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
-use diesel_derive_enum::DbEnum;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::schema::translation;
 use crate::{DbConn, Error};
 
-#[derive(Clone, DbEnum, Debug, Deserialize, PartialEq, Eq, Serialize)]
-#[ExistingTypePath = "crate::schema::sql_types::Language"]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize, Hash)]
 pub enum Language {
 	Nl,
 	En,
@@ -16,69 +13,33 @@ pub enum Language {
 	De,
 }
 
+impl From<Language> for String {
+	fn from(language: Language) -> Self {
+		match language {
+			Language::Nl => "nl".to_string(),
+			Language::En => "en".to_string(),
+			Language::Fr => "fr".to_string(),
+			Language::De => "de".to_string(),
+		}
+	}
+}
+
 #[derive(
-	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
+	Clone, Debug, Deserialize, Serialize, Identifiable, Queryable, Selectable,
 )]
 #[diesel(table_name = translation)]
+#[serde(rename_all = "camelCase")]
 pub struct Translation {
 	pub id:         i32,
-	pub language:   Language,
-	pub key:        Uuid,
-	pub text:       String,
+	pub nl:         Option<String>,
+	pub en:         Option<String>,
+	pub fr:         Option<String>,
+	pub de:         Option<String>,
 	pub created_at: NaiveDateTime,
 	pub updated_at: NaiveDateTime,
 }
 
-#[derive(Debug, Deserialize, Clone, Insertable)]
-#[diesel(table_name = translation)]
-pub struct InsertableTranslation {
-	pub language: Language,
-	pub key:      Uuid,
-	pub text:     String,
-}
-
-impl InsertableTranslation {
-	/// Insert this [`InsertableTranslation`]
-	pub(crate) async fn insert(
-		self,
-		conn: DbConn,
-	) -> Result<Translation, Error> {
-		let new_translation = conn
-			.interact(|conn| {
-				use self::translation::dsl::*;
-
-				diesel::insert_into(translation)
-					.values(self)
-					.returning(Translation::as_returning())
-					.get_result(conn)
-			})
-			.await??;
-
-		Ok(new_translation)
-	}
-
-	/// Insert a list of [`InsertableTranslation`]s in a single transaction
-	pub(crate) async fn bulk_insert(
-		translations: Vec<Self>,
-		conn: DbConn,
-	) -> Result<Vec<Translation>, Error> {
-		let translations = conn
-			.interact(|conn| {
-				conn.transaction(|conn| {
-					use self::translation::dsl::*;
-
-					diesel::insert_into(translation)
-						.values(translations)
-						.returning(Translation::as_returning())
-						.get_results(conn)
-				})
-			})
-			.await??;
-
-		Ok(translations)
-	}
-}
-
+/// Translation service functions.
 impl Translation {
 	// /// Get a list of all [`Translation`]s
 	// pub(crate) async fn get_all(conn: DbConn) -> Result<Vec<Self>, Error> {
@@ -95,10 +56,9 @@ impl Translation {
 
 	/// Attempt to get a single [`Translation`] given its [key](Uuid) and
 	/// [language](Language)
-	pub(crate) async fn get_by_key_and_language(
-		query_key: Uuid,
-		query_language: Language,
-		conn: DbConn,
+	pub(crate) async fn get_by_id(
+		query_id: i32,
+		conn: &DbConn,
 	) -> Result<Self, Error> {
 		let translation = conn
 			.interact(move |conn| {
@@ -106,8 +66,7 @@ impl Translation {
 
 				translation
 					.select(Translation::as_select())
-					.filter(key.eq(query_key))
-					.filter(language.eq(query_language))
+					.filter(id.eq(query_id))
 					.get_result(conn)
 			})
 			.await??;
@@ -115,59 +74,80 @@ impl Translation {
 		Ok(translation)
 	}
 
-	/// Get a list of all [`Translation`]s that match the given [key](Uuid)
-	pub(crate) async fn get_by_key(
-		query_key: Uuid,
-		conn: DbConn,
-	) -> Result<Vec<Self>, Error> {
-		let translations = conn
-			.interact(move |conn| {
+	/// Delete a single [`Translation`] given its [id](i32).
+	pub(crate) async fn delete_by_id(
+		query_id: i32,
+		conn: &DbConn,
+	) -> Result<(), Error> {
+		conn.interact(move |conn| {
+			use self::translation::dsl::*;
+
+			diesel::delete(translation.filter(id.eq(query_id))).execute(conn)
+		})
+		.await??;
+
+		Ok(())
+	}
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Insertable)]
+#[diesel(table_name = translation)]
+pub struct NewTranslation {
+	pub nl: Option<String>,
+	pub en: Option<String>,
+	pub fr: Option<String>,
+	pub de: Option<String>,
+}
+
+impl NewTranslation {
+	/// Insert this [`NewTranslation`].
+	pub(crate) async fn insert(
+		self,
+		conn: &DbConn,
+	) -> Result<Translation, Error> {
+		let new_translation = conn
+			.interact(|conn| {
 				use self::translation::dsl::*;
 
-				translation
-					.select(Translation::as_select())
-					.filter(key.eq(query_key))
-					.load(conn)
+				diesel::insert_into(translation)
+					.values(self)
+					.returning(Translation::as_returning())
+					.get_result(conn)
 			})
 			.await??;
 
-		Ok(translations)
+		Ok(new_translation)
 	}
+}
 
-	/// Delete a single [`Translation`] given its [key](Uuid) and
-	/// [language](Language)
-	pub(crate) async fn delete_by_key_and_language(
-		query_key: Uuid,
-		query_language: Language,
-		conn: DbConn,
-	) -> Result<(), Error> {
-		conn.interact(move |conn| {
-			use self::translation::dsl::*;
+#[derive(Debug, Deserialize, Default, Serialize, AsChangeset)]
+#[serde(default, rename_all = "camelCase")]
+#[diesel(table_name = translation)]
+pub struct UpdateTranslation {
+	pub nl: Option<String>,
+	pub en: Option<String>,
+	pub fr: Option<String>,
+	pub de: Option<String>,
+}
 
-			diesel::delete(
-				translation
-					.filter(key.eq(query_key))
-					.filter(language.eq(query_language)),
-			)
-			.execute(conn)
-		})
-		.await??;
+impl UpdateTranslation {
+	/// Update this [`UpdateTranslation`].
+	pub(crate) async fn update(
+		self,
+		query_id: i32,
+		conn: &DbConn,
+	) -> Result<Translation, Error> {
+		let updated_translation = conn
+			.interact(move |conn| {
+				use self::translation::dsl::*;
 
-		Ok(())
-	}
+				diesel::update(translation.filter(id.eq(query_id)))
+					.set(&self)
+					.returning(Translation::as_returning())
+					.get_result(conn)
+			})
+			.await??;
 
-	/// Delete all [`Translation`]s that match the given [key](Uuid)
-	pub(crate) async fn delete_by_key(
-		query_key: Uuid,
-		conn: DbConn,
-	) -> Result<(), Error> {
-		conn.interact(move |conn| {
-			use self::translation::dsl::*;
-
-			diesel::delete(translation.filter(key.eq(query_key))).execute(conn)
-		})
-		.await??;
-
-		Ok(())
+		Ok(updated_translation)
 	}
 }

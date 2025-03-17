@@ -16,6 +16,7 @@ pub mod middleware;
 pub mod models;
 pub mod routes;
 pub mod schema;
+pub mod schemas;
 
 pub use config::Config;
 pub use error::*;
