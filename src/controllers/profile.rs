@@ -2,7 +2,6 @@
 
 use axum::extract::State;
 use axum::{Extension, Json};
-use chrono::Utc;
 use uuid::Uuid;
 
 use crate::mailer::Mailer;
@@ -43,39 +42,26 @@ pub(crate) async fn update_current_profile(
 	let old_profile = Profile::get(*profile_id, &conn).await?;
 	let mut updated_profile = update.apply_to(*profile_id, &conn).await?;
 
-	info!("set new pending email for profile {}", updated_profile.id);
-
 	if old_profile.pending_email != updated_profile.pending_email {
 		let email_confirmation_token = Uuid::new_v4().to_string();
-		let email_confirmation_token_expiry =
-			Utc::now().naive_utc() + config.email_confirmation_token_lifetime;
 
-		updated_profile.email_confirmation_token =
-			Some(email_confirmation_token.clone());
-		updated_profile.email_confirmation_token_expiry =
-			Some(email_confirmation_token_expiry);
+		updated_profile = updated_profile
+			.set_email_confirmation_token(
+				&email_confirmation_token,
+				config.email_confirmation_token_lifetime,
+				&conn,
+			)
+			.await?;
 
-		updated_profile = updated_profile.update(&conn).await?;
+		mailer
+			.send_confirm_email(
+				&updated_profile,
+				&email_confirmation_token,
+				&config.frontend_url,
+			)
+			.await?;
 
-		let confirmation_url = format!(
-			"{}/confirm_email/{}",
-			config.frontend_url, email_confirmation_token,
-		);
-
-		let mail = mailer.try_build_message(
-			&updated_profile,
-			"Confirm your email",
-			&format!(
-				"Please confirm your email by going to {confirmation_url}"
-			),
-		)?;
-
-		mailer.send(mail).await?;
-
-		info!(
-			"sent email confirmation email for profile {}",
-			updated_profile.id
-		);
+		info!("set new pending email for profile {}", updated_profile.id);
 	}
 
 	Ok(Json(updated_profile))
