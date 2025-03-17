@@ -8,14 +8,14 @@ use axum_test::TestServer;
 use blokmap::controllers::auth::LoginUsernameRequest;
 use blokmap::mailer::{Mailer, StubMailbox};
 use blokmap::{AppState, Config, routes};
-use mock_redis::{RedisUrlGuard, RedisUrlLock};
+use mock_redis::{RedisUrlGuard, RedisUrlProvider};
 
 pub mod wrappers;
 
 mod mock_db;
 mod mock_redis;
 
-use mock_db::{DatabaseGuard, TEST_DATABASE_FIXTURE};
+use mock_db::{DATABASE_PROVIDER, DatabaseGuard};
 
 #[allow(dead_code)]
 pub struct TestEnv {
@@ -33,10 +33,10 @@ impl TestEnv {
 	pub async fn new() -> Self {
 		let config = Config::from_env();
 
-		let test_pool_guard = (*TEST_DATABASE_FIXTURE).acquire().await;
+		let test_pool_guard = (*DATABASE_PROVIDER).acquire().await;
 		let test_pool = test_pool_guard.create_pool();
 
-		let redis_url_guard = RedisUrlLock::get();
+		let redis_url_guard = RedisUrlProvider::acquire();
 		let redis_connection = redis_url_guard.connect().await;
 
 		let cookie_jar_key = Key::from(&[0u8; 64]);
