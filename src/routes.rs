@@ -20,6 +20,7 @@ use crate::controllers::location::{
 	create_location,
 	delete_location,
 	get_location,
+	get_location_positions,
 	get_locations,
 	update_location,
 };
@@ -90,8 +91,11 @@ fn get_translation_routes() -> Router<AppState> {
 
 /// Get the location routes.
 fn get_location_routes() -> Router<AppState> {
-	Router::new().route("/", post(create_location).get(get_locations)).route(
-		"/{id}",
-		get(get_location).post(update_location).delete(delete_location),
-	)
+	Router::new()
+		.route("/", post(create_location).get(get_locations))
+		.route("/positions", get(get_location_positions))
+		.route(
+			"/{id}",
+			get(get_location).post(update_location).delete(delete_location),
+		)
 }

@@ -119,6 +119,19 @@ impl Location {
 		Ok(locations)
 	}
 
+    /// Get all the latlng positions of the locations.
+    pub(crate) async fn get_latlng_positions(conn: &DbConn) -> Result<Vec<(f64, f64)>, Error> {
+        let positions = conn
+            .interact(move |conn| {
+                location::table
+                    .select((location::latitude, location::longitude))
+                    .load(conn)
+            })
+            .await??;
+
+        Ok(positions)
+    }
+
 	/// Delete a [`Location`] by its id.
 	pub(crate) async fn delete_by_id(
 		loc_id: i32,

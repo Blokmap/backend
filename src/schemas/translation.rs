@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::models::{NewTranslation, Translation, UpdateTranslation, ds_patch};
+use crate::models::{NewTranslation, Translation, UpdateTranslation};
 
 /// The data needed to make a new [`Translation`].
 #[derive(Debug, Deserialize, Serialize)]

@@ -5,6 +5,7 @@ use argon2::password_hash::rand_core::OsRng;
 use argon2::{Argon2, PasswordHasher};
 use axum_extra::extract::cookie::Key;
 use axum_test::TestServer;
+use blokmap::controllers::auth::LoginUsernameRequest;
 use blokmap::mailer::{Mailer, StubMailbox};
 use blokmap::{AppState, Config, routes};
 use mock_redis::{RedisUrlGuard, RedisUrlLock};
@@ -94,5 +95,19 @@ impl TestEnv {
 		.unwrap();
 
 		self
+	}
+
+	/// Create a test user in the test environment and log in.
+    #[allow(dead_code)]
+	pub async fn create_and_login_test_user(self) -> Self {
+		let env = self.create_test_user().await;
+		env.app
+			.post("/auth/login/username")
+			.json(&LoginUsernameRequest {
+				username: "bob".to_string(),
+				password: "bobdebouwer1234!".to_string(),
+			})
+			.await;
+		env
 	}
 }

@@ -124,10 +124,10 @@ impl NewTranslation {
 #[serde(default, rename_all = "camelCase")]
 #[diesel(table_name = translation)]
 pub struct UpdateTranslation {
-	pub nl: Option<Option<String>>,
-	pub en: Option<Option<String>>,
-	pub fr: Option<Option<String>>,
-	pub de: Option<Option<String>>,
+	pub nl: Option<String>,
+	pub en: Option<String>,
+	pub fr: Option<String>,
+	pub de: Option<String>,
 }
 
 impl UpdateTranslation {

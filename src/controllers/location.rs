@@ -50,6 +50,24 @@ pub(crate) async fn get_location(
 	Ok((StatusCode::OK, Json(response)))
 }
 
+/// Get all positions of locations from the database.
+#[instrument(skip(pool))]
+pub(crate) async fn get_location_positions(
+	State(pool): State<DbPool>,
+) -> Result<impl IntoResponse, Error> {
+	// Get a connection from the pool.
+	let conn = pool.get().await?;
+
+	let positions = Location::get_latlng_positions(&conn).await?;
+
+	Ok((StatusCode::OK, Json(positions)))
+}
+
+/// Search all locations from the database on given latlng bounds.
+/// The latlng bounds include the southwestern and northeastern corners.
+/// The southwestern corner is the minimum latitude and longitude, and the
+/// northeastern corner is the maximum latitude and longitude.
+#[instrument(skip(pool))]
 pub(crate) async fn get_locations(
 	State(pool): State<DbPool>,
 	Query(bounds): Query<Bounds>,

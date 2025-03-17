@@ -7,7 +7,7 @@ use axum::response::{IntoResponse, NoContent};
 
 use crate::DbPool;
 use crate::error::Error;
-use crate::models::{Translation, UpdateTranslation};
+use crate::models::Translation;
 use crate::schemas::translation::{
 	CreateTranslationRequest,
 	TranslationResponse,

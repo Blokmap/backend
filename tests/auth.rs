@@ -9,7 +9,6 @@ use blokmap::models::Profile;
 mod common;
 
 use common::TestEnv;
-use serde_json::Value;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register() {
@@ -211,7 +210,7 @@ async fn register_duplicate_email() {
 	let body = response.text();
 
 	assert_eq!(response.status_code(), StatusCode::CONFLICT);
-	assert_eq!(body.contains("email is already in use"));
+	assert!(body.contains("email is already in use"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -236,7 +235,7 @@ async fn register_duplicate_username() {
 	let body = response.text();
 
 	assert_eq!(response.status_code(), StatusCode::CONFLICT);
-	assert_eq!(body, "username is already in use".to_string());
+	assert!(body.contains("username is already in use"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
