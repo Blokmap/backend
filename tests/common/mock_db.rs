@@ -12,11 +12,11 @@ use uuid::Uuid;
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
 /// Global test database provider
-pub static TEST_DATABASE_FIXTURE: LazyLock<TestDatabaseFixture> =
-	LazyLock::new(TestDatabaseFixture::new);
+pub static DATABASE_PROVIDER: LazyLock<DatabaseProvider> =
+	LazyLock::new(DatabaseProvider::new);
 
 /// A RAII guard provider which generates temporary test databases
-pub struct TestDatabaseFixture {
+pub struct DatabaseProvider {
 	base_url:  String,
 	root_pool: DbPool,
 }
@@ -28,7 +28,7 @@ pub struct DatabaseGuard {
 	database_url:  String,
 }
 
-impl TestDatabaseFixture {
+impl DatabaseProvider {
 	fn new() -> Self {
 		if Ok("true".to_string()) == std::env::var("CI") {
 			tracing_subscriber::fmt()
