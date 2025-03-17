@@ -98,7 +98,7 @@ impl TestEnv {
 	}
 
 	/// Create a test user in the test environment and log in.
-    #[allow(dead_code)]
+	#[allow(dead_code)]
 	pub async fn create_and_login_test_user(self) -> Self {
 		let env = self.create_test_user().await;
 		env.app
