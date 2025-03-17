@@ -2,9 +2,7 @@
 
 use std::sync::LazyLock;
 
-use argon2::password_hash::SaltString;
-use argon2::password_hash::rand_core::OsRng;
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::NoContent;
@@ -58,10 +56,7 @@ pub(crate) async fn register_profile(
 ) -> Result<(StatusCode, Json<Profile>), Error> {
 	register_data.validate()?;
 
-	let salt = SaltString::generate(&mut OsRng);
-	let password_hash = Argon2::default()
-		.hash_password(register_data.password.as_bytes(), &salt)?
-		.to_string();
+	let password_hash = Profile::hash_password(&register_data.password)?;
 
 	let email_confirmation_token = Uuid::new_v4().to_string();
 	let email_confirmation_token_expiry =
@@ -81,18 +76,13 @@ pub(crate) async fn register_profile(
 	let confirmation_token =
 		new_profile.email_confirmation_token.clone().unwrap();
 
-	let confirmation_url = format!(
-		"{}/confirm_email/{}",
-		config.frontend_url, confirmation_token,
-	);
-
-	let mail = mailer.try_build_message(
-		&new_profile,
-		"Confirm your email",
-		&format!("Please confirm your email by going to {confirmation_url}"),
-	)?;
-
-	mailer.send(mail).await?;
+	mailer
+		.send_confirm_email(
+			&new_profile,
+			&confirmation_token,
+			&config.frontend_url,
+		)
+		.await?;
 
 	info!(
 		"registered new profile id: {} username: {} email: {}",
@@ -111,32 +101,25 @@ pub(crate) async fn resend_confirmation_email(
 	Path(profile_id): Path<i32>,
 ) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;
-	let mut profile = Profile::get(profile_id, &conn).await?;
+	let profile = Profile::get(profile_id, &conn).await?;
 
 	let email_confirmation_token = Uuid::new_v4().to_string();
-	let email_confirmation_token_expiry =
-		Utc::now().naive_utc() + config.email_confirmation_token_lifetime;
 
-	profile.email_confirmation_token = Some(email_confirmation_token.clone());
-	profile.email_confirmation_token_expiry =
-		Some(email_confirmation_token_expiry);
+	let profile = profile
+		.set_email_confirmation_token(
+			&email_confirmation_token,
+			config.email_confirmation_token_lifetime,
+			&conn,
+		)
+		.await?;
 
-	let profile = profile.update(&conn).await?;
-
-	let confirmation_url = format!(
-		"{}/confirm_email/{}",
-		config.frontend_url, email_confirmation_token,
-	);
-
-	let mail = mailer.try_build_message(
-		&profile,
-		"Confirm your email",
-		&format!("Please confirm your email by going to {confirmation_url}"),
-	)?;
-
-	mailer.send(mail).await?;
-
-	info!("sent new email confirmation email for profile {}", profile.id);
+	mailer
+		.send_confirm_email(
+			&profile,
+			&email_confirmation_token,
+			&config.frontend_url,
+		)
+		.await?;
 
 	Ok(NoContent)
 }
@@ -188,30 +171,25 @@ pub(crate) async fn request_password_reset(
 	Json(request): Json<PasswordResetRequest>,
 ) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;
-	let mut profile = Profile::get_by_username(request.username, &conn).await?;
+	let profile = Profile::get_by_username(request.username, &conn).await?;
 
 	let password_reset_token = Uuid::new_v4().to_string();
-	let password_reset_token_expiry =
-		Utc::now().naive_utc() + config.password_reset_token_lifetime;
 
-	profile.password_reset_token = Some(password_reset_token.clone());
-	profile.password_reset_token_expiry = Some(password_reset_token_expiry);
-	let profile = profile.update(&conn).await?;
+	let profile = profile
+		.set_password_reset_token(
+			&password_reset_token,
+			config.password_reset_token_lifetime,
+			&conn,
+		)
+		.await?;
 
-	let reset_url = format!(
-		"{}/reset_password/{}",
-		config.frontend_url, password_reset_token,
-	);
-
-	let mail = mailer.try_build_message(
-		&profile,
-		"Reset your password",
-		&format!("You can reset your password by going to {reset_url}"),
-	)?;
-
-	mailer.send(mail).await?;
-
-	info!("sent password reset email for profile {}", profile.id,);
+	mailer
+		.send_reset_password(
+			&profile,
+			&password_reset_token,
+			&config.frontend_url,
+		)
+		.await?;
 
 	Ok(NoContent)
 }
@@ -248,12 +226,7 @@ pub(crate) async fn reset_password(
 		return Err(TokenError::ExpiredPasswordToken.into());
 	}
 
-	let salt = SaltString::generate(&mut OsRng);
-	let password_hash = Argon2::default()
-		.hash_password(request.password.as_bytes(), &salt)?
-		.to_string();
-
-	let profile = profile.change_password(password_hash, &conn).await?;
+	let profile = profile.change_password(&request.password, &conn).await?;
 
 	let session = Session::create(&config, &profile, &mut r_conn).await?;
 	let access_token_cookie = session.to_access_token_cookie(&config);
