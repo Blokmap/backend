@@ -14,9 +14,16 @@ use crate::controllers::auth::{
 	login_profile_with_username,
 	logout_profile,
 	register_profile,
+	request_password_reset,
+	resend_confirmation_email,
+	reset_password,
 };
 use crate::controllers::healthcheck;
-use crate::controllers::profile::{get_all_profiles, get_current_profile};
+use crate::controllers::profile::{
+	get_all_profiles,
+	get_current_profile,
+	update_current_profile,
+};
 use crate::controllers::translation::{
 	create_bulk_translations,
 	create_translation,
@@ -56,6 +63,12 @@ fn get_auth_routes(state: &AppState) -> Router<AppState> {
 	Router::new()
 		.route("/register", post(register_profile))
 		.route("/confirm_email/{token}", post(confirm_email))
+		.route(
+			"/resend_confirmation_email/{token}",
+			post(resend_confirmation_email),
+		)
+		.route("/request_password_reset", post(request_password_reset))
+		.route("/reset_password", post(reset_password))
 		.route("/login/username", post(login_profile_with_username))
 		.route("/login/email", post(login_profile_with_email))
 		.route(
@@ -67,7 +80,7 @@ fn get_auth_routes(state: &AppState) -> Router<AppState> {
 fn get_profile_routes() -> Router<AppState> {
 	Router::new()
 		.route("/", get(get_all_profiles))
-		.route("/me", get(get_current_profile))
+		.route("/me", get(get_current_profile).patch(update_current_profile))
 }
 
 fn get_translation_routes() -> Router<AppState> {

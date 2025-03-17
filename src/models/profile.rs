@@ -1,6 +1,9 @@
 use std::ops::Deref;
 
-use chrono::{NaiveDateTime, Utc};
+use argon2::password_hash::SaltString;
+use argon2::password_hash::rand_core::OsRng;
+use argon2::{Argon2, PasswordHasher};
+use chrono::{NaiveDateTime, TimeDelta, Utc};
 use diesel::prelude::*;
 use diesel_derive_enum::DbEnum;
 use lettre::message::Mailbox;
@@ -126,6 +129,35 @@ impl InsertableProfile {
 	}
 }
 
+#[derive(AsChangeset, Clone, Debug, Deserialize, Serialize)]
+#[diesel(table_name = profile)]
+pub struct ProfileUpdate {
+	pub username:      Option<String>,
+	pub pending_email: Option<String>,
+}
+
+impl ProfileUpdate {
+	/// Update a [`Profile`] with the given changes
+	pub(crate) async fn apply_to(
+		self,
+		target_id: i32,
+		conn: &DbConn,
+	) -> Result<Profile, Error> {
+		let new = conn
+			.interact(move |conn| {
+				use self::profile::dsl::*;
+
+				diesel::update(profile.find(target_id))
+					.set(self)
+					.returning(Profile::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(new)
+	}
+}
+
 impl Profile {
 	/// Get a [`Profile`] given its id
 	pub(crate) async fn get(
@@ -233,6 +265,22 @@ impl Profile {
 		Ok(profile)
 	}
 
+	/// Get a profile given its password reset token
+	pub(crate) async fn get_by_password_reset_token(
+		token: String,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let profile = conn
+			.interact(|conn| {
+				use self::profile::dsl::*;
+
+				profile.filter(password_reset_token.eq(token)).first(conn)
+			})
+			.await??;
+
+		Ok(profile)
+	}
+
 	/// Confirm the pending email for a [`Profile`]
 	pub(crate) async fn confirm_email(
 		&self,
@@ -256,6 +304,74 @@ impl Profile {
 		.await??;
 
 		Ok(())
+	}
+
+	/// Set a new email confirmation token and expiry for a [`Profile`]
+	pub(crate) async fn set_email_confirmation_token(
+		mut self,
+		token: &str,
+		lifetime: TimeDelta,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let email_confirmation_token_expiry = Utc::now().naive_utc() + lifetime;
+
+		self.email_confirmation_token = Some(token.to_string());
+		self.email_confirmation_token_expiry =
+			Some(email_confirmation_token_expiry);
+
+		self.update(conn).await
+	}
+
+	/// Set a new password reset token and expiry for a [`Profile`]
+	pub(crate) async fn set_password_reset_token(
+		mut self,
+		token: &str,
+		lifetime: TimeDelta,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let password_reset_token_expiry = Utc::now().naive_utc() + lifetime;
+
+		self.password_reset_token = Some(token.to_string());
+		self.password_reset_token_expiry = Some(password_reset_token_expiry);
+
+		self.update(conn).await
+	}
+
+	/// Hash a password
+	pub(crate) fn hash_password(password: &str) -> Result<String, Error> {
+		let salt = SaltString::generate(&mut OsRng);
+		let hashed_password = Argon2::default()
+			.hash_password(password.as_bytes(), &salt)?
+			.to_string();
+
+		Ok(hashed_password)
+	}
+
+	/// Change the password for a [`Profile`]
+	pub(crate) async fn change_password(
+		&self,
+		new_password: &str,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let self_id = self.id;
+		let new_password_hash = Self::hash_password(new_password)?;
+
+		let profile = conn
+			.interact(move |conn| {
+				use self::profile::dsl::*;
+
+				diesel::update(profile.find(self_id))
+					.set((
+						password_hash.eq(new_password_hash),
+						password_reset_token.eq(None::<String>),
+						password_reset_token_expiry.eq(None::<NaiveDateTime>),
+					))
+					.returning(Profile::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(profile)
 	}
 
 	/// Set the `last_login_at` field to the current datetime for the given
