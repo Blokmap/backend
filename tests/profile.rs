@@ -166,6 +166,34 @@ async fn disable_profile() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn disable_profile_not_admin() {
+	let env = TestEnv::new().await.create_test_user().await;
+
+	env.app
+		.post("/auth/login/username")
+		.json(&LoginUsernameRequest {
+			username: "bob".to_string(),
+			password: "bobdebouwer1234!".to_string(),
+		})
+		.await;
+
+	let response = env.app.get("/profile").await;
+	let profiles: Vec<Profile> = response.json();
+	let bob_id =
+		profiles.iter().find(|p| p.username == "bob").map(|p| p.id).unwrap();
+
+	let response = env.app.post(&format!("/profile/disable/{bob_id}")).await;
+
+	assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
+
+	let pool = env.db_guard.create_pool();
+	let conn = pool.get().await.unwrap();
+	let bob = Profile::get(bob_id, &conn).await.unwrap();
+
+	assert_eq!(bob.state, ProfileState::Active);
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn activate_profile() {
 	let env = TestEnv::new()
 		.await
@@ -182,28 +210,58 @@ async fn activate_profile() {
 		})
 		.await;
 
-	let response = env.app.get("/profile").await;
-	let profiles: Vec<Profile> = response.json();
-	let bob_id =
-		profiles.iter().find(|p| p.username == "bob").map(|p| p.id).unwrap();
+	let pool = env.db_guard.create_pool();
+	let conn = pool.get().await.unwrap();
+	let mut bob = Profile::get_all(&conn)
+		.await
+		.unwrap()
+		.into_iter()
+		.find(|p| p.username == "bob")
+		.unwrap();
+	let bob_id = bob.id;
+	bob.state = ProfileState::Disabled;
+	bob.update(&conn).await.unwrap();
 
-	let response = env.app.post(&format!("/profile/disable/{bob_id}")).await;
+	let response = env.app.post(&format!("/profile/activate/{bob_id}")).await;
 
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
+
+	let bob = Profile::get(bob_id, &conn).await.unwrap();
+
+	assert_eq!(bob.state, ProfileState::Active);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn activate_profile_not_admin() {
+	let env = TestEnv::new().await.create_test_user().await;
+
+	env.app
+		.post("/auth/login/username")
+		.json(&LoginUsernameRequest {
+			username: "bob".to_string(),
+			password: "bobdebouwer1234!".to_string(),
+		})
+		.await;
+
+	let pool = env.db_guard.create_pool();
+	let conn = pool.get().await.unwrap();
+	let mut bob = Profile::get_all(&conn)
+		.await
+		.unwrap()
+		.into_iter()
+		.find(|p| p.username == "bob")
+		.unwrap();
+	let bob_id = bob.id;
+	bob.state = ProfileState::Disabled;
+	bob.update(&conn).await.unwrap();
+
+	let response = env.app.post(&format!("/profile/activate/{bob_id}")).await;
+
+	assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
 	let bob = Profile::get(bob_id, &conn).await.unwrap();
 
 	assert_eq!(bob.state, ProfileState::Disabled);
-
-	let response = env.app.post(&format!("/profile/activate/{bob_id}")).await;
-
-	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
-
-	let pool = env.db_guard.create_pool();
-	let conn = pool.get().await.unwrap();
-	let bob = Profile::get(bob_id, &conn).await.unwrap();
-
-	assert_eq!(bob.state, ProfileState::Active);
 }
