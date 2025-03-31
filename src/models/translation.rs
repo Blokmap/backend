@@ -39,10 +39,10 @@ pub struct InsertableTranslation {
 
 impl InsertableTranslation {
 	/// Insert this [`InsertableTranslation`]
-	pub(crate) async fn insert(
-		self,
-		conn: DbConn,
-	) -> Result<Translation, Error> {
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn insert(self, conn: DbConn) -> Result<Translation, Error> {
 		let new_translation = conn
 			.interact(|conn| {
 				use self::translation::dsl::*;
@@ -58,7 +58,10 @@ impl InsertableTranslation {
 	}
 
 	/// Insert a list of [`InsertableTranslation`]s in a single transaction
-	pub(crate) async fn bulk_insert(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn bulk_insert(
 		translations: Vec<Self>,
 		conn: DbConn,
 	) -> Result<Vec<Translation>, Error> {
@@ -95,7 +98,10 @@ impl Translation {
 
 	/// Attempt to get a single [`Translation`] given its [key](Uuid) and
 	/// [language](Language)
-	pub(crate) async fn get_by_key_and_language(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn get_by_key_and_language(
 		query_key: Uuid,
 		query_language: Language,
 		conn: DbConn,
@@ -116,7 +122,10 @@ impl Translation {
 	}
 
 	/// Get a list of all [`Translation`]s that match the given [key](Uuid)
-	pub(crate) async fn get_by_key(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn get_by_key(
 		query_key: Uuid,
 		conn: DbConn,
 	) -> Result<Vec<Self>, Error> {
@@ -136,7 +145,10 @@ impl Translation {
 
 	/// Delete a single [`Translation`] given its [key](Uuid) and
 	/// [language](Language)
-	pub(crate) async fn delete_by_key_and_language(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn delete_by_key_and_language(
 		query_key: Uuid,
 		query_language: Language,
 		conn: DbConn,
@@ -157,7 +169,10 @@ impl Translation {
 	}
 
 	/// Delete all [`Translation`]s that match the given [key](Uuid)
-	pub(crate) async fn delete_by_key(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn delete_by_key(
 		query_key: Uuid,
 		conn: DbConn,
 	) -> Result<(), Error> {

@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
 use blokmap::controllers::auth::LoginUsernameRequest;
-use blokmap::models::{Profile, ProfileUpdate};
+use blokmap::models::{Profile, ProfileState, ProfileUpdate};
 
 mod common;
 
@@ -130,4 +130,80 @@ async fn update_current_profile_pending_email() {
 	assert_ne!(old_profile.pending_email, new_profile.pending_email);
 	assert!(new_profile.email_confirmation_token.is_some());
 	assert!(new_profile.email_confirmation_token_expiry.is_some());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn disable_profile() {
+	let env = TestEnv::new()
+		.await
+		.create_test_user()
+		.await
+		.create_test_admin_user()
+		.await;
+
+	env.app
+		.post("/auth/login/username")
+		.json(&LoginUsernameRequest {
+			username: "alice".to_string(),
+			password: "bobdebouwer1234!".to_string(),
+		})
+		.await;
+
+	let response = env.app.get("/profile").await;
+	let profiles: Vec<Profile> = response.json();
+	let bob_id =
+		profiles.iter().find(|p| p.username == "bob").map(|p| p.id).unwrap();
+
+	let response = env.app.post(&format!("/profile/disable/{bob_id}")).await;
+
+	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
+
+	let pool = env.db_guard.create_pool();
+	let conn = pool.get().await.unwrap();
+	let bob = Profile::get(bob_id, &conn).await.unwrap();
+
+	assert_eq!(bob.state, ProfileState::Disabled);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn activate_profile() {
+	let env = TestEnv::new()
+		.await
+		.create_test_user()
+		.await
+		.create_test_admin_user()
+		.await;
+
+	env.app
+		.post("/auth/login/username")
+		.json(&LoginUsernameRequest {
+			username: "alice".to_string(),
+			password: "bobdebouwer1234!".to_string(),
+		})
+		.await;
+
+	let response = env.app.get("/profile").await;
+	let profiles: Vec<Profile> = response.json();
+	let bob_id =
+		profiles.iter().find(|p| p.username == "bob").map(|p| p.id).unwrap();
+
+	let response = env.app.post(&format!("/profile/disable/{bob_id}")).await;
+
+	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
+
+	let pool = env.db_guard.create_pool();
+	let conn = pool.get().await.unwrap();
+	let bob = Profile::get(bob_id, &conn).await.unwrap();
+
+	assert_eq!(bob.state, ProfileState::Disabled);
+
+	let response = env.app.post(&format!("/profile/activate/{bob_id}")).await;
+
+	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
+
+	let pool = env.db_guard.create_pool();
+	let conn = pool.get().await.unwrap();
+	let bob = Profile::get(bob_id, &conn).await.unwrap();
+
+	assert_eq!(bob.state, ProfileState::Active);
 }

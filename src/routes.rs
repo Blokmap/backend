@@ -20,6 +20,8 @@ use crate::controllers::auth::{
 };
 use crate::controllers::healthcheck;
 use crate::controllers::profile::{
+	activate_profile,
+	disable_profile,
 	get_all_profiles,
 	get_current_profile,
 	update_current_profile,
@@ -32,7 +34,7 @@ use crate::controllers::translation::{
 	get_bulk_translations,
 	get_translation,
 };
-use crate::middleware::AuthLayer;
+use crate::middleware::{AdminLayer, AuthLayer};
 
 /// Get the app router.
 pub fn get_app_router(state: AppState) -> Router {
@@ -41,7 +43,8 @@ pub fn get_app_router(state: AppState) -> Router {
 		.nest("/auth", get_auth_routes(&state))
 		.nest(
 			"/profile",
-			get_profile_routes().route_layer(AuthLayer::new(state.clone())),
+			get_profile_routes(&state)
+				.route_layer(AuthLayer::new(state.clone())),
 		)
 		.nest(
 			"/translation",
@@ -77,10 +80,16 @@ fn get_auth_routes(state: &AppState) -> Router<AppState> {
 		)
 }
 
-fn get_profile_routes() -> Router<AppState> {
+fn get_profile_routes(state: &AppState) -> Router<AppState> {
 	Router::new()
 		.route("/", get(get_all_profiles))
 		.route("/me", get(get_current_profile).patch(update_current_profile))
+		.merge(
+			Router::new()
+				.route("/disable/{profile_id}", post(disable_profile))
+				.route("/activate/{profile_id}", post(activate_profile))
+				.route_layer(AdminLayer::new(state.clone())),
+		)
 }
 
 fn get_translation_routes() -> Router<AppState> {
