@@ -212,6 +212,8 @@ pub enum LoginError {
 	InvalidPassword,
 	#[error("profile is still awaiting email verification")]
 	PendingEmailVerification,
+	#[error("profile is disabled")]
+	Disabled,
 }
 
 /// Any error related to a token
