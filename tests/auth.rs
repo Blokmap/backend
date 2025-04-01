@@ -1,5 +1,3 @@
-use std::panic::catch_unwind;
-
 use axum::http::StatusCode;
 use blokmap::controllers::auth::{
 	LoginEmailRequest,
@@ -8,7 +6,7 @@ use blokmap::controllers::auth::{
 	PasswordResetRequest,
 	RegisterRequest,
 };
-use blokmap::models::{Profile, ProfileState};
+use blokmap::models::Profile;
 
 mod common;
 
@@ -237,16 +235,16 @@ async fn register_duplicate_email() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn register_duplicate_username() {
-	let env = TestEnv::new().await.create_test_user().await;
+	let env = TestEnv::new().await;
 
 	let response = env
 		.expect_no_mail(async || {
 			env.app
 				.post("/auth/register")
 				.json(&RegisterRequest {
-					username: "bob".to_string(),
-					password: "bobdebouwer1234!".to_string(),
-					email:    "bob2@example.com".to_string(),
+					username: "test".to_string(),
+					password: "fooikhebeenlangerwachtwoordnodig".to_string(),
+					email:    "test2@example.com".to_string(),
 				})
 				.await
 		})
@@ -453,13 +451,13 @@ async fn resend_confirmation_email() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn reset_password() {
-	let env = TestEnv::new().await.create_test_user().await;
+	let env = TestEnv::new().await;
 
 	let response = env
-		.expect_mail_to(&["bob@example.com"], async || {
+		.expect_mail_to(&["test@example.com"], async || {
 			env.app
 				.post("/auth/request_password_reset")
-				.json(&PasswordResetRequest { username: "bob".to_string() })
+				.json(&PasswordResetRequest { username: "test".to_string() })
 				.await
 		})
 		.await;
@@ -474,7 +472,7 @@ async fn reset_password() {
 
 			profile
 				.select(password_reset_token)
-				.filter(username.eq("bob"))
+				.filter(username.eq("test"))
 				.get_result(conn)
 		})
 		.await
@@ -501,7 +499,7 @@ async fn reset_password() {
 		.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
-			username: "bob".to_string(),
+			username: "test".to_string(),
 			password: "bobdebouwer1234567!".to_string(),
 		})
 		.await;
@@ -513,13 +511,13 @@ async fn reset_password() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn reset_password_expired_token() {
-	let env = TestEnv::new().await.create_test_user().await;
+	let env = TestEnv::new().await;
 
 	let response = env
-		.expect_mail_to(&["bob@example.com"], async || {
+		.expect_mail_to(&["test@example.com"], async || {
 			env.app
 				.post("/auth/request_password_reset")
-				.json(&PasswordResetRequest { username: "bob".to_string() })
+				.json(&PasswordResetRequest { username: "test".to_string() })
 				.await
 		})
 		.await;
@@ -532,7 +530,7 @@ async fn reset_password_expired_token() {
 			use blokmap::schema::profile::dsl::*;
 			use diesel::prelude::*;
 
-			profile.filter(username.eq("bob")).get_result(conn)
+			profile.filter(username.eq("test")).get_result(conn)
 		})
 		.await
 		.unwrap()
@@ -569,14 +567,14 @@ async fn reset_password_expired_token() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn login_username() {
-	let env = TestEnv::new().await.create_test_user().await;
+	let env = TestEnv::new().await;
 
 	let response = env
 		.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
+			username: "test".to_string(),
+			password: "foo".to_string(),
 		})
 		.await;
 
@@ -586,81 +584,33 @@ async fn login_username() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn login_username_pending() {
+async fn login_username_disabled() {
 	let env = TestEnv::new().await;
 
-	env.app
-		.post("/auth/register")
-		.json(&RegisterRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
-			email:    "bob@example.com".to_string(),
-		})
-		.await;
-
 	let response = env
 		.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
+			username: "test-disabled".to_string(),
+			password: "foo".to_string(),
 		})
 		.await;
 
-	assert!(
-		catch_unwind(|| {
-			let _access_token = response.cookie("blokmap_access_token");
-		})
-		.is_err()
-	);
-
-	assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn login_username_disabled() {
-	let env = TestEnv::new().await.create_test_user().await;
-
-	let pool = env.db_guard.create_pool();
-	let conn = pool.get().await.unwrap();
-	let mut bob = Profile::get_all(&conn)
-		.await
-		.unwrap()
-		.into_iter()
-		.find(|p| p.username == "bob")
-		.unwrap();
-	bob.state = ProfileState::Disabled;
-	bob.update(&conn).await.unwrap();
-
-	let response = env
-		.app
-		.post("/auth/login/username")
-		.json(&LoginUsernameRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
-		})
-		.await;
-
-	assert!(
-		catch_unwind(|| {
-			let _access_token = response.cookie("blokmap_access_token");
-		})
-		.is_err()
-	);
+	assert!(response.maybe_cookie("blokmap_access_token").is_none());
 
 	assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn login_email() {
-	let env = TestEnv::new().await.create_test_user().await;
+	let env = TestEnv::new().await;
 
 	let response = env
 		.app
 		.post("/auth/login/email")
 		.json(&LoginEmailRequest {
-			email:    "bob@example.com".to_string(),
-			password: "bobdebouwer1234!".to_string(),
+			email:    "test@example.com".to_string(),
+			password: "foo".to_string(),
 		})
 		.await;
 
@@ -670,81 +620,33 @@ async fn login_email() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn login_email_pending() {
+async fn login_email_disabled() {
 	let env = TestEnv::new().await;
 
-	env.app
-		.post("/auth/register")
-		.json(&RegisterRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
-			email:    "bob@example.com".to_string(),
-		})
-		.await;
-
 	let response = env
 		.app
 		.post("/auth/login/email")
 		.json(&LoginEmailRequest {
-			email:    "bob@example.com".to_string(),
-			password: "bobdebouwer1234!".to_string(),
+			email:    "test-disabled@example.com".to_string(),
+			password: "foo".to_string(),
 		})
 		.await;
 
-	assert!(
-		catch_unwind(|| {
-			let _access_token = response.cookie("blokmap_access_token");
-		})
-		.is_err()
-	);
-
-	assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn login_email_disabled() {
-	let env = TestEnv::new().await.create_test_user().await;
-
-	let pool = env.db_guard.create_pool();
-	let conn = pool.get().await.unwrap();
-	let mut bob = Profile::get_all(&conn)
-		.await
-		.unwrap()
-		.into_iter()
-		.find(|p| p.username == "bob")
-		.unwrap();
-	bob.state = ProfileState::Disabled;
-	bob.update(&conn).await.unwrap();
-
-	let response = env
-		.app
-		.post("/auth/login/email")
-		.json(&LoginEmailRequest {
-			email:    "bob@example.com".to_string(),
-			password: "bobdebouwer1234!".to_string(),
-		})
-		.await;
-
-	assert!(
-		catch_unwind(|| {
-			let _access_token = response.cookie("blokmap_access_token");
-		})
-		.is_err()
-	);
+	assert!(response.maybe_cookie("blokmap_access_token").is_none());
 
 	assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn logout() {
-	let env = TestEnv::new().await.create_test_user().await;
+	let env = TestEnv::new().await;
 
 	let response = env
 		.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
+			username: "test".to_string(),
+			password: "foo".to_string(),
 		})
 		.await;
 

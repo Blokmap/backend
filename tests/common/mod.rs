@@ -1,12 +1,9 @@
 use std::sync::Arc;
 
-use argon2::password_hash::SaltString;
-use argon2::password_hash::rand_core::OsRng;
-use argon2::{Argon2, PasswordHasher};
 use axum_extra::extract::cookie::Key;
 use axum_test::TestServer;
 use blokmap::mailer::{Mailer, StubMailbox};
-use blokmap::{AppState, Config, routes};
+use blokmap::{AppState, Config, SeedProfile, Seeder, routes};
 use mock_redis::{RedisUrlGuard, RedisUrlProvider};
 
 pub mod wrappers;
@@ -35,6 +32,21 @@ impl TestEnv {
 		let test_pool_guard = (*DATABASE_PROVIDER).acquire().await;
 		let test_pool = test_pool_guard.create_pool();
 
+		{
+			let conn = test_pool.get().await.unwrap();
+			let seeder = Seeder::new(&conn);
+
+			seeder
+				.populate("seed/profiles.json", async |conn, profiles| {
+					for profile in profiles {
+						SeedProfile::insert(profile, conn).await?;
+					}
+
+					Ok(())
+				})
+				.await;
+		}
+
 		let redis_url_guard = RedisUrlProvider::acquire();
 		let redis_connection = redis_url_guard.connect().await;
 
@@ -62,71 +74,5 @@ impl TestEnv {
 			redis_guard:  redis_url_guard,
 			stub_mailbox: stub_mailbox.unwrap(),
 		}
-	}
-
-	/// Create a test user in the test environment
-	///
-	/// # Panics
-	/// Panics if creating the user fails for any reason
-	pub async fn create_test_user(self) -> Self {
-		let salt = SaltString::generate(&mut OsRng);
-		let password_hash = Argon2::default()
-			.hash_password("bobdebouwer1234!".as_bytes(), &salt)
-			.unwrap()
-			.to_string();
-
-		let pool = self.db_guard.create_pool();
-		let conn = pool.get().await.unwrap();
-
-		conn.interact(|conn| {
-			use diesel::prelude::*;
-			use diesel::sql_types::Text;
-
-			diesel::sql_query(
-				"INSERT INTO profile (username, password_hash, email, state) \
-				 VALUES ('bob', $1, 'bob@example.com', 'active');",
-			)
-			.bind::<Text, _>(password_hash)
-			.execute(conn)
-		})
-		.await
-		.unwrap()
-		.unwrap();
-
-		self
-	}
-
-	/// Create a test admin user in the test environment
-	///
-	/// # Panics
-	/// Panics if creating the user fails for any reason
-	#[allow(dead_code)]
-	pub async fn create_test_admin_user(self) -> Self {
-		let salt = SaltString::generate(&mut OsRng);
-		let password_hash = Argon2::default()
-			.hash_password("bobdebouwer1234!".as_bytes(), &salt)
-			.unwrap()
-			.to_string();
-
-		let pool = self.db_guard.create_pool();
-		let conn = pool.get().await.unwrap();
-
-		conn.interact(|conn| {
-			use diesel::prelude::*;
-			use diesel::sql_types::Text;
-
-			diesel::sql_query(
-				"INSERT INTO profile (username, password_hash, email, admin, \
-				 state) VALUES ('alice', $1, 'alice@example.com', true, \
-				 'active');",
-			)
-			.bind::<Text, _>(password_hash)
-			.execute(conn)
-		})
-		.await
-		.unwrap()
-		.unwrap();
-
-		self
 	}
 }
