@@ -46,7 +46,7 @@ impl<'c> Seeder<'c> {
 		loader: F,
 	) -> &'s Self
 	where
-		T: DeserializeOwned + std::fmt::Debug,
+		T: DeserializeOwned,
 		F: AsyncFnOnce(&DbConn, Vec<T>) -> Result<(), Error>,
 	{
 		let records = Self::read_file_records(filename);
