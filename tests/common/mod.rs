@@ -110,4 +110,38 @@ impl TestEnv {
 			.await;
 		env
 	}
+
+	/// Create a test admin user in the test environment
+	///
+	/// # Panics
+	/// Panics if creating the user fails for any reason
+	#[allow(dead_code)]
+	pub async fn create_test_admin_user(self) -> Self {
+		let salt = SaltString::generate(&mut OsRng);
+		let password_hash = Argon2::default()
+			.hash_password("bobdebouwer1234!".as_bytes(), &salt)
+			.unwrap()
+			.to_string();
+
+		let pool = self.db_guard.create_pool();
+		let conn = pool.get().await.unwrap();
+
+		conn.interact(|conn| {
+			use diesel::prelude::*;
+			use diesel::sql_types::Text;
+
+			diesel::sql_query(
+				"INSERT INTO profile (username, password_hash, email, admin, \
+				 state) VALUES ('alice', $1, 'alice@example.com', true, \
+				 'active');",
+			)
+			.bind::<Text, _>(password_hash)
+			.execute(conn)
+		})
+		.await
+		.unwrap()
+		.unwrap();
+
+		self
+	}
 }

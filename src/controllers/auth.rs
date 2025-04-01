@@ -2,9 +2,7 @@
 
 use std::sync::LazyLock;
 
-use argon2::password_hash::SaltString;
-use argon2::password_hash::rand_core::OsRng;
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::NoContent;
@@ -19,8 +17,8 @@ use validator_derive::Validate;
 
 use crate::mailer::Mailer;
 use crate::models::ephemeral::Session;
-use crate::models::{InsertableProfile, Profile, ProfileId};
-use crate::{Config, DbPool, Error, RedisConn, TokenError};
+use crate::models::{InsertableProfile, Profile, ProfileId, ProfileState};
+use crate::{Config, DbPool, Error, LoginError, RedisConn, TokenError};
 
 static USERNAME_REGEX: LazyLock<Regex> =
 	LazyLock::new(|| Regex::new(r"^[a-zA-Z][a-zA-Z0-9-_]*$").unwrap());
@@ -58,10 +56,7 @@ pub(crate) async fn register_profile(
 ) -> Result<(StatusCode, Json<Profile>), Error> {
 	register_data.validate()?;
 
-	let salt = SaltString::generate(&mut OsRng);
-	let password_hash = Argon2::default()
-		.hash_password(register_data.password.as_bytes(), &salt)?
-		.to_string();
+	let password_hash = Profile::hash_password(&register_data.password)?;
 
 	let email_confirmation_token = Uuid::new_v4().to_string();
 	let email_confirmation_token_expiry =
@@ -81,18 +76,13 @@ pub(crate) async fn register_profile(
 	let confirmation_token =
 		new_profile.email_confirmation_token.clone().unwrap();
 
-	let confirmation_url = format!(
-		"{}/confirm_email/{}",
-		config.frontend_url, confirmation_token,
-	);
-
-	let mail = mailer.try_build_message(
-		&new_profile,
-		"Confirm your email",
-		&format!("Please confirm your email by going to {confirmation_url}"),
-	)?;
-
-	mailer.send(mail).await?;
+	mailer
+		.send_confirm_email(
+			&new_profile,
+			&confirmation_token,
+			&config.frontend_url,
+		)
+		.await?;
 
 	info!(
 		"registered new profile id: {} username: {} email: {}",
@@ -104,7 +94,37 @@ pub(crate) async fn register_profile(
 	Ok((StatusCode::CREATED, Json(new_profile)))
 }
 
-#[instrument(skip(pool, config, jar))]
+pub(crate) async fn resend_confirmation_email(
+	State(pool): State<DbPool>,
+	State(config): State<Config>,
+	State(mailer): State<Mailer>,
+	Path(profile_id): Path<i32>,
+) -> Result<NoContent, Error> {
+	let conn = pool.get().await?;
+	let profile = Profile::get(profile_id, &conn).await?;
+
+	let email_confirmation_token = Uuid::new_v4().to_string();
+
+	let profile = profile
+		.set_email_confirmation_token(
+			&email_confirmation_token,
+			config.email_confirmation_token_lifetime,
+			&conn,
+		)
+		.await?;
+
+	mailer
+		.send_confirm_email(
+			&profile,
+			&email_confirmation_token,
+			&config.frontend_url,
+		)
+		.await?;
+
+	Ok(NoContent)
+}
+
+#[instrument(skip(pool, r_conn, config, jar))]
 pub(crate) async fn confirm_email(
 	State(pool): State<DbPool>,
 	State(mut r_conn): State<RedisConn>,
@@ -131,9 +151,92 @@ pub(crate) async fn confirm_email(
 
 	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
 
+	let profile = profile.update_last_login(&conn).await?;
+
 	info!("confirmed email for profile {}", profile.id);
 
-	profile.update_last_login(&conn).await?;
+	Ok((jar, NoContent))
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PasswordResetRequest {
+	pub username: String,
+}
+
+#[instrument(skip(pool, config, mailer, request))]
+pub(crate) async fn request_password_reset(
+	State(pool): State<DbPool>,
+	State(config): State<Config>,
+	State(mailer): State<Mailer>,
+	Json(request): Json<PasswordResetRequest>,
+) -> Result<NoContent, Error> {
+	let conn = pool.get().await?;
+	let profile = Profile::get_by_username(request.username, &conn).await?;
+
+	let password_reset_token = Uuid::new_v4().to_string();
+
+	let profile = profile
+		.set_password_reset_token(
+			&password_reset_token,
+			config.password_reset_token_lifetime,
+			&conn,
+		)
+		.await?;
+
+	mailer
+		.send_reset_password(
+			&profile,
+			&password_reset_token,
+			&config.frontend_url,
+		)
+		.await?;
+
+	Ok(NoContent)
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
+pub struct PasswordResetData {
+	pub token:    String,
+	#[validate(length(
+		min = 16,
+		message = "password must be at least 16 characters long",
+		code = "password-length"
+	))]
+	pub password: String,
+}
+
+#[instrument(skip_all)]
+pub(crate) async fn reset_password(
+	State(pool): State<DbPool>,
+	State(config): State<Config>,
+	State(mut r_conn): State<RedisConn>,
+	jar: PrivateCookieJar,
+	Json(request): Json<PasswordResetData>,
+) -> Result<(PrivateCookieJar, NoContent), Error> {
+	request.validate()?;
+
+	let conn = pool.get().await?;
+	let profile =
+		Profile::get_by_password_reset_token(request.token, &conn).await?;
+
+	// Unwrap is safe because profiles with a reset token will always
+	// have a token expiry
+	let expiry = profile.password_reset_token_expiry.unwrap();
+	if Utc::now().naive_utc() > expiry {
+		return Err(TokenError::ExpiredPasswordToken.into());
+	}
+
+	let profile = profile.change_password(&request.password, &conn).await?;
+
+	let session = Session::create(&config, &profile, &mut r_conn).await?;
+	let access_token_cookie = session.to_access_token_cookie(&config);
+	let refresh_token_cookie = session.to_refresh_token_cookie(&config);
+
+	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
+
+	let profile = profile.update_last_login(&conn).await?;
+
+	info!("reset password for profile {}", profile.id);
 
 	Ok((jar, NoContent))
 }
@@ -155,6 +258,14 @@ pub(crate) async fn login_profile_with_username(
 	let conn = pool.get().await?;
 	let profile = Profile::get_by_username(login_data.username, &conn).await?;
 
+	match profile.state {
+		ProfileState::Active => (),
+		ProfileState::Disabled => return Err(LoginError::Disabled.into()),
+		ProfileState::PendingEmailVerification => {
+			return Err(LoginError::PendingEmailVerification.into());
+		},
+	}
+
 	let password_hash = PasswordHash::new(&profile.password_hash)?;
 	Argon2::default()
 		.verify_password(login_data.password.as_bytes(), &password_hash)?;
@@ -164,6 +275,8 @@ pub(crate) async fn login_profile_with_username(
 	let refresh_token_cookie = session.to_refresh_token_cookie(&config);
 
 	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
+
+	let profile = profile.update_last_login(&conn).await?;
 
 	info!("logged in profile {} with username", profile.id);
 
@@ -187,6 +300,14 @@ pub(crate) async fn login_profile_with_email(
 	let conn = pool.get().await?;
 	let profile = Profile::get_by_email(login_data.email, &conn).await?;
 
+	match profile.state {
+		ProfileState::Active => (),
+		ProfileState::Disabled => return Err(LoginError::Disabled.into()),
+		ProfileState::PendingEmailVerification => {
+			return Err(LoginError::PendingEmailVerification.into());
+		},
+	}
+
 	let password_hash = PasswordHash::new(&profile.password_hash)?;
 	Argon2::default()
 		.verify_password(login_data.password.as_bytes(), &password_hash)?;
@@ -196,6 +317,8 @@ pub(crate) async fn login_profile_with_email(
 	let refresh_token_cookie = session.to_refresh_token_cookie(&config);
 
 	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
+
+	let profile = profile.update_last_login(&conn).await?;
 
 	info!("logged in profile {} with email", profile.id);
 

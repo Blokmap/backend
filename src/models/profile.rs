@@ -1,6 +1,9 @@
 use std::ops::Deref;
 
-use chrono::{NaiveDateTime, Utc};
+use argon2::password_hash::SaltString;
+use argon2::password_hash::rand_core::OsRng;
+use argon2::{Argon2, PasswordHasher};
+use chrono::{NaiveDateTime, TimeDelta, Utc};
 use diesel::prelude::*;
 use diesel_derive_enum::DbEnum;
 use lettre::message::Mailbox;
@@ -16,6 +19,10 @@ impl Deref for ProfileId {
 	type Target = i32;
 
 	fn deref(&self) -> &Self::Target { &self.0 }
+}
+
+impl AsRef<i32> for ProfileId {
+	fn as_ref(&self) -> &i32 { &self.0 }
 }
 
 impl std::fmt::Display for ProfileId {
@@ -46,7 +53,6 @@ pub enum ProfileState {
 )]
 #[diesel(table_name = profile)]
 pub struct Profile {
-	#[serde(skip)]
 	pub id:                              i32,
 	pub username:                        String,
 	#[serde(skip)]
@@ -111,7 +117,7 @@ pub struct InsertableProfile {
 impl InsertableProfile {
 	/// Insert this [`InsertableProfile`]
 	pub(crate) async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
-		let profile = conn
+        let profile = conn
 			.interact(|conn| {
 				use self::profile::dsl::*;
 
@@ -126,12 +132,41 @@ impl InsertableProfile {
 	}
 }
 
+#[derive(AsChangeset, Clone, Debug, Deserialize, Serialize)]
+#[diesel(table_name = profile)]
+pub struct ProfileUpdate {
+	pub username:      Option<String>,
+	pub pending_email: Option<String>,
+}
+
+impl ProfileUpdate {
+	/// Update a [`Profile`] with the given changes
+	pub(crate) async fn apply_to(
+		self,
+		target_id: i32,
+		conn: &DbConn,
+	) -> Result<Profile, Error> {
+		let new = conn
+			.interact(move |conn| {
+				use self::profile::dsl::*;
+
+				diesel::update(profile.find(target_id))
+					.set(self)
+					.returning(Profile::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(new)
+	}
+}
+
 impl Profile {
 	/// Get a [`Profile`] given its id
-	pub(crate) async fn get(
-		query_id: i32,
-		conn: &DbConn,
-	) -> Result<Self, Error> {
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn get(query_id: i32, conn: &DbConn) -> Result<Self, Error> {
 		let profiles = conn
 			.interact(move |conn| {
 				use self::profile::dsl::*;
@@ -144,7 +179,10 @@ impl Profile {
 	}
 
 	/// Update a given [`Profile`]
-	pub(crate) async fn update(self, conn: &DbConn) -> Result<Self, Error> {
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn update(self, conn: &DbConn) -> Result<Self, Error> {
 		let new = conn
 			.interact(|conn| {
 				use self::profile::dsl::*;
@@ -160,7 +198,10 @@ impl Profile {
 	}
 
 	/// Get a list of all [`Profile`]s
-	pub(crate) async fn get_all(conn: &DbConn) -> Result<Vec<Self>, Error> {
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn get_all(conn: &DbConn) -> Result<Vec<Self>, Error> {
 		use self::profile::dsl::*;
 
 		let profiles = conn.interact(|conn| profile.load(conn)).await??;
@@ -169,10 +210,10 @@ impl Profile {
 	}
 
 	/// Check if a [`Profile`] with a given id exists
-	pub(crate) async fn exists(
-		query_id: i32,
-		conn: &DbConn,
-	) -> Result<bool, Error> {
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn exists(query_id: i32, conn: &DbConn) -> Result<bool, Error> {
 		let exists = conn
 			.interact(move |conn| {
 				use self::profile::dsl::*;
@@ -186,7 +227,10 @@ impl Profile {
 	}
 
 	/// Get a [`Profile`] given its username
-	pub(crate) async fn get_by_username(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn get_by_username(
 		query_username: String,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
@@ -202,7 +246,10 @@ impl Profile {
 	}
 
 	/// Get a [`Profile`] given its email
-	pub(crate) async fn get_by_email(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn get_by_email(
 		query_email: String,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
@@ -218,7 +265,10 @@ impl Profile {
 	}
 
 	/// Get a profile given its email confirmation token
-	pub(crate) async fn get_by_email_confirmation_token(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn get_by_email_confirmation_token(
 		token: String,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
@@ -233,11 +283,33 @@ impl Profile {
 		Ok(profile)
 	}
 
-	/// Confirm the pending email for a [`Profile`]
-	pub(crate) async fn confirm_email(
-		&self,
+	/// Get a profile given its password reset token
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn get_by_password_reset_token(
+		token: String,
 		conn: &DbConn,
-	) -> Result<(), Error> {
+	) -> Result<Self, Error> {
+		let profile = conn
+			.interact(|conn| {
+				use self::profile::dsl::*;
+
+				profile.filter(password_reset_token.eq(token)).first(conn)
+			})
+			.await??;
+
+		Ok(profile)
+	}
+
+	/// Confirm the pending email for a [`Profile`]
+	///
+	/// # Panics
+	/// Panics if called on a [`Profile`] with no pending email
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn confirm_email(&self, conn: &DbConn) -> Result<(), Error> {
 		let self_id = self.id;
 		let pending = self.pending_email.clone().unwrap();
 
@@ -258,9 +330,89 @@ impl Profile {
 		Ok(())
 	}
 
+	/// Set a new email confirmation token and expiry for a [`Profile`]
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn set_email_confirmation_token(
+		mut self,
+		token: &str,
+		lifetime: TimeDelta,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let email_confirmation_token_expiry = Utc::now().naive_utc() + lifetime;
+
+		self.email_confirmation_token = Some(token.to_string());
+		self.email_confirmation_token_expiry =
+			Some(email_confirmation_token_expiry);
+
+		self.update(conn).await
+	}
+
+	/// Set a new password reset token and expiry for a [`Profile`]
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn set_password_reset_token(
+		mut self,
+		token: &str,
+		lifetime: TimeDelta,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let password_reset_token_expiry = Utc::now().naive_utc() + lifetime;
+
+		self.password_reset_token = Some(token.to_string());
+		self.password_reset_token_expiry = Some(password_reset_token_expiry);
+
+		self.update(conn).await
+	}
+
+	/// Hash a password
+	pub(crate) fn hash_password(password: &str) -> Result<String, Error> {
+		let salt = SaltString::generate(&mut OsRng);
+		let hashed_password = Argon2::default()
+			.hash_password(password.as_bytes(), &salt)?
+			.to_string();
+
+		Ok(hashed_password)
+	}
+
+	/// Change the password for a [`Profile`]
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn change_password(
+		&self,
+		new_password: &str,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let self_id = self.id;
+		let new_password_hash = Self::hash_password(new_password)?;
+
+		let profile = conn
+			.interact(move |conn| {
+				use self::profile::dsl::*;
+
+				diesel::update(profile.find(self_id))
+					.set((
+						password_hash.eq(new_password_hash),
+						password_reset_token.eq(None::<String>),
+						password_reset_token_expiry.eq(None::<NaiveDateTime>),
+					))
+					.returning(Profile::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(profile)
+	}
+
 	/// Set the `last_login_at` field to the current datetime for the given
 	/// [`Profile`]
-	pub(crate) async fn update_last_login(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn update_last_login(
 		mut self,
 		conn: &DbConn,
 	) -> Result<Self, Error> {

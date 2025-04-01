@@ -18,6 +18,7 @@ pub struct Config {
 	pub frontend_url: String,
 
 	pub email_confirmation_token_lifetime: Duration,
+	pub password_reset_token_lifetime:     Duration,
 
 	pub access_token_name:     String,
 	pub access_token_lifetime: time::Duration,
@@ -63,6 +64,11 @@ impl Config {
 
 		let email_confirmation_token_lifetime = Duration::minutes(
 			Self::get_env_default("EMAIL_CONFIRMATION_TOKEN_LIFETIME", "5")
+				.parse::<i64>()
+				.unwrap(),
+		);
+		let password_reset_token_lifetime = Duration::minutes(
+			Self::get_env_default("PASSWORD_RESET_TOKEN_LIFETIME", "5")
 				.parse::<i64>()
 				.unwrap(),
 		);
@@ -113,6 +119,7 @@ impl Config {
 			production,
 			frontend_url,
 			email_confirmation_token_lifetime,
+			password_reset_token_lifetime,
 			access_token_name,
 			access_token_lifetime,
 			refresh_token_name,

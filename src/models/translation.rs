@@ -39,7 +39,60 @@ pub struct Translation {
 	pub updated_at: NaiveDateTime,
 }
 
-/// Translation service functions.
+#[derive(Debug, Deserialize, Serialize, Clone, Insertable)]
+#[diesel(table_name = translation)]
+pub struct NewTranslation {
+	pub nl: Option<String>,
+	pub en: Option<String>,
+	pub fr: Option<String>,
+	pub de: Option<String>,
+}
+
+impl NewTranslation {
+	/// Insert this [`NewTranslation`]
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn insert(self, conn: &DbConn) -> Result<Translation, Error> {
+		let new_translation = conn
+			.interact(|conn| {
+				use self::translation::dsl::*;
+
+				diesel::insert_into(translation)
+					.values(self)
+					.returning(Translation::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(new_translation)
+	}
+
+	/// Insert a list of [`InsertableTranslation`]s in a single transaction
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn bulk_insert(
+		translations: Vec<Self>,
+		conn: DbConn,
+	) -> Result<Vec<Translation>, Error> {
+		let translations = conn
+			.interact(|conn| {
+				conn.transaction(|conn| {
+					use self::translation::dsl::*;
+
+					diesel::insert_into(translation)
+						.values(translations)
+						.returning(Translation::as_returning())
+						.get_results(conn)
+				})
+			})
+			.await??;
+
+		Ok(translations)
+	}
+}
+
 impl Translation {
 	// /// Get a list of all [`Translation`]s
 	// pub(crate) async fn get_all(conn: DbConn) -> Result<Vec<Self>, Error> {
@@ -54,9 +107,24 @@ impl Translation {
 	// 	Ok(translations)
 	// }
 
+	/// Check if a [`Translation`] with a given id exists
+	pub async fn exists(query_id: i32, conn: &DbConn) -> Result<bool, Error> {
+		let exists = conn
+			.interact(move |conn| {
+				use self::translation::dsl::*;
+				diesel::select(diesel::dsl::exists(
+					translation.filter(id.eq(query_id)),
+				))
+				.get_result(conn)
+			})
+			.await??;
+
+		Ok(exists)
+	}
+
 	/// Attempt to get a single [`Translation`] given its [key](Uuid) and
 	/// [language](Language)
-	pub(crate) async fn get_by_id(
+	pub async fn get_by_id(
 		query_id: i32,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
@@ -75,7 +143,7 @@ impl Translation {
 	}
 
 	/// Delete a single [`Translation`] given its [id](i32).
-	pub(crate) async fn delete_by_id(
+	pub async fn delete_by_id(
 		query_id: i32,
 		conn: &DbConn,
 	) -> Result<(), Error> {
@@ -87,36 +155,6 @@ impl Translation {
 		.await??;
 
 		Ok(())
-	}
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone, Insertable)]
-#[diesel(table_name = translation)]
-pub struct NewTranslation {
-	pub nl: Option<String>,
-	pub en: Option<String>,
-	pub fr: Option<String>,
-	pub de: Option<String>,
-}
-
-impl NewTranslation {
-	/// Insert this [`NewTranslation`].
-	pub(crate) async fn insert(
-		self,
-		conn: &DbConn,
-	) -> Result<Translation, Error> {
-		let new_translation = conn
-			.interact(|conn| {
-				use self::translation::dsl::*;
-
-				diesel::insert_into(translation)
-					.values(self)
-					.returning(Translation::as_returning())
-					.get_result(conn)
-			})
-			.await??;
-
-		Ok(new_translation)
 	}
 }
 
@@ -132,7 +170,7 @@ pub struct UpdateTranslation {
 
 impl UpdateTranslation {
 	/// Update this [`UpdateTranslation`].
-	pub(crate) async fn update(
+	pub async fn update(
 		self,
 		query_id: i32,
 		conn: &DbConn,

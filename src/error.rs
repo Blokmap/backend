@@ -3,25 +3,26 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use serde_json::json;
 use thiserror::Error;
 use tokio::sync::mpsc;
 
 /// Top level application error, can be converted into a [`Response`]
 #[derive(Debug, Error)]
 pub enum Error {
-	// Opaque internal server error.
+	/// Duplicate resource created
+	#[error("{0}")]
+	Duplicate(String),
+	/// Request/operation forbidden
+	#[error("forbidden")]
+	Forbidden,
+	/// Opaque internal server error
 	#[error("internal server error")]
 	InternalServerError,
-	// Duplicate entity error.
-	#[error("{0}")]
-	DuplicateEntityError(String),
-	// Entity not found error.
-	#[error("not found")]
-	EntityNotFoundError,
+	/// Resource not found
+	#[error("not found - {}", print_option(.0.clone()))]
+	NotFound(Option<String>),
 	/// Any error related to logging in
 	#[error(transparent)]
 	LoginError(#[from] LoginError),
@@ -31,6 +32,57 @@ pub enum Error {
 	/// Resource could not be validated
 	#[error("{0}")]
 	ValidationError(String),
+}
+
+fn print_option(opt: Option<String>) -> String {
+	match opt {
+		Some(s) => s,
+		None => "".to_string(),
+	}
+}
+
+impl From<InternalServerError> for Error {
+	fn from(value: InternalServerError) -> Self {
+		error!("internal server error -- {value}");
+
+		Self::InternalServerError
+	}
+}
+
+impl From<validator::ValidationErrors> for Error {
+	fn from(err: validator::ValidationErrors) -> Self {
+		let errs = err.field_errors();
+		let repr = errs
+			.values()
+			.map(|v| {
+				v.iter()
+					.map(ToString::to_string)
+					.collect::<Vec<String>>()
+					.join("\n")
+			})
+			.collect::<Vec<String>>()
+			.join("\n");
+
+		Self::ValidationError(repr)
+	}
+}
+
+impl IntoResponse for Error {
+	fn into_response(self) -> Response {
+		let message = self.to_string();
+
+		let status = match self {
+			Self::Duplicate(_) => StatusCode::CONFLICT,
+			Self::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
+			Self::Forbidden | Self::LoginError(_) | Self::TokenError(_) => {
+				StatusCode::FORBIDDEN
+			},
+			Self::NotFound(_) => StatusCode::NOT_FOUND,
+			Self::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
+		};
+
+		(status, message).into_response()
+	}
 }
 
 /// A list of possible internal errors
@@ -81,49 +133,6 @@ impl From<argon2::password_hash::Error> for Error {
 	}
 }
 
-impl From<InternalServerError> for Error {
-	fn from(value: InternalServerError) -> Self {
-		error!("internal server error -- {value}");
-
-		Self::InternalServerError
-	}
-}
-
-impl From<validator::ValidationErrors> for Error {
-	fn from(err: validator::ValidationErrors) -> Self {
-		let errs = err.field_errors();
-
-		let repr = errs
-			.values()
-			.map(|v| {
-				v.iter()
-					.map(ToString::to_string)
-					.collect::<Vec<String>>()
-					.join("\n")
-			})
-			.collect::<Vec<String>>()
-			.join("\n");
-
-		Self::ValidationError(repr)
-	}
-}
-
-impl IntoResponse for Error {
-	fn into_response(self) -> Response {
-		let message = Json(json!({ "detail": self.to_string() }));
-
-		let status = match self {
-			Self::DuplicateEntityError(_) => StatusCode::CONFLICT,
-			Self::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
-			Self::EntityNotFoundError => StatusCode::NOT_FOUND,
-			Self::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
-			Self::LoginError(_) | Self::TokenError(_) => StatusCode::FORBIDDEN,
-		};
-
-		(status, message).into_response()
-	}
-}
-
 impl From<deadpool_diesel::InteractError> for Error {
 	fn from(value: deadpool_diesel::InteractError) -> Self {
 		InternalServerError::DatabaseInteractionError(value).into()
@@ -142,7 +151,7 @@ static CONSTRAINT_TO_COLUMN: LazyLock<HashMap<&str, &str>> =
 impl From<diesel::result::Error> for Error {
 	fn from(err: diesel::result::Error) -> Self {
 		match &err {
-			diesel::result::Error::NotFound => Self::EntityNotFoundError,
+			diesel::result::Error::NotFound => Self::NotFound(None),
 			diesel::result::Error::DatabaseError(
 				diesel::result::DatabaseErrorKind::UniqueViolation,
 				info,
@@ -153,9 +162,7 @@ impl From<diesel::result::Error> for Error {
 
 				match CONSTRAINT_TO_COLUMN.get(constraint_name) {
 					Some(field) => {
-						Self::DuplicateEntityError(format!(
-							"{field} is already in use"
-						))
+						Self::Duplicate(format!("{field} is already in use"))
 					},
 					None => InternalServerError::DatabaseError(err).into(),
 				}
@@ -212,6 +219,8 @@ pub enum LoginError {
 	InvalidPassword,
 	#[error("profile is still awaiting email verification")]
 	PendingEmailVerification,
+	#[error("profile is disabled")]
+	Disabled,
 }
 
 /// Any error related to a token
@@ -219,4 +228,6 @@ pub enum LoginError {
 pub enum TokenError {
 	#[error("email confirmation token has expired")]
 	ExpiredEmailToken,
+	#[error("password reset token has expired")]
+	ExpiredPasswordToken,
 }

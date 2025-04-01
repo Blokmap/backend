@@ -43,7 +43,7 @@ pub struct Location {
 
 impl Location {
 	/// Get a [`Location`] by its id and include its [`Translation`]s.
-	pub(crate) async fn get_by_id(
+	pub async fn get_by_id(
 		loc_id: i32,
 		conn: &DbConn,
 	) -> Result<(Location, Translation, Translation), Error> {
@@ -76,7 +76,7 @@ impl Location {
 	}
 
 	/// Get all [`Location`]s and include their [`Translation`]s.
-	pub(crate) async fn get_all(
+	pub async fn get_all(
 		bounds: Bounds,
 		conn: &DbConn,
 	) -> Result<Vec<(Location, Translation, Translation)>, Error> {
@@ -120,7 +120,7 @@ impl Location {
 	}
 
 	/// Get all the latlng positions of the locations.
-	pub(crate) async fn get_latlng_positions(
+	pub async fn get_latlng_positions(
 		conn: &DbConn,
 	) -> Result<Vec<(f64, f64)>, Error> {
 		let positions = conn
@@ -135,10 +135,7 @@ impl Location {
 	}
 
 	/// Delete a [`Location`] by its id.
-	pub(crate) async fn delete_by_id(
-		loc_id: i32,
-		conn: &DbConn,
-	) -> Result<(), Error> {
+	pub async fn delete_by_id(loc_id: i32, conn: &DbConn) -> Result<(), Error> {
 		conn.interact(move |conn| {
 			use self::location::dsl::*;
 
@@ -186,7 +183,19 @@ pub struct NewLocation {
 
 impl NewLocation {
 	/// Insert this [`NewLocation`] into the database.
-	pub(crate) async fn insert(self, conn: &DbConn) -> Result<Location, Error> {
+	pub async fn insert(self, conn: &DbConn) -> Result<Location, Error> {
+		let description_exists =
+			Translation::exists(self.description_id, conn).await?;
+		let excerpt_exists = Translation::exists(self.excerpt_id, conn).await?;
+
+		if !description_exists {
+			return Err(Error::NotFound("Description not found".to_string()));
+		}
+        
+		if !excerpt_exists {
+			return Err(Error::NotFound("Excerpt not found".to_string()));
+		}
+
 		let location = conn
 			.interact(|conn| {
 				use self::location::dsl::*;
@@ -221,7 +230,7 @@ pub struct UpdateLocation {
 
 impl UpdateLocation {
 	/// Update this [`Location`] in the database.
-	pub(crate) async fn update(
+	pub async fn update(
 		self,
 		loc_id: i32,
 		conn: &DbConn,
