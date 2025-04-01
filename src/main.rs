@@ -11,6 +11,8 @@ extern crate tracing;
 use axum_extra::extract::cookie::Key;
 use blokmap::mailer::Mailer;
 use blokmap::{AppState, Config, routes};
+#[cfg(feature = "seeder")]
+use blokmap::{SeedProfile, Seeder};
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::signal::unix::SignalKind;
@@ -31,6 +33,23 @@ async fn main() {
 	let config = Config::from_env();
 	let database_pool = config.create_database_pool();
 	let redis_connection = config.create_redis_connection().await;
+
+	#[cfg(feature = "seeder")]
+	{
+		let mut conn = database_pool.get().await.unwrap();
+		let mut seeder = Seeder::new(&mut conn);
+
+		seeder
+			.populate("seed/profiles.json", async |conn, profiles| {
+				for profile in profiles {
+					info!("inserting {profile:?}");
+					SeedProfile::insert(profile, conn).await?;
+				}
+
+				Ok(())
+			})
+			.await;
+	}
 
 	let cookie_jar_key = Key::from(
 		&std::fs::read("/run/secrets/cookie-jar-key")

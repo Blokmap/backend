@@ -27,7 +27,7 @@ impl std::fmt::Display for ProfileId {
 	}
 }
 
-#[derive(Clone, DbEnum, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, DbEnum, Debug, Default, Deserialize, PartialEq, Eq)]
 #[ExistingTypePath = "crate::schema::sql_types::ProfileState"]
 pub enum ProfileState {
 	#[default]
@@ -43,6 +43,7 @@ pub enum ProfileState {
 	Debug,
 	Deserialize,
 	Identifiable,
+	Insertable,
 	Queryable,
 	Selectable,
 	Serialize,
@@ -338,7 +339,10 @@ impl Profile {
 	}
 
 	/// Hash a password
-	pub(crate) fn hash_password(password: &str) -> Result<String, Error> {
+	///
+	/// # Errors
+	/// Errors if hashing the password fails
+	pub fn hash_password(password: &str) -> Result<String, Error> {
 		let salt = SaltString::generate(&mut OsRng);
 		let hashed_password = Argon2::default()
 			.hash_password(password.as_bytes(), &salt)?

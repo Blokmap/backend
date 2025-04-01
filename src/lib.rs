@@ -9,6 +9,8 @@ use deadpool_diesel::postgres::{Object, Pool};
 
 mod config;
 mod error;
+#[cfg(feature = "seeder")]
+mod seeder;
 
 pub mod controllers;
 pub mod mailer;
@@ -21,6 +23,8 @@ pub use config::Config;
 pub use error::*;
 use mailer::Mailer;
 use redis::aio::MultiplexedConnection;
+#[cfg(feature = "seeder")]
+pub use seeder::*;
 
 /// An entire database pool
 pub type DbPool = Pool;

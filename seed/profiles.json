@@ -1,0 +1,9 @@
+[
+	{
+		"username": "test",
+		"email": "test@example.com",
+		"password": "foo",
+		"admin": false,
+		"state": "Active"
+	}
+]
