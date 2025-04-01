@@ -17,8 +17,8 @@ use validator_derive::Validate;
 
 use crate::mailer::Mailer;
 use crate::models::ephemeral::Session;
-use crate::models::{InsertableProfile, Profile, ProfileId};
-use crate::{Config, DbPool, Error, RedisConn, TokenError};
+use crate::models::{InsertableProfile, Profile, ProfileId, ProfileState};
+use crate::{Config, DbPool, Error, LoginError, RedisConn, TokenError};
 
 static USERNAME_REGEX: LazyLock<Regex> =
 	LazyLock::new(|| Regex::new(r"^[a-zA-Z][a-zA-Z0-9-_]*$").unwrap());
@@ -256,6 +256,14 @@ pub(crate) async fn login_profile_with_username(
 	let conn = pool.get().await?;
 	let profile = Profile::get_by_username(login_data.username, &conn).await?;
 
+	match profile.state {
+		ProfileState::Active => (),
+		ProfileState::Disabled => return Err(LoginError::Disabled.into()),
+		ProfileState::PendingEmailVerification => {
+			return Err(LoginError::PendingEmailVerification.into());
+		},
+	}
+
 	let password_hash = PasswordHash::new(&profile.password_hash)?;
 	Argon2::default()
 		.verify_password(login_data.password.as_bytes(), &password_hash)?;
@@ -289,6 +297,14 @@ pub(crate) async fn login_profile_with_email(
 ) -> Result<(PrivateCookieJar, NoContent), Error> {
 	let conn = pool.get().await?;
 	let profile = Profile::get_by_email(login_data.email, &conn).await?;
+
+	match profile.state {
+		ProfileState::Active => (),
+		ProfileState::Disabled => return Err(LoginError::Disabled.into()),
+		ProfileState::PendingEmailVerification => {
+			return Err(LoginError::PendingEmailVerification.into());
+		},
+	}
 
 	let password_hash = PasswordHash::new(&profile.password_hash)?;
 	Argon2::default()
