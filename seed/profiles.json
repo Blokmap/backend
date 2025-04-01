@@ -8,9 +8,16 @@
 	},
 	{
 		"username": "test-admin",
-		"email": "test@example.com",
+		"email": "test-admin@example.com",
 		"password": "foo",
 		"admin": true,
 		"state": "Active"
+	},
+	{
+		"username": "test-disabled",
+		"email": "test-disabled@example.com",
+		"password": "foo",
+		"admin": true,
+		"state": "Disabled"
 	}
 ]
