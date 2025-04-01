@@ -70,15 +70,42 @@ where
 		let state = self.state.clone();
 
 		Box::pin(async move {
-			let jar = req
-				.extract_parts_with_state::<PrivateCookieJar, _>(&state)
-				.await
-				.unwrap();
-
 			let conn = match state.database_pool.get().await {
 				Ok(conn) => conn,
 				Err(e) => return Ok(Error::from(e).into_response()),
 			};
+
+			// Skip authorization in the development environment
+			// with the Skip-Auth header in the request.
+			if !state.config.production && req.headers().contains_key("Skip-Auth") {
+				// In development, we can just query the first admin user.
+				// We assume that the seeder has created an admin user.
+				let profile = conn
+					.interact(|conn| {
+						use diesel::prelude::*;
+
+						use crate::schema::profile::dsl::*;
+
+						profile.filter(admin.eq(true)).first::<Profile>(conn)
+					})
+					.await
+					.unwrap();
+
+				let profile = match profile {
+					Ok(p) => p,
+					Err(e) => return Ok(Error::from(e).into_response()),
+				};
+
+				req.extensions_mut().insert(ProfileId(profile.id));
+
+				info!("skipping auth in development mode");
+				return inner.call(req).await;
+			}
+
+			let jar = req
+				.extract_parts_with_state::<PrivateCookieJar, _>(&state)
+				.await
+				.unwrap();
 
 			let mut r_conn = state.redis_connection;
 

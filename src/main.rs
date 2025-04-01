@@ -49,6 +49,7 @@ async fn main() {
 		cookie_jar_key,
 		mailer,
 	});
+    
 	let listener = TcpListener::bind("0.0.0.0:80").await.unwrap();
 
 	// Start the server.

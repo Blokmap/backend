@@ -10,7 +10,7 @@ use blokmap::mailer::{Mailer, StubMailbox};
 use blokmap::{AppState, Config, routes};
 use mock_redis::{RedisUrlGuard, RedisUrlProvider};
 
-pub mod wrappers;
+mod wrap_mail;
 
 mod mock_db;
 mod mock_redis;

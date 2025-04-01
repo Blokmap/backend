@@ -6,6 +6,7 @@ use axum::{Extension, Json};
 use crate::models::{Profile, ProfileId};
 use crate::{DbPool, Error};
 
+/// Get all [`Profile`]s
 pub(crate) async fn get_all_profiles(
 	State(pool): State<DbPool>,
 ) -> Result<Json<Vec<Profile>>, Error> {
@@ -15,6 +16,7 @@ pub(crate) async fn get_all_profiles(
 	Ok(Json(profiles))
 }
 
+/// Get a [`Profile`] given its id
 pub(crate) async fn get_current_profile(
 	State(pool): State<DbPool>,
 	Extension(profile_id): Extension<ProfileId>,

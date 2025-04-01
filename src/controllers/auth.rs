@@ -40,8 +40,8 @@ pub struct RegisterRequest {
 	))]
 	pub username: String,
 	#[validate(length(
-		min = 16,
-		message = "password must be at least 16 characters long",
+		min = 8,
+		message = "password must be at least 8 characters long",
 		code = "password-length"
 	))]
 	pub password: String,
