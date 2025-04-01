@@ -14,6 +14,9 @@ pub enum Error {
 	/// Duplicate resource created
 	#[error("{0}")]
 	Duplicate(String),
+	/// Request/operation forbidden
+	#[error("forbidden")]
+	Forbidden,
 	/// Opaque internal server error
 	#[error("internal server error")]
 	InternalServerError,
@@ -64,7 +67,9 @@ impl IntoResponse for Error {
 		let status = match self {
 			Self::Duplicate(_) => StatusCode::CONFLICT,
 			Self::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
-			Self::LoginError(_) | Self::TokenError(_) => StatusCode::FORBIDDEN,
+			Self::Forbidden | Self::LoginError(_) | Self::TokenError(_) => {
+				StatusCode::FORBIDDEN
+			},
 			Self::NotFound => StatusCode::NOT_FOUND,
 			Self::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
 		};
@@ -207,6 +212,8 @@ pub enum LoginError {
 	InvalidPassword,
 	#[error("profile is still awaiting email verification")]
 	PendingEmailVerification,
+	#[error("profile is disabled")]
+	Disabled,
 }
 
 /// Any error related to a token

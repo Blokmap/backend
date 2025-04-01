@@ -1,11 +1,12 @@
 //! Controllers for [`Profile`]s
 
-use axum::extract::State;
+use axum::extract::{Path, State};
+use axum::response::NoContent;
 use axum::{Extension, Json};
 use uuid::Uuid;
 
 use crate::mailer::Mailer;
-use crate::models::{Profile, ProfileId, ProfileUpdate};
+use crate::models::{Profile, ProfileId, ProfileState, ProfileUpdate};
 use crate::{Config, DbPool, Error};
 
 #[instrument(skip(pool))]
@@ -65,4 +66,36 @@ pub(crate) async fn update_current_profile(
 	}
 
 	Ok(Json(updated_profile))
+}
+
+#[instrument(skip(pool))]
+pub(crate) async fn disable_profile(
+	State(pool): State<DbPool>,
+	Path(profile_id): Path<i32>,
+) -> Result<NoContent, Error> {
+	let conn = pool.get().await?;
+	let mut profile = Profile::get(profile_id, &conn).await?;
+
+	profile.state = ProfileState::Disabled;
+	profile.update(&conn).await?;
+
+	info!("disabled profile {profile_id}");
+
+	Ok(NoContent)
+}
+
+#[instrument(skip(pool))]
+pub(crate) async fn activate_profile(
+	State(pool): State<DbPool>,
+	Path(profile_id): Path<i32>,
+) -> Result<NoContent, Error> {
+	let conn = pool.get().await?;
+	let mut profile = Profile::get(profile_id, &conn).await?;
+
+	profile.state = ProfileState::Active;
+	profile.update(&conn).await?;
+
+	info!("disabled profile {profile_id}");
+
+	Ok(NoContent)
 }

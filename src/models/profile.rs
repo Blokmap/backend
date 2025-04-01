@@ -21,6 +21,10 @@ impl Deref for ProfileId {
 	fn deref(&self) -> &Self::Target { &self.0 }
 }
 
+impl AsRef<i32> for ProfileId {
+	fn as_ref(&self) -> &i32 { &self.0 }
+}
+
 impl std::fmt::Display for ProfileId {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", self.0)
@@ -49,7 +53,6 @@ pub enum ProfileState {
 )]
 #[diesel(table_name = profile)]
 pub struct Profile {
-	#[serde(skip)]
 	pub id:                              i32,
 	pub username:                        String,
 	#[serde(skip)]
@@ -160,10 +163,10 @@ impl ProfileUpdate {
 
 impl Profile {
 	/// Get a [`Profile`] given its id
-	pub(crate) async fn get(
-		query_id: i32,
-		conn: &DbConn,
-	) -> Result<Self, Error> {
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn get(query_id: i32, conn: &DbConn) -> Result<Self, Error> {
 		let profiles = conn
 			.interact(move |conn| {
 				use self::profile::dsl::*;
@@ -176,7 +179,10 @@ impl Profile {
 	}
 
 	/// Update a given [`Profile`]
-	pub(crate) async fn update(self, conn: &DbConn) -> Result<Self, Error> {
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn update(self, conn: &DbConn) -> Result<Self, Error> {
 		let new = conn
 			.interact(|conn| {
 				use self::profile::dsl::*;
@@ -192,7 +198,10 @@ impl Profile {
 	}
 
 	/// Get a list of all [`Profile`]s
-	pub(crate) async fn get_all(conn: &DbConn) -> Result<Vec<Self>, Error> {
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn get_all(conn: &DbConn) -> Result<Vec<Self>, Error> {
 		use self::profile::dsl::*;
 
 		let profiles = conn.interact(|conn| profile.load(conn)).await??;
@@ -201,10 +210,10 @@ impl Profile {
 	}
 
 	/// Check if a [`Profile`] with a given id exists
-	pub(crate) async fn exists(
-		query_id: i32,
-		conn: &DbConn,
-	) -> Result<bool, Error> {
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn exists(query_id: i32, conn: &DbConn) -> Result<bool, Error> {
 		let exists = conn
 			.interact(move |conn| {
 				use self::profile::dsl::*;
@@ -218,7 +227,10 @@ impl Profile {
 	}
 
 	/// Get a [`Profile`] given its username
-	pub(crate) async fn get_by_username(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn get_by_username(
 		query_username: String,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
@@ -234,7 +246,10 @@ impl Profile {
 	}
 
 	/// Get a [`Profile`] given its email
-	pub(crate) async fn get_by_email(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn get_by_email(
 		query_email: String,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
@@ -250,7 +265,10 @@ impl Profile {
 	}
 
 	/// Get a profile given its email confirmation token
-	pub(crate) async fn get_by_email_confirmation_token(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn get_by_email_confirmation_token(
 		token: String,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
@@ -266,7 +284,10 @@ impl Profile {
 	}
 
 	/// Get a profile given its password reset token
-	pub(crate) async fn get_by_password_reset_token(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn get_by_password_reset_token(
 		token: String,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
@@ -282,10 +303,13 @@ impl Profile {
 	}
 
 	/// Confirm the pending email for a [`Profile`]
-	pub(crate) async fn confirm_email(
-		&self,
-		conn: &DbConn,
-	) -> Result<(), Error> {
+	///
+	/// # Panics
+	/// Panics if called on a [`Profile`] with no pending email
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn confirm_email(&self, conn: &DbConn) -> Result<(), Error> {
 		let self_id = self.id;
 		let pending = self.pending_email.clone().unwrap();
 
@@ -307,7 +331,10 @@ impl Profile {
 	}
 
 	/// Set a new email confirmation token and expiry for a [`Profile`]
-	pub(crate) async fn set_email_confirmation_token(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn set_email_confirmation_token(
 		mut self,
 		token: &str,
 		lifetime: TimeDelta,
@@ -323,7 +350,10 @@ impl Profile {
 	}
 
 	/// Set a new password reset token and expiry for a [`Profile`]
-	pub(crate) async fn set_password_reset_token(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn set_password_reset_token(
 		mut self,
 		token: &str,
 		lifetime: TimeDelta,
@@ -348,7 +378,10 @@ impl Profile {
 	}
 
 	/// Change the password for a [`Profile`]
-	pub(crate) async fn change_password(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn change_password(
 		&self,
 		new_password: &str,
 		conn: &DbConn,
@@ -376,7 +409,10 @@ impl Profile {
 
 	/// Set the `last_login_at` field to the current datetime for the given
 	/// [`Profile`]
-	pub(crate) async fn update_last_login(
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn update_last_login(
 		mut self,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
