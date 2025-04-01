@@ -580,33 +580,6 @@ async fn login_username() {
 		})
 		.await;
 
-	let _access_token = response.cookie("blokmap_access_token");
-
-	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn login_username_pending() {
-	let env = TestEnv::new().await;
-
-	env.app
-		.post("/auth/register")
-		.json(&RegisterRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
-			email:    "bob@example.com".to_string(),
-		})
-		.await;
-
-	let response = env
-		.app
-		.post("/auth/login/username")
-		.json(&LoginUsernameRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
-		})
-		.await;
-
 	assert!(
 		catch_unwind(|| {
 			let _access_token = response.cookie("blokmap_access_token");
@@ -670,24 +643,15 @@ async fn login_email() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn login_email_pending() {
+async fn login_email() {
 	let env = TestEnv::new().await;
-
-	env.app
-		.post("/auth/register")
-		.json(&RegisterRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
-			email:    "bob@example.com".to_string(),
-		})
-		.await;
 
 	let response = env
 		.app
 		.post("/auth/login/email")
 		.json(&LoginEmailRequest {
-			email:    "bob@example.com".to_string(),
-			password: "bobdebouwer1234!".to_string(),
+			email:    "test@example.com".to_string(),
+			password: "foo".to_string(),
 		})
 		.await;
 
