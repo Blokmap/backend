@@ -13,13 +13,13 @@ use common::TestEnv;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn create_translation() {
-	let env = TestEnv::new().await.create_test_user().await;
+	let env = TestEnv::new().await;
 
 	env.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
+			username: "test".to_string(),
+			password: "foo".to_string(),
 		})
 		.await;
 
@@ -59,13 +59,13 @@ async fn create_translation() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn get_invalid_translations() {
-	let env = TestEnv::new().await.create_test_user().await;
+	let env = TestEnv::new().await;
 
 	env.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
+			username: "test".to_string(),
+			password: "foo".to_string(),
 		})
 		.await;
 

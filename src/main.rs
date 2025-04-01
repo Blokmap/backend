@@ -36,13 +36,12 @@ async fn main() {
 
 	#[cfg(feature = "seeder")]
 	{
-		let mut conn = database_pool.get().await.unwrap();
-		let mut seeder = Seeder::new(&mut conn);
+		let conn = database_pool.get().await.unwrap();
+		let seeder = Seeder::new(&conn);
 
 		seeder
 			.populate("seed/profiles.json", async |conn, profiles| {
 				for profile in profiles {
-					info!("inserting {profile:?}");
 					SeedProfile::insert(profile, conn).await?;
 				}
 

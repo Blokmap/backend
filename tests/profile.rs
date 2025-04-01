@@ -8,14 +8,14 @@ use common::TestEnv;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn get_all_profiles() {
-	let env = TestEnv::new().await.create_test_user().await;
+	let env = TestEnv::new().await;
 
 	let response = env
 		.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
+			username: "test".to_string(),
+			password: "foo".to_string(),
 		})
 		.await;
 
@@ -28,13 +28,13 @@ async fn get_all_profiles() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn get_current_profile() {
-	let env = TestEnv::new().await.create_test_user().await;
+	let env = TestEnv::new().await;
 
 	env.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
+			username: "test".to_string(),
+			password: "foo".to_string(),
 		})
 		.await;
 
@@ -42,18 +42,18 @@ async fn get_current_profile() {
 	let body = response.json::<Profile>();
 
 	assert_eq!(response.status_code(), StatusCode::OK);
-	assert_eq!(body.username, "bob".to_string());
+	assert_eq!(body.username, "test".to_string());
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn update_current_profile_username() {
-	let env = TestEnv::new().await.create_test_user().await;
+	let env = TestEnv::new().await;
 
 	env.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
+			username: "test".to_string(),
+			password: "foo".to_string(),
 		})
 		.await;
 
@@ -81,13 +81,13 @@ async fn update_current_profile_username() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn update_current_profile_pending_email() {
-	let env = TestEnv::new().await.create_test_user().await;
+	let env = TestEnv::new().await;
 
 	env.app
 		.post("/auth/login/username")
 		.json(&LoginUsernameRequest {
-			username: "bob".to_string(),
-			password: "bobdebouwer1234!".to_string(),
+			username: "test".to_string(),
+			password: "foo".to_string(),
 		})
 		.await;
 
@@ -97,7 +97,7 @@ async fn update_current_profile_pending_email() {
 			use blokmap::schema::profile::dsl::*;
 			use diesel::prelude::*;
 
-			profile.filter(username.eq("bob")).get_result(conn)
+			profile.filter(username.eq("test")).get_result(conn)
 		})
 		.await
 		.unwrap()
@@ -121,7 +121,7 @@ async fn update_current_profile_pending_email() {
 			use blokmap::schema::profile::dsl::*;
 			use diesel::prelude::*;
 
-			profile.filter(username.eq("bob")).get_result(conn)
+			profile.filter(username.eq("test")).get_result(conn)
 		})
 		.await
 		.unwrap()

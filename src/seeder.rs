@@ -8,11 +8,12 @@ use crate::models::{Profile, ProfileState};
 use crate::{DbConn, Error};
 
 pub struct Seeder<'c> {
-	connection: &'c mut DbConn,
+	connection: &'c DbConn,
 }
 
 impl<'c> Seeder<'c> {
-	pub fn new(connection: &'c mut DbConn) -> Self { Self { connection } }
+	#[must_use]
+	pub fn new(connection: &'c DbConn) -> Self { Self { connection } }
 
 	/// Read a file into a series of deserializable items
 	///
@@ -29,10 +30,10 @@ impl<'c> Seeder<'c> {
 			.join(filename);
 
 		let s = std::fs::read_to_string(path)
-			.expect(&format!("COULD NOT READ SEED FILE {filename}"));
+			.unwrap_or_else(|_| panic!("COULD NOT READ SEED FILE {filename}"));
 
 		serde_json::from_str(&s)
-			.expect(&format!("COULD NOT MAP SEED FILE {filename}"))
+			.unwrap_or_else(|_| panic!("COULD NOT MAP SEED FILE {filename}"))
 	}
 
 	/// Load a file and populate the database with it
@@ -40,19 +41,19 @@ impl<'c> Seeder<'c> {
 	/// # Panics
 	/// Panics if reading the file or interacting with the database fails
 	pub async fn populate<'s, T, F>(
-		&'s mut self,
+		&'s self,
 		filename: &str,
 		loader: F,
-	) -> &'s mut Self
+	) -> &'s Self
 	where
 		T: DeserializeOwned + std::fmt::Debug,
 		F: AsyncFnOnce(&DbConn, Vec<T>) -> Result<(), Error>,
 	{
 		let records = Self::read_file_records(filename);
 
-		loader(self.connection, records)
-			.await
-			.expect(&format!("COULD NOT LOAD RECORDS FOR {filename}"));
+		loader(self.connection, records).await.unwrap_or_else(|e| {
+			panic!("COULD NOT LOAD RECORDS FOR {filename}\n{e:?}")
+		});
 
 		info!("seeded database from {filename}");
 
@@ -83,8 +84,12 @@ struct InsertableSeedProfile {
 
 impl SeedProfile {
 	/// Insert this [`SeedProfile`]
+	///
+	/// # Errors
+	/// Errors if the password is invalid or if interacting with the database
+	/// fails
 	pub async fn insert(self, conn: &DbConn) -> Result<(), Error> {
-		let hash = Profile::hash_password(&self.password).unwrap();
+		let hash = Profile::hash_password(&self.password)?;
 		let insertable = InsertableSeedProfile {
 			username:      self.username,
 			password_hash: hash,
@@ -97,10 +102,8 @@ impl SeedProfile {
 			use crate::schema::profile::dsl::*;
 
 			diesel::insert_into(profile)
-				.values(insertable.clone())
-				.on_conflict(username)
-				.do_update()
-				.set(insertable)
+				.values(insertable)
+				.on_conflict_do_nothing()
 				.execute(conn)
 		})
 		.await??;
