@@ -150,22 +150,26 @@ impl Location {
 		Ok(())
 	}
 
-    /// Approve a [`Location`] by its id and profile id.
-    pub async fn approve_by(loc_id: i32, profile_id: i32, conn: &DbConn) -> Result<(), Error> {
-        conn.interact(move |conn| {
-            use self::location::dsl::*;
+	/// Approve a [`Location`] by its id and profile id.
+	pub async fn approve_by(
+		loc_id: i32,
+		profile_id: i32,
+		conn: &DbConn,
+	) -> Result<(), Error> {
+		conn.interact(move |conn| {
+			use self::location::dsl::*;
 
-            diesel::update(location.filter(id.eq(loc_id)))
-                .set((
-                    approved_by_id.eq(profile_id),
-                    approved_at.eq(Utc::now().naive_utc()),
-                ))
-                .execute(conn)
-        })
-        .await??;
+			diesel::update(location.filter(id.eq(loc_id)))
+				.set((
+					approved_by_id.eq(profile_id),
+					approved_at.eq(Utc::now().naive_utc()),
+				))
+				.execute(conn)
+		})
+		.await??;
 
-        Ok(())
-    }
+		Ok(())
+	}
 }
 
 #[derive(Queryable, Identifiable, Associations, Serialize, Debug)]

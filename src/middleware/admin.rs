@@ -63,7 +63,7 @@ where
 
 		Box::pin(async move {
 			let Some(&profile_id) = req.extensions().get::<ProfileId>() else {
-                debug!("Profile ID not found in request extensions");
+				debug!("Profile ID not found in request extensions");
 				return Ok(Error::Forbidden.into_response());
 			};
 
@@ -78,7 +78,7 @@ where
 			};
 
 			if !profile.admin {
-                debug!("Profile ID {} is not an admin", profile_id);
+				debug!("Profile ID {} is not an admin", profile_id);
 				return Ok(Error::Forbidden.into_response());
 			}
 

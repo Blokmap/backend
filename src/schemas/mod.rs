@@ -1,8 +1,8 @@
 use serde::{Deserialize, Deserializer};
 
 pub mod location;
-pub mod translation;
 pub mod profile;
+pub mod translation;
 
 pub fn ds_patch<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
 where
