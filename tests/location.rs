@@ -200,7 +200,7 @@ async fn approve_location_test() {
 		.post(format!("/locations/{}/approve", location.id).as_str())
 		.await;
 
-	assert_eq!(response.status_code(), StatusCode::OK);
+	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
 	// Check if the location is approved
 	let updated_location = env.get_location().await.unwrap();

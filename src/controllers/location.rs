@@ -129,7 +129,7 @@ pub(crate) async fn approve_location(
 
 	Location::approve_by(id, *profile_id, &conn).await?;
 
-	Ok((StatusCode::OK, NoContent))
+	Ok((StatusCode::NO_CONTENT, NoContent))
 }
 
 /// Delete a location from the database.
@@ -142,5 +142,5 @@ pub(crate) async fn delete_location(
 
 	Location::delete_by_id(id, &conn).await?;
 
-	Ok((StatusCode::NO_CONTENT, axum::response::NoContent))
+	Ok((StatusCode::NO_CONTENT, NoContent))
 }
