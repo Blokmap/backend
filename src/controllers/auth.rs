@@ -17,7 +17,7 @@ use validator_derive::Validate;
 
 use crate::mailer::Mailer;
 use crate::models::ephemeral::Session;
-use crate::models::{InsertableProfile, Profile, ProfileId, ProfileState};
+use crate::models::{NewProfile, Profile, ProfileId, ProfileState};
 use crate::{Config, DbPool, Error, LoginError, RedisConn, TokenError};
 
 static USERNAME_REGEX: LazyLock<Regex> =
@@ -60,7 +60,7 @@ pub(crate) async fn register_profile(
 	let email_confirmation_token_expiry =
 		Utc::now().naive_utc() + config.email_confirmation_token_lifetime;
 
-	let insertable_profile = InsertableProfile {
+	let insertable_profile = NewProfile {
 		username: register_data.username,
 		password: register_data.password,
 		pending_email: register_data.email,

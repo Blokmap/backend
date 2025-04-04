@@ -5,6 +5,7 @@ use std::sync::LazyLock;
 
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use diesel::result::DatabaseErrorKind;
 use thiserror::Error;
 use tokio::sync::mpsc;
 
@@ -21,8 +22,8 @@ pub enum Error {
 	#[error("internal server error")]
 	InternalServerError,
 	/// Resource not found
-	#[error("not found - {}", print_option(.0.clone()))]
-	NotFound(Option<String>),
+	#[error("not found - {0}")]
+	NotFound(String),
 	/// Any error related to logging in
 	#[error(transparent)]
 	LoginError(#[from] LoginError),
@@ -34,39 +35,12 @@ pub enum Error {
 	ValidationError(String),
 }
 
-fn print_option(opt: Option<String>) -> String {
-	match opt {
-		Some(s) => s,
-		None => "".to_string(),
-	}
+/// Convert an error into a [`Result`]
+impl Into<Result<(), Error>> for Error {
+	fn into(self) -> Result<(), Error> { Err(self) }
 }
 
-impl From<InternalServerError> for Error {
-	fn from(value: InternalServerError) -> Self {
-		error!("internal server error -- {value}");
-
-		Self::InternalServerError
-	}
-}
-
-impl From<validator::ValidationErrors> for Error {
-	fn from(err: validator::ValidationErrors) -> Self {
-		let errs = err.field_errors();
-		let repr = errs
-			.values()
-			.map(|v| {
-				v.iter()
-					.map(ToString::to_string)
-					.collect::<Vec<String>>()
-					.join("\n")
-			})
-			.collect::<Vec<String>>()
-			.join("\n");
-
-		Self::ValidationError(repr)
-	}
-}
-
+/// Convert an error into a [`Response`]
 impl IntoResponse for Error {
 	fn into_response(self) -> Response {
 		let message = self.to_string();
@@ -83,6 +57,30 @@ impl IntoResponse for Error {
 
 		(status, message).into_response()
 	}
+}
+
+/// Any error related to logging in
+#[derive(Debug, Error)]
+pub enum LoginError {
+	#[error("no profile with username '{0}' was found")]
+	UnknownUsername(String),
+	#[error("no profile with email '{0}' was found")]
+	UnknownEmail(String),
+	#[error("invalid password")]
+	InvalidPassword,
+	#[error("profile is still awaiting email verification")]
+	PendingEmailVerification,
+	#[error("profile is disabled")]
+	Disabled,
+}
+
+/// Any error related to a token
+#[derive(Debug, Error)]
+pub enum TokenError {
+	#[error("email confirmation token has expired")]
+	ExpiredEmailToken,
+	#[error("password reset token has expired")]
+	ExpiredPasswordToken,
 }
 
 /// A list of possible internal errors
@@ -122,6 +120,35 @@ pub enum InternalServerError {
 	RedisError(redis::RedisError),
 }
 
+// Map internal server errors to application errors
+impl From<InternalServerError> for Error {
+	fn from(value: InternalServerError) -> Self {
+		error!("internal server error -- {value}");
+
+		Self::InternalServerError
+	}
+}
+
+/// Map validation errors to application errors
+impl From<validator::ValidationErrors> for Error {
+	fn from(err: validator::ValidationErrors) -> Self {
+		let errs = err.field_errors();
+		let repr = errs
+			.values()
+			.map(|v| {
+				v.iter()
+					.map(ToString::to_string)
+					.collect::<Vec<String>>()
+					.join("\n")
+			})
+			.collect::<Vec<String>>()
+			.join("\n");
+
+		Self::ValidationError(repr)
+	}
+}
+
+/// Map password hashing errors to application errors
 impl From<argon2::password_hash::Error> for Error {
 	fn from(err: argon2::password_hash::Error) -> Self {
 		match err {
@@ -133,12 +160,14 @@ impl From<argon2::password_hash::Error> for Error {
 	}
 }
 
+/// Map database interaction errors to application errors
 impl From<deadpool_diesel::InteractError> for Error {
 	fn from(value: deadpool_diesel::InteractError) -> Self {
 		InternalServerError::DatabaseInteractionError(value).into()
 	}
 }
 
+/// Map of constraint names to column names.
 static CONSTRAINT_TO_COLUMN: LazyLock<HashMap<&str, &str>> =
 	LazyLock::new(|| {
 		HashMap::from([
@@ -148,16 +177,19 @@ static CONSTRAINT_TO_COLUMN: LazyLock<HashMap<&str, &str>> =
 		])
 	});
 
+/// Map database result errors to application errors.
 impl From<diesel::result::Error> for Error {
 	fn from(err: diesel::result::Error) -> Self {
 		match &err {
-			diesel::result::Error::NotFound => Self::NotFound(None),
+			// No rows returned by query that expected at least one
+			diesel::result::Error::NotFound => {
+				Self::NotFound("no context provided".to_string())
+			},
+			// Unique constraint violation
 			diesel::result::Error::DatabaseError(
-				diesel::result::DatabaseErrorKind::UniqueViolation,
+				DatabaseErrorKind::UniqueViolation,
 				info,
 			) => {
-				// Unwrap is safe as constraint_name is guaranteed to exist for
-				// postgres
 				let constraint_name = info.constraint_name().unwrap();
 
 				match CONSTRAINT_TO_COLUMN.get(constraint_name) {
@@ -167,6 +199,11 @@ impl From<diesel::result::Error> for Error {
 					None => InternalServerError::DatabaseError(err).into(),
 				}
 			},
+			// Foreign key constraint violation
+			diesel::result::Error::DatabaseError(
+				DatabaseErrorKind::ForeignKeyViolation,
+				info,
+			) => Error::ValidationError(info.message().to_string()),
 			_ => InternalServerError::DatabaseError(err).into(),
 		}
 	}
@@ -206,28 +243,4 @@ impl From<redis::RedisError> for Error {
 	fn from(err: redis::RedisError) -> Self {
 		InternalServerError::RedisError(err).into()
 	}
-}
-
-/// Any error related to logging in
-#[derive(Debug, Error)]
-pub enum LoginError {
-	#[error("no profile with username '{0}' was found")]
-	UnknownUsername(String),
-	#[error("no profile with email '{0}' was found")]
-	UnknownEmail(String),
-	#[error("invalid password")]
-	InvalidPassword,
-	#[error("profile is still awaiting email verification")]
-	PendingEmailVerification,
-	#[error("profile is disabled")]
-	Disabled,
-}
-
-/// Any error related to a token
-#[derive(Debug, Error)]
-pub enum TokenError {
-	#[error("email confirmation token has expired")]
-	ExpiredEmailToken,
-	#[error("password reset token has expired")]
-	ExpiredPasswordToken,
 }

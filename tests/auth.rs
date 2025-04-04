@@ -1,5 +1,3 @@
-use std::panic::catch_unwind;
-
 use axum::http::StatusCode;
 use blokmap::controllers::auth::{
 	LoginEmailRequest,
@@ -8,10 +6,11 @@ use blokmap::controllers::auth::{
 	PasswordResetRequest,
 	RegisterRequest,
 };
-use blokmap::models::{Profile, ProfileState};
+use blokmap::models::Profile;
 
 mod common;
 
+use blokmap::schemas::profile::ProfileResponse;
 use chrono::Utc;
 use common::TestEnv;
 
@@ -289,7 +288,7 @@ async fn confirm_email() {
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
 	let response = env.app.get("/profile/me").await;
-	let body = response.json::<Profile>();
+	let body = response.json::<ProfileResponse>();
 
 	assert_eq!(response.status_code(), StatusCode::OK);
 	assert_eq!(body.username, "bob".to_string());
@@ -427,7 +426,7 @@ async fn resend_confirmation_email() {
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
 	let response = env.app.get("/profile/me").await;
-	let body = response.json::<Profile>();
+	let body = response.json::<ProfileResponse>();
 
 	assert_eq!(response.status_code(), StatusCode::OK);
 	assert_eq!(body.username, "bob".to_string());

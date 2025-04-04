@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use diesel::prelude::*;
 use diesel::{Identifiable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
@@ -18,10 +18,10 @@ pub struct Bounds {
 }
 
 #[derive(
-	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
+	Clone, Debug, Deserialize, Serialize, Identifiable, Queryable, Selectable,
 )]
-#[diesel(table_name = crate::schema::location)]
 #[serde(rename_all = "camelCase")]
+#[diesel(table_name = location)]
 pub struct Location {
 	pub id:             i32,
 	pub name:           String,
@@ -37,8 +37,11 @@ pub struct Location {
 	pub province:       String,
 	pub latitude:       f64,
 	pub longitude:      f64,
-	pub created_at:     DateTime<Utc>,
-	pub updated_at:     DateTime<Utc>,
+	pub created_by_id:  i32,
+	pub approved_by_id: Option<i32>,
+	pub approved_at:    Option<NaiveDateTime>,
+	pub created_at:     NaiveDateTime,
+	pub updated_at:     NaiveDateTime,
 }
 
 impl Location {
@@ -91,6 +94,7 @@ impl Location {
 				// Get the bounds for the locations.
 				let (north_lat, north_lng) =
 					(bounds.north_east_lat, bounds.north_east_lng);
+
 				let (south_lat, south_lng) =
 					(bounds.south_west_lat, bounds.south_west_lng);
 
@@ -145,6 +149,23 @@ impl Location {
 
 		Ok(())
 	}
+
+    /// Approve a [`Location`] by its id and profile id.
+    pub async fn approve_by(loc_id: i32, profile_id: i32, conn: &DbConn) -> Result<(), Error> {
+        conn.interact(move |conn| {
+            use self::location::dsl::*;
+
+            diesel::update(location.filter(id.eq(loc_id)))
+                .set((
+                    approved_by_id.eq(profile_id),
+                    approved_at.eq(Utc::now().naive_utc()),
+                ))
+                .execute(conn)
+        })
+        .await??;
+
+        Ok(())
+    }
 }
 
 #[derive(Queryable, Identifiable, Associations, Serialize, Debug)]
@@ -164,7 +185,6 @@ pub struct OpeningTime {
 
 #[derive(Debug, Deserialize, Insertable)]
 #[diesel(table_name = crate::schema::location)]
-#[serde(rename_all = "camelCase")]
 pub struct NewLocation {
 	pub name:           String,
 	pub description_id: i32,
@@ -179,23 +199,12 @@ pub struct NewLocation {
 	pub province:       String,
 	pub latitude:       f64,
 	pub longitude:      f64,
+	pub created_by_id:  i32,
 }
 
 impl NewLocation {
 	/// Insert this [`NewLocation`] into the database.
 	pub async fn insert(self, conn: &DbConn) -> Result<Location, Error> {
-		let description_exists =
-			Translation::exists(self.description_id, conn).await?;
-		let excerpt_exists = Translation::exists(self.excerpt_id, conn).await?;
-
-		if !description_exists {
-			return Err(Error::NotFound("Description not found".to_string()));
-		}
-        
-		if !excerpt_exists {
-			return Err(Error::NotFound("Excerpt not found".to_string()));
-		}
-
 		let location = conn
 			.interact(|conn| {
 				use self::location::dsl::*;
@@ -230,7 +239,7 @@ pub struct UpdateLocation {
 
 impl UpdateLocation {
 	/// Update this [`Location`] in the database.
-	pub async fn update(
+	pub(crate) async fn update(
 		self,
 		loc_id: i32,
 		conn: &DbConn,

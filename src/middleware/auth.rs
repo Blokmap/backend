@@ -77,7 +77,9 @@ where
 
 			// Skip authorization in the development environment
 			// with the Skip-Auth header in the request.
-			if !state.config.production && req.headers().contains_key("Skip-Auth") {
+			if !state.config.production
+				&& req.headers().contains_key("Skip-Auth")
+			{
 				// In development, we can just query the first admin user.
 				// We assume that the seeder has created an admin user.
 				let profile = conn

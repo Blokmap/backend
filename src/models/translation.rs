@@ -24,11 +24,9 @@ impl From<Language> for String {
 	}
 }
 
-#[derive(
-	Clone, Debug, Deserialize, Serialize, Identifiable, Queryable, Selectable,
-)]
-#[diesel(table_name = translation)]
+#[derive(Clone, Debug, Deserialize, Serialize, Queryable, Selectable)]
 #[serde(rename_all = "camelCase")]
+#[diesel(table_name = translation)]
 pub struct Translation {
 	pub id:         i32,
 	pub nl:         Option<String>,
@@ -94,19 +92,6 @@ impl NewTranslation {
 }
 
 impl Translation {
-	// /// Get a list of all [`Translation`]s
-	// pub(crate) async fn get_all(conn: DbConn) -> Result<Vec<Self>, Error> {
-	// 	let translations = conn
-	// 		.interact(|conn| {
-	// 			use self::translation::dsl::*;
-	//
-	// 			translation.load(conn)
-	// 		})
-	// 		.await??;
-	//
-	// 	Ok(translations)
-	// }
-
 	/// Check if a [`Translation`] with a given id exists
 	pub async fn exists(query_id: i32, conn: &DbConn) -> Result<bool, Error> {
 		let exists = conn

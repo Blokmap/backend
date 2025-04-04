@@ -12,7 +12,7 @@ use common::TestEnv;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn create_translation_test() {
-	let env = TestEnv::new().await.create_and_login_test_user().await;
+	let env = TestEnv::new().await.login_admin().await;
 
 	// Create a new translation.
 	let create_req = CreateTranslationRequest {
@@ -41,7 +41,7 @@ async fn create_translation_test() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn get_translation_test() {
-	let env = TestEnv::new().await.create_and_login_test_user().await;
+	let env = TestEnv::new().await.login_admin().await;
 
 	// First, create a translation.
 	let create_req = CreateTranslationRequest {
@@ -75,7 +75,7 @@ async fn get_translation_test() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn update_translation_test() {
-	let env = TestEnv::new().await.create_and_login_test_user().await;
+	let env = TestEnv::new().await.login_admin().await;
 
 	// Create a translation.
 	let create_req = CreateTranslationRequest {
@@ -121,7 +121,7 @@ async fn update_translation_test() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn delete_translation_test() {
-	let env = TestEnv::new().await.create_and_login_test_user().await;
+	let env = TestEnv::new().await.login_admin().await;
 
 	// Create a translation.
 	let create_req = CreateTranslationRequest {

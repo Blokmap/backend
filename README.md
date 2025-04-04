@@ -38,3 +38,9 @@ cargo test --tests                    # Skip doctests
 cargo test --test <target>            # Only test <Target>
 cargo test <test-function> -- --exact # Only run <test-function>
 ```
+
+If you want the application logs to be printed while running the tests:
+
+```sh
+CI=true cargo tets -- --nocapture
+```

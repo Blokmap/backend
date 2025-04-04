@@ -14,8 +14,21 @@ CREATE TABLE location (
     province       TEXT             NOT NULL,
     latitude       DOUBLE PRECISION NOT NULL,
     longitude      DOUBLE PRECISION NOT NULL,
-    created_at     TIMESTAMPTZ      NOT NULL    DEFAULT now(),
-    updated_at     TIMESTAMPTZ      NOT NULL    DEFAULT now(),
+    created_by_id  INTEGER          NOT NULL,
+    approved_by_id INTEGER,
+    approved_at    TIMESTAMP,
+    created_at     TIMESTAMP        NOT NULL    DEFAULT now(),
+    updated_at     TIMESTAMP        NOT NULL    DEFAULT now(),
+
+    CONSTRAINT fk_created_by_id
+    FOREIGN KEY (created_by_id)
+    REFERENCES profile(id)
+    ON DELETE SET NULL,
+
+    CONSTRAINT fk_approved_by_id
+    FOREIGN KEY (approved_by_id)
+    REFERENCES profile(id)
+    ON DELETE SET NULL,
 
     CONSTRAINT fk_description_id
     FOREIGN KEY (description_id)
