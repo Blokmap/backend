@@ -46,8 +46,8 @@ pub struct Location {
 
 impl Location {
 	/// Get a [`Location`] by its id and include its [`Translation`]s.
-    /// 
-    /// # Errors
+	///
+	/// # Errors
 	pub async fn get_by_id(
 		loc_id: i32,
 		conn: &DbConn,
@@ -81,8 +81,8 @@ impl Location {
 	}
 
 	/// Get all [`Location`]s and include their [`Translation`]s.
-    /// 
-    /// # Errors
+	///
+	/// # Errors
 	pub async fn get_all(
 		bounds: Bounds,
 		conn: &DbConn,
@@ -128,8 +128,8 @@ impl Location {
 	}
 
 	/// Get all the latlng positions of the locations.
-    /// 
-    /// # Errors
+	///
+	/// # Errors
 	pub async fn get_latlng_positions(
 		conn: &DbConn,
 	) -> Result<Vec<(f64, f64)>, Error> {
@@ -145,8 +145,8 @@ impl Location {
 	}
 
 	/// Delete a [`Location`] by its id.
-    /// 
-    /// # Errors
+	///
+	/// # Errors
 	pub async fn delete_by_id(loc_id: i32, conn: &DbConn) -> Result<(), Error> {
 		conn.interact(move |conn| {
 			use self::location::dsl::*;
@@ -159,8 +159,8 @@ impl Location {
 	}
 
 	/// Approve a [`Location`] by its id and profile id.
-    /// 
-    /// # Errors
+	///
+	/// # Errors
 	pub async fn approve_by(
 		loc_id: i32,
 		profile_id: i32,
@@ -218,8 +218,8 @@ pub struct NewLocation {
 
 impl NewLocation {
 	/// Insert this [`NewLocation`] into the database.
-    /// 
-    /// # Errors
+	///
+	/// # Errors
 	pub async fn insert(self, conn: &DbConn) -> Result<Location, Error> {
 		let location = conn
 			.interact(|conn| {

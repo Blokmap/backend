@@ -130,6 +130,7 @@ async fn get_location_positions_test() {
 
 	// Check if the location is in the response
 	let locations = response.json::<Vec<(f64, f64)>>();
+
 	assert!(locations.iter().any(|l| {
 		(l.0 - location.latitude).abs() <= f64::EPSILON
 			&& (l.1 - location.longitude).abs() <= f64::EPSILON
