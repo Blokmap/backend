@@ -33,10 +33,12 @@ pub struct Config {
 }
 
 impl Config {
+	/// Get an environment variable or panic if it is not set.
 	fn get_env(var: &str) -> String {
 		std::env::var(var).unwrap_or_else(|_| panic!("{var} must be set"))
 	}
 
+	/// Get an environment variable or use a default value.
 	fn get_env_default(var: &str, default: impl Into<String>) -> String {
 		std::env::var(var).unwrap_or_else(|_| {
 			warn!("{var} not set, using default");
@@ -73,6 +75,7 @@ impl Config {
 
 		let access_token_name =
 			Self::get_env_default("ACCESS_TOKEN_NAME", "blokmap_access_token");
+
 		let access_token_lifetime = time::Duration::minutes(
 			Self::get_env_default("ACCESS_TOKEN_LIFETIME_MINUTES", "10")
 				.parse::<i64>()
@@ -83,6 +86,7 @@ impl Config {
 			"REFRESH_TOKEN_NAME",
 			"blokmap_refresh_token",
 		);
+
 		let refresh_token_lifetime = time::Duration::minutes(
 			Self::get_env_default("REFRESH_TOKEN_LIFETIME_MINUTES", "10080") // 1 week
 				.parse::<i64>()
@@ -93,11 +97,14 @@ impl Config {
 			Self::get_env_default("EMAIL_ADDRESS", "blokmap@gmail.com")
 				.parse::<Address>()
 				.expect("INVALID EMAIL ADDRESS");
+
 		let email_queue_size = Self::get_env_default("EMAIL_QUEUE_SIZE", "32")
 			.parse::<usize>()
 			.expect("INVALID EMAIL QUEUE SIZE");
+
 		let email_smtp_server =
 			Self::get_env_default("EMAIL_SMTP_SERVER", "stub");
+
 		let email_smtp_password =
 			std::fs::read_to_string("/run/secrets/smtp-password")
 				.unwrap_or_else(|_| {

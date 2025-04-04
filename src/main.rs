@@ -34,22 +34,6 @@ async fn main() {
 	let database_pool = config.create_database_pool();
 	let redis_connection = config.create_redis_connection().await;
 
-	#[cfg(feature = "seeder")]
-	{
-		let conn = database_pool.get().await.unwrap();
-		let seeder = Seeder::new(&conn);
-
-		seeder
-			.populate("seed/profiles.json", async |conn, profiles| {
-				for profile in profiles {
-					SeedProfile::insert(profile, conn).await?;
-				}
-
-				Ok(())
-			})
-			.await;
-	}
-
 	let cookie_jar_key = Key::from(
 		&std::fs::read("/run/secrets/cookie-jar-key")
 			.expect("COULD NOT READ COOKIE JAR KEY"),
@@ -67,6 +51,7 @@ async fn main() {
 		cookie_jar_key,
 		mailer,
 	});
+
 	let listener = TcpListener::bind("0.0.0.0:80").await.unwrap();
 
 	// Start the server.

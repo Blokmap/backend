@@ -19,6 +19,15 @@ use crate::controllers::auth::{
 	reset_password,
 };
 use crate::controllers::healthcheck;
+use crate::controllers::location::{
+	approve_location,
+	create_location,
+	delete_location,
+	get_location,
+	get_location_positions,
+	get_locations,
+	update_location,
+};
 use crate::controllers::profile::{
 	activate_profile,
 	disable_profile,
@@ -27,29 +36,21 @@ use crate::controllers::profile::{
 	update_current_profile,
 };
 use crate::controllers::translation::{
-	create_bulk_translations,
 	create_translation,
-	delete_bulk_translations,
 	delete_translation,
-	get_bulk_translations,
 	get_translation,
+	update_translation,
 };
 use crate::middleware::{AdminLayer, AuthLayer};
 
-/// Get the app router.
+/// Get the app router
 pub fn get_app_router(state: AppState) -> Router {
 	let api_routes = Router::new()
 		.route("/healthcheck", get(healthcheck))
-		.nest("/auth", get_auth_routes(&state))
-		.nest(
-			"/profile",
-			get_profile_routes(&state)
-				.route_layer(AuthLayer::new(state.clone())),
-		)
-		.nest(
-			"/translation",
-			get_translation_routes().route_layer(AuthLayer::new(state.clone())),
-		);
+		.nest("/auth", auth_routes(&state))
+		.nest("/profile", profile_routes(&state))
+		.nest("/locations", location_routes(&state))
+		.nest("/translations", translation_routes(&state));
 
 	Router::new()
 		.merge(api_routes)
@@ -62,7 +63,8 @@ pub fn get_app_router(state: AppState) -> Router {
 		.with_state(state)
 }
 
-fn get_auth_routes(state: &AppState) -> Router<AppState> {
+/// Authentication routes
+fn auth_routes(state: &AppState) -> Router<AppState> {
 	Router::new()
 		.route("/register", post(register_profile))
 		.route("/confirm_email/{token}", post(confirm_email))
@@ -80,28 +82,49 @@ fn get_auth_routes(state: &AppState) -> Router<AppState> {
 		)
 }
 
-fn get_profile_routes(state: &AppState) -> Router<AppState> {
+/// Profile routes
+fn profile_routes(state: &AppState) -> Router<AppState> {
+	let protected = Router::new()
+		.route("/disable/{profile_id}", post(disable_profile))
+		.route("/activate/{profile_id}", post(activate_profile))
+		.route_layer(AdminLayer::new(state.clone()));
+
 	Router::new()
 		.route("/", get(get_all_profiles))
 		.route("/me", get(get_current_profile).patch(update_current_profile))
-		.merge(
-			Router::new()
-				.route("/disable/{profile_id}", post(disable_profile))
-				.route("/activate/{profile_id}", post(activate_profile))
-				.route_layer(AdminLayer::new(state.clone())),
-		)
+		.merge(protected)
+		.route_layer(AuthLayer::new(state.clone()))
 }
 
-fn get_translation_routes() -> Router<AppState> {
+/// Location routes with auth protection for write operations
+fn location_routes(state: &AppState) -> Router<AppState> {
+	let protected = Router::new()
+		.route("/{id}/approve", post(approve_location))
+		.route_layer(AdminLayer::new(state.clone()))
+		.route_layer(AuthLayer::new(state.clone()));
+
+	let authenticated = Router::new()
+		.route("/", post(create_location))
+		.route("/{id}", post(update_location).delete(delete_location))
+		.route_layer(AuthLayer::new(state.clone()));
+
+	Router::new()
+		.route("/", get(get_locations))
+		.route("/positions", get(get_location_positions))
+		.route("/{id}", get(get_location))
+		.merge(authenticated)
+		.merge(protected)
+}
+
+/// Translation routes with auth protection
+fn translation_routes(state: &AppState) -> Router<AppState> {
 	Router::new()
 		.route("/", post(create_translation))
-		.route("/bulk", post(create_bulk_translations))
 		.route(
-			"/{key}",
-			get(get_bulk_translations).delete(delete_bulk_translations),
+			"/{id}",
+			get(get_translation)
+				.delete(delete_translation)
+				.post(update_translation),
 		)
-		.route(
-			"/{key}/{language}",
-			get(get_translation).delete(delete_translation),
-		)
+		.route_layer(AuthLayer::new(state.clone()))
 }

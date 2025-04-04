@@ -102,7 +102,7 @@ impl TryFrom<&Profile> for Mailbox {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct InsertableProfile {
+pub struct NewProfile {
 	pub username:                        String,
 	#[serde(skip)]
 	pub password:                        String,
@@ -116,7 +116,7 @@ pub struct InsertableProfile {
 
 #[derive(Clone, Debug, Insertable)]
 #[diesel(table_name = profile)]
-struct InsertableProfileHashed {
+struct NewProfileHashed {
 	username:                        String,
 	password_hash:                   String,
 	pending_email:                   String,
@@ -124,12 +124,12 @@ struct InsertableProfileHashed {
 	email_confirmation_token_expiry: NaiveDateTime,
 }
 
-impl InsertableProfile {
-	/// Insert this [`InsertableProfile`]
+impl NewProfile {
+	/// Insert this [`NewProfile`]
 	pub(crate) async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
 		let hash = Profile::hash_password(&self.password)?;
 
-		let insertable = InsertableProfileHashed {
+		let insertable = NewProfileHashed {
 			username:                        self.username,
 			password_hash:                   hash,
 			pending_email:                   self.pending_email,
@@ -155,12 +155,12 @@ impl InsertableProfile {
 
 #[derive(AsChangeset, Clone, Debug, Deserialize, Serialize)]
 #[diesel(table_name = profile)]
-pub struct ProfileUpdate {
+pub struct UpdateProfile {
 	pub username:      Option<String>,
 	pub pending_email: Option<String>,
 }
 
-impl ProfileUpdate {
+impl UpdateProfile {
 	/// Update a [`Profile`] with the given changes
 	pub(crate) async fn apply_to(
 		self,
@@ -388,7 +388,7 @@ impl Profile {
 		self.update(conn).await
 	}
 
-	/// Hash a password
+	/// Hash a password using Argon2
 	///
 	/// # Errors
 	/// Errors if hashing the password fails

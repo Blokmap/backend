@@ -1,9 +1,10 @@
 use axum::http::StatusCode;
 use blokmap::controllers::auth::LoginUsernameRequest;
-use blokmap::models::{Profile, ProfileState, ProfileUpdate};
+use blokmap::models::{Profile, ProfileState};
 
 mod common;
 
+use blokmap::schemas::profile::{ProfileResponse, UpdateProfileRequest};
 use common::TestEnv;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -28,18 +29,10 @@ async fn get_all_profiles() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn get_current_profile() {
-	let env = TestEnv::new().await;
-
-	env.app
-		.post("/auth/login/username")
-		.json(&LoginUsernameRequest {
-			username: "test".to_string(),
-			password: "foo".to_string(),
-		})
-		.await;
+	let env = TestEnv::new().await.login("test").await;
 
 	let response = env.app.get("/profile/me").await;
-	let body = response.json::<Profile>();
+	let body = response.json::<ProfileResponse>();
 
 	assert_eq!(response.status_code(), StatusCode::OK);
 	assert_eq!(body.username, "test".to_string());
@@ -47,49 +40,34 @@ async fn get_current_profile() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn update_current_profile_username() {
-	let env = TestEnv::new().await;
-
-	env.app
-		.post("/auth/login/username")
-		.json(&LoginUsernameRequest {
-			username: "test".to_string(),
-			password: "foo".to_string(),
-		})
-		.await;
+	let env = TestEnv::new().await.login_admin().await;
 
 	let response = env.app.get("/profile/me").await;
-	let old_profile = response.json::<Profile>();
+	let old_profile = response.json::<ProfileResponse>();
 
 	let response = env
 		.expect_no_mail(async || {
 			env.app
 				.patch("/profile/me")
-				.json(&ProfileUpdate {
+				.json(&UpdateProfileRequest {
 					username:      Some("bobble".to_string()),
 					pending_email: None,
 				})
 				.await
 		})
 		.await;
+
 	assert_eq!(response.status_code(), StatusCode::OK);
 
 	let response = env.app.get("/profile/me").await;
-	let new_profile = response.json::<Profile>();
+	let new_profile = response.json::<ProfileResponse>();
 
 	assert_ne!(old_profile.username, new_profile.username);
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn update_current_profile_pending_email() {
-	let env = TestEnv::new().await;
-
-	env.app
-		.post("/auth/login/username")
-		.json(&LoginUsernameRequest {
-			username: "test".to_string(),
-			password: "foo".to_string(),
-		})
-		.await;
+	let env = TestEnv::new().await.login("test").await;
 
 	let conn = env.db_guard.create_pool().get().await.unwrap();
 	let old_profile: Profile = conn
@@ -107,7 +85,7 @@ async fn update_current_profile_pending_email() {
 		.expect_mail_to(&["bobble@example.com"], async || {
 			env.app
 				.patch("/profile/me")
-				.json(&ProfileUpdate {
+				.json(&UpdateProfileRequest {
 					username:      None,
 					pending_email: Some("bobble@example.com".to_string()),
 				})
@@ -134,18 +112,10 @@ async fn update_current_profile_pending_email() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn disable_profile() {
-	let env = TestEnv::new().await;
-
-	env.app
-		.post("/auth/login/username")
-		.json(&LoginUsernameRequest {
-			username: "test-admin".to_string(),
-			password: "foo".to_string(),
-		})
-		.await;
+	let env = TestEnv::new().await.login_admin().await;
 
 	let response = env.app.get("/profile").await;
-	let profiles: Vec<Profile> = response.json();
+	let profiles: Vec<ProfileResponse> = response.json();
 	let test_id =
 		profiles.iter().find(|p| p.username == "test").map(|p| p.id).unwrap();
 
@@ -162,18 +132,11 @@ async fn disable_profile() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn disable_profile_not_admin() {
-	let env = TestEnv::new().await;
-
-	env.app
-		.post("/auth/login/username")
-		.json(&LoginUsernameRequest {
-			username: "test".to_string(),
-			password: "foo".to_string(),
-		})
-		.await;
+	let env = TestEnv::new().await.login("test").await;
 
 	let response = env.app.get("/profile").await;
-	let profiles: Vec<Profile> = response.json();
+	let profiles: Vec<ProfileResponse> = response.json();
+
 	let test_id =
 		profiles.iter().find(|p| p.username == "test").map(|p| p.id).unwrap();
 
@@ -190,15 +153,7 @@ async fn disable_profile_not_admin() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn activate_profile() {
-	let env = TestEnv::new().await;
-
-	env.app
-		.post("/auth/login/username")
-		.json(&LoginUsernameRequest {
-			username: "test-admin".to_string(),
-			password: "foo".to_string(),
-		})
-		.await;
+	let env = TestEnv::new().await.login_admin().await;
 
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
@@ -208,6 +163,7 @@ async fn activate_profile() {
 		.into_iter()
 		.find(|p| p.username == "test-disabled")
 		.unwrap();
+
 	let test_id = test.id;
 
 	let response = env.app.post(&format!("/profile/activate/{test_id}")).await;
@@ -221,15 +177,7 @@ async fn activate_profile() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn activate_profile_not_admin() {
-	let env = TestEnv::new().await;
-
-	env.app
-		.post("/auth/login/username")
-		.json(&LoginUsernameRequest {
-			username: "test".to_string(),
-			password: "foo".to_string(),
-		})
-		.await;
+	let env = TestEnv::new().await.login("test").await;
 
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
@@ -239,6 +187,7 @@ async fn activate_profile_not_admin() {
 		.into_iter()
 		.find(|p| p.username == "test-disabled")
 		.unwrap();
+
 	let test_id = test.id;
 
 	let response = env.app.post(&format!("/profile/activate/{test_id}")).await;
