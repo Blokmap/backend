@@ -56,15 +56,13 @@ pub(crate) async fn register_profile(
 ) -> Result<(StatusCode, Json<Profile>), Error> {
 	register_data.validate()?;
 
-	let password_hash = Profile::hash_password(&register_data.password)?;
-
 	let email_confirmation_token = Uuid::new_v4().to_string();
 	let email_confirmation_token_expiry =
 		Utc::now().naive_utc() + config.email_confirmation_token_lifetime;
 
 	let insertable_profile = InsertableProfile {
 		username: register_data.username,
-		password_hash,
+		password: register_data.password,
 		pending_email: register_data.email,
 		email_confirmation_token,
 		email_confirmation_token_expiry,

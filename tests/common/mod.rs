@@ -1,13 +1,10 @@
 use std::sync::Arc;
 
-use argon2::password_hash::SaltString;
-use argon2::password_hash::rand_core::OsRng;
-use argon2::{Argon2, PasswordHasher};
 use axum_extra::extract::cookie::Key;
 use axum_test::TestServer;
 use blokmap::controllers::auth::LoginUsernameRequest;
 use blokmap::mailer::{Mailer, StubMailbox};
-use blokmap::{AppState, Config, routes};
+use blokmap::{AppState, Config, SeedProfile, Seeder, routes};
 use mock_redis::{RedisUrlGuard, RedisUrlProvider};
 
 mod wrap_mail;
@@ -35,6 +32,21 @@ impl TestEnv {
 
 		let test_pool_guard = (*DATABASE_PROVIDER).acquire().await;
 		let test_pool = test_pool_guard.create_pool();
+
+		{
+			let conn = test_pool.get().await.unwrap();
+			let seeder = Seeder::new(&conn);
+
+			seeder
+				.populate("seed/profiles.json", async |conn, profiles| {
+					for profile in profiles {
+						SeedProfile::insert(profile, conn).await?;
+					}
+
+					Ok(())
+				})
+				.await;
+		}
 
 		let redis_url_guard = RedisUrlProvider::acquire();
 		let redis_connection = redis_url_guard.connect().await;

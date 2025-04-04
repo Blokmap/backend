@@ -31,7 +31,7 @@ impl std::fmt::Display for ProfileId {
 	}
 }
 
-#[derive(Clone, DbEnum, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, DbEnum, Debug, Default, Deserialize, PartialEq, Eq)]
 #[ExistingTypePath = "crate::schema::sql_types::ProfileState"]
 pub enum ProfileState {
 	#[default]
@@ -47,6 +47,7 @@ pub enum ProfileState {
 	Debug,
 	Deserialize,
 	Identifiable,
+	Insertable,
 	Queryable,
 	Selectable,
 	Serialize,
@@ -100,12 +101,11 @@ impl TryFrom<&Profile> for Mailbox {
 	}
 }
 
-#[derive(Clone, Debug, Deserialize, Insertable, Serialize)]
-#[diesel(table_name = profile)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct InsertableProfile {
 	pub username:                        String,
 	#[serde(skip)]
-	pub password_hash:                   String,
+	pub password:                        String,
 	#[serde(skip)]
 	pub pending_email:                   String,
 	#[serde(skip)]
@@ -114,15 +114,36 @@ pub struct InsertableProfile {
 	pub email_confirmation_token_expiry: NaiveDateTime,
 }
 
+#[derive(Clone, Debug, Insertable)]
+#[diesel(table_name = profile)]
+struct InsertableProfileHashed {
+	username:                        String,
+	password_hash:                   String,
+	pending_email:                   String,
+	email_confirmation_token:        String,
+	email_confirmation_token_expiry: NaiveDateTime,
+}
+
 impl InsertableProfile {
 	/// Insert this [`InsertableProfile`]
 	pub(crate) async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
-        let profile = conn
+		let hash = Profile::hash_password(&self.password)?;
+
+		let insertable = InsertableProfileHashed {
+			username:                        self.username,
+			password_hash:                   hash,
+			pending_email:                   self.pending_email,
+			email_confirmation_token:        self.email_confirmation_token,
+			email_confirmation_token_expiry: self
+				.email_confirmation_token_expiry,
+		};
+
+		let profile = conn
 			.interact(|conn| {
 				use self::profile::dsl::*;
 
 				diesel::insert_into(profile)
-					.values(self)
+					.values(insertable)
 					.returning(Profile::as_returning())
 					.get_result(conn)
 			})
@@ -367,8 +388,11 @@ impl Profile {
 		self.update(conn).await
 	}
 
-	/// Hash a password
-	pub(crate) fn hash_password(password: &str) -> Result<String, Error> {
+	/// Hash a password using Argon2
+	///
+	/// # Errors
+	/// Errors if hashing the password fails
+	pub fn hash_password(password: &str) -> Result<String, Error> {
 		let salt = SaltString::generate(&mut OsRng);
 		let hashed_password = Argon2::default()
 			.hash_password(password.as_bytes(), &salt)?

@@ -7,7 +7,6 @@ use tower_http::compression::CompressionLayer;
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
-use crate::controllers::location::{create_location, delete_location, get_location, get_location_positions, get_locations, update_location};
 use crate::AppState;
 use crate::controllers::auth::{
 	confirm_email,
@@ -20,6 +19,14 @@ use crate::controllers::auth::{
 	reset_password,
 };
 use crate::controllers::healthcheck;
+use crate::controllers::location::{
+	create_location,
+	delete_location,
+	get_location,
+	get_location_positions,
+	get_locations,
+	update_location,
+};
 use crate::controllers::profile::{
 	activate_profile,
 	disable_profile,
@@ -27,7 +34,6 @@ use crate::controllers::profile::{
 	get_current_profile,
 	update_current_profile,
 };
-
 use crate::controllers::translation::{
 	create_translation,
 	delete_translation,
