@@ -11,8 +11,6 @@ extern crate tracing;
 use axum_extra::extract::cookie::Key;
 use blokmap::mailer::Mailer;
 use blokmap::{AppState, Config, routes};
-#[cfg(feature = "seeder")]
-use blokmap::{SeedProfile, Seeder};
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::signal::unix::SignalKind;
