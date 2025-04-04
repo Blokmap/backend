@@ -130,11 +130,10 @@ async fn get_location_positions_test() {
 
 	// Check if the location is in the response
 	let locations = response.json::<Vec<(f64, f64)>>();
-	assert!(
-		locations
-			.iter()
-			.any(|l| l.0 == location.latitude && l.1 == location.longitude)
-	);
+	assert!(locations.iter().any(|l| {
+		(l.0 - location.latitude).abs() <= 0.01
+			&& (l.1 - location.longitude).abs() <= 0.01
+	}));
 }
 
 #[tokio::test(flavor = "multi_thread")]

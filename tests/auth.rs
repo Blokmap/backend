@@ -83,8 +83,7 @@ async fn register_invalid_username_symbols() {
 	assert!(
 		body.contains("username must start with a letter"),
 		"Expected error message to contain 'username must start with a \
-		 letter', got: {}",
-		body
+		 letter', got: {body}",
 	);
 }
 
