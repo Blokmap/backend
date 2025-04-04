@@ -36,8 +36,8 @@ pub enum Error {
 }
 
 /// Convert an error into a [`Result`]
-impl Into<Result<(), Error>> for Error {
-	fn into(self) -> Result<(), Error> { Err(self) }
+impl From<Error> for Result<(), Error> {
+	fn from(val: Error) -> Self { Err(val) }
 }
 
 /// Convert an error into a [`Response`]

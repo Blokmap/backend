@@ -93,6 +93,8 @@ impl NewTranslation {
 
 impl Translation {
 	/// Check if a [`Translation`] with a given id exists
+    /// 
+    /// # Errors
 	pub async fn exists(query_id: i32, conn: &DbConn) -> Result<bool, Error> {
 		let exists = conn
 			.interact(move |conn| {
@@ -107,8 +109,11 @@ impl Translation {
 		Ok(exists)
 	}
 
-	/// Attempt to get a single [`Translation`] given its [key](Uuid) and
-	/// [language](Language)
+	/// Attempt to get a single [`Translation`] given is id.
+    /// 
+    /// # Errors
+    /// Errors if interacting with the database fails
+    /// Errors if the [`Translation`] does not exist
 	pub async fn get_by_id(
 		query_id: i32,
 		conn: &DbConn,
@@ -128,6 +133,11 @@ impl Translation {
 	}
 
 	/// Delete a single [`Translation`] given its [id](i32).
+    /// 
+    /// # Errors
+    /// Errors if interacting with the database fails
+    /// Errors if the [`Translation`] does not exist
+    /// Errors if the [`Translation`] cannot be deleted
 	pub async fn delete_by_id(
 		query_id: i32,
 		conn: &DbConn,
@@ -155,6 +165,10 @@ pub struct UpdateTranslation {
 
 impl UpdateTranslation {
 	/// Update this [`UpdateTranslation`].
+    /// 
+    /// # Errors
+    /// Errors if interacting with the database fails
+    /// Errors if the [`UpdateTranslation`] does not exist
 	pub async fn update(
 		self,
 		query_id: i32,
