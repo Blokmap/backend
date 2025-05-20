@@ -1,13 +1,23 @@
 //! Controllers for [`Location`]s
 
-use axum::extract::{Path, Query, State};
+use std::fs::File;
+use std::io::Write;
+use std::path::PathBuf;
+
+use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use axum::{Extension, Json};
 
 use crate::DbPool;
 use crate::error::Error;
-use crate::models::{Bounds, Location, NewLocation, ProfileId};
+use crate::models::{
+	Bounds,
+	Location,
+	NewLocation,
+	NewLocationImage,
+	ProfileId,
+};
 use crate::schemas::location::{
 	CreateLocationRequest,
 	LocationResponse,
@@ -46,6 +56,45 @@ pub(crate) async fn create_location(
 	let response = LocationResponse::from(location);
 
 	Ok((StatusCode::CREATED, Json(response)))
+}
+
+#[instrument(skip(pool, file))]
+pub(crate) async fn upload_location_image(
+	State(pool): State<DbPool>,
+	Extension(profile_id): Extension<ProfileId>,
+	Path(id): Path<i32>,
+	mut file: Multipart,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	while let Some(field) = file.next_field().await? {
+		let new_image =
+			NewLocationImage { location_id: id, uploaded_by: *profile_id };
+
+		let image = new_image.insert(&conn).await?;
+
+		let extension = match field.content_type() {
+			Some("image/png") => "png",
+			Some("image/jpg" | "image/jpeg") => "jpg",
+			Some("image/webp") => "webp",
+			_ => "",
+		};
+
+		let bytes = field.bytes().await?;
+
+		let filepath = PathBuf::from("/mnt/files")
+			.join(id.to_string())
+			.join(image.id.to_string())
+			.with_extension(extension);
+
+		let prefix = filepath.parent().unwrap();
+		std::fs::create_dir_all(prefix)?;
+
+		let mut file = File::create(&filepath)?;
+		file.write_all(&bytes)?;
+	}
+
+	Ok(StatusCode::CREATED)
 }
 
 /// Get a location from the database.

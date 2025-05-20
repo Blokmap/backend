@@ -31,6 +31,17 @@ diesel::table! {
 }
 
 diesel::table! {
+	location_image (id) {
+		id -> Int4,
+		location_id -> Int4,
+		uploaded_at -> Timestamp,
+		uploaded_by -> Int4,
+		approved_at -> Nullable<Timestamp>,
+		approved_by -> Nullable<Int4>,
+	}
+}
+
+diesel::table! {
 	opening_time (id) {
 		id -> Int4,
 		location_id -> Int4,
@@ -76,10 +87,12 @@ diesel::table! {
 	}
 }
 
+diesel::joinable!(location_image -> location (location_id));
 diesel::joinable!(opening_time -> location (location_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
 	location,
+	location_image,
 	opening_time,
 	profile,
 	translation,
