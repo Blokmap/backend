@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::translation::TranslationResponse;
-use crate::models::{Location, LocationImage, Translation, UpdateLocation};
+use crate::models::{Location, Translation, UpdateLocation};
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -46,7 +46,7 @@ pub struct LocationResponse {
 	pub description:   Option<TranslationResponse>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub excerpt:       Option<TranslationResponse>,
-	pub images:        Vec<LocationImage>,
+	pub image_paths:   Vec<String>,
 }
 
 impl From<Location> for LocationResponse {
@@ -65,7 +65,7 @@ impl From<Location> for LocationResponse {
 			coords:        (location.latitude, location.longitude),
 			description:   None,
 			excerpt:       None,
-			images:        vec![],
+			image_paths:   vec![],
 		}
 	}
 }
@@ -88,20 +88,20 @@ impl From<(Location, Translation, Translation)> for LocationResponse {
 			coords:        (location.latitude, location.longitude),
 			description:   Some(description.into()),
 			excerpt:       Some(excerpt.into()),
-			images:        vec![],
+			image_paths:   vec![],
 		}
 	}
 }
 
-impl From<(Location, Translation, Translation, Vec<LocationImage>)>
+impl From<(Location, Translation, Translation, Vec<String>)>
 	for LocationResponse
 {
 	fn from(
-		(location, description, excerpt, images): (
+		(location, description, excerpt, image_paths): (
 			Location,
 			Translation,
 			Translation,
-			Vec<LocationImage>,
+			Vec<String>,
 		),
 	) -> Self {
 		Self {
@@ -118,7 +118,7 @@ impl From<(Location, Translation, Translation, Vec<LocationImage>)>
 			coords: (location.latitude, location.longitude),
 			description: Some(description.into()),
 			excerpt: Some(excerpt.into()),
-			images,
+			image_paths,
 		}
 	}
 }

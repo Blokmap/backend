@@ -34,6 +34,7 @@ diesel::table! {
 	location_image (id) {
 		id -> Int4,
 		location_id -> Int4,
+		file_path -> Text,
 		uploaded_at -> Timestamp,
 		uploaded_by -> Int4,
 		approved_at -> Nullable<Timestamp>,

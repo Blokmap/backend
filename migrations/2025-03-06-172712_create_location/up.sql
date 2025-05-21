@@ -71,6 +71,7 @@ SELECT diesel_manage_updated_at('opening_time');
 CREATE TABLE location_image (
 	id          SERIAL    PRIMARY KEY,
 	location_id INTEGER   NOT NULL,
+	file_path   TEXT      NOT NULL,
 	uploaded_at TIMESTAMP NOT NULL     DEFAULT now(),
 	uploaded_by INTEGER   NOT NULL,
 	approved_at TIMESTAMP,

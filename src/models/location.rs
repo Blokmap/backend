@@ -46,14 +46,13 @@ pub struct Location {
 
 impl Location {
 	/// Get a [`Location`] by its id and include its [`Translation`]s and
-	/// [`images`](LocationImage).
+	/// image filepaths.
 	///
 	/// # Errors
 	pub async fn get_by_id(
 		loc_id: i32,
 		conn: &DbConn,
-	) -> Result<(Location, Translation, Translation, Vec<LocationImage>), Error>
-	{
+	) -> Result<(Location, Translation, Translation, Vec<String>), Error> {
 		let (loc, desc, exc): (Location, Translation, Translation) = conn
 			.interact(move |conn| {
 				let (description, excerpt) = diesel::alias!(
@@ -83,7 +82,10 @@ impl Location {
 			.interact(move |conn| {
 				use crate::schema::location_image::dsl::*;
 
-				location_image.filter(location_id.eq(loc.id)).get_results(conn)
+				location_image
+					.filter(location_id.eq(loc.id))
+					.select(file_path)
+					.get_results(conn)
 			})
 			.await??;
 
@@ -210,7 +212,6 @@ pub struct OpeningTime {
 #[derive(
 	Associations,
 	Clone,
-	Copy,
 	Debug,
 	Deserialize,
 	Identifiable,
@@ -223,16 +224,18 @@ pub struct OpeningTime {
 pub struct LocationImage {
 	pub id:          i32,
 	pub location_id: i32,
+	pub file_path:   String,
 	pub uploaded_at: NaiveDateTime,
 	pub uploaded_by: i32,
 	pub approved_at: Option<NaiveDateTime>,
 	pub approved_by: Option<i32>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Insertable, Serialize)]
+#[derive(Clone, Debug, Deserialize, Insertable, Serialize)]
 #[diesel(table_name = location_image)]
 pub struct NewLocationImage {
 	pub location_id: i32,
+	pub file_path:   String,
 	pub uploaded_by: i32,
 }
 
