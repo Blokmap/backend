@@ -80,6 +80,43 @@ impl Location {
 		Ok(result)
 	}
 
+	/// Get all locations created by a given profile
+	///
+	/// # Errors
+	pub async fn get_by_profile_id(
+		profile_id: i32,
+		conn: &DbConn,
+	) -> Result<Vec<(Location, Translation, Translation)>, Error> {
+		let locations = conn
+			.interact(move |conn| {
+				use self::location::dsl::*;
+
+				let (description, excerpt) = diesel::alias!(
+					translation as description,
+					translation as excerpt
+				);
+
+				location
+					.filter(created_by_id.eq(profile_id))
+					.inner_join(description.on(
+						description_id.eq(description.field(translation::id)),
+					))
+					.inner_join(
+						excerpt
+							.on(excerpt_id.eq(excerpt.field(translation::id))),
+					)
+					.select((
+						Location::as_select(),
+						description.fields(translation::all_columns),
+						excerpt.fields(translation::all_columns),
+					))
+					.load(conn)
+			})
+			.await??;
+
+		Ok(locations)
+	}
+
 	/// Get all [`Location`]s and include their [`Translation`]s.
 	///
 	/// # Errors
