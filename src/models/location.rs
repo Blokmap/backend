@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{NaiveDateTime, Utc};
 use diesel::prelude::*;
 use diesel::{Identifiable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use super::Translation;
 use crate::DbConn;
 use crate::error::Error;
-use crate::schema::{location, translation};
+use crate::schema::{location, opening_time, translation};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -182,19 +182,21 @@ impl Location {
 	}
 }
 
-#[derive(Queryable, Identifiable, Associations, Serialize, Debug)]
+#[derive(
+	Queryable, Identifiable, Associations, Serialize, Selectable, Debug,
+)]
 #[diesel(belongs_to(Location))]
 #[diesel(table_name = crate::schema::opening_time)]
 #[serde(rename_all = "camelCase")]
 pub struct OpeningTime {
 	pub id:            i32,
 	pub location_id:   i32,
-	pub start_time:    DateTime<Utc>,
-	pub end_time:      DateTime<Utc>,
+	pub start_time:    NaiveDateTime,
+	pub end_time:      NaiveDateTime,
 	pub seat_count:    Option<i32>,
 	pub is_reservable: Option<bool>,
-	pub created_at:    DateTime<Utc>,
-	pub updated_at:    DateTime<Utc>,
+	pub created_at:    NaiveDateTime,
+	pub updated_at:    NaiveDateTime,
 }
 
 #[derive(Debug, Deserialize, Insertable)]
@@ -277,11 +279,30 @@ impl UpdateLocation {
 
 #[derive(Deserialize, Insertable)]
 #[diesel(table_name = crate::schema::opening_time)]
-#[serde(rename_all = "camelCase")]
 pub struct NewOpeningTime {
 	pub location_id:   i32,
-	pub start_time:    DateTime<Utc>,
-	pub end_time:      DateTime<Utc>,
+	pub start_time:    NaiveDateTime,
+	pub end_time:      NaiveDateTime,
 	pub seat_count:    Option<i32>,
 	pub is_reservable: Option<bool>,
+}
+
+impl NewOpeningTime {
+	/// Insert this [`NewOpeningTime`] into the database.
+	///
+	/// # Errors
+	pub async fn insert(self, conn: &DbConn) -> Result<OpeningTime, Error> {
+		let opening_time = conn
+			.interact(|conn| {
+				use self::opening_time::dsl::*;
+
+				diesel::insert_into(opening_time)
+					.values(self)
+					.returning(OpeningTime::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(opening_time)
+	}
 }

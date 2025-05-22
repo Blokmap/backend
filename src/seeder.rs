@@ -32,8 +32,9 @@ impl<'c> Seeder<'c> {
 		let s = std::fs::read_to_string(path)
 			.unwrap_or_else(|_| panic!("COULD NOT READ SEED FILE {filename}"));
 
-		serde_json::from_str(&s)
-			.unwrap_or_else(|_| panic!("COULD NOT MAP SEED FILE {filename}"))
+		serde_json::from_str(&s).unwrap_or_else(|e| {
+			panic!("COULD NOT MAP SEED FILE {filename}\n{e:?}")
+		})
 	}
 
 	/// Load a file and populate the database with it

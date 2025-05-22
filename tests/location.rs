@@ -1,5 +1,6 @@
 mod common;
 use axum::http::StatusCode;
+use blokmap::models::FilledLocation;
 use blokmap::schemas::location::LocationResponse;
 use common::TestEnv;
 
@@ -7,8 +8,6 @@ use common::TestEnv;
 async fn create_location_test() {
 	let env = TestEnv::new().await.login("test").await;
 
-	// Attempt to create a location with wrong name and description
-	// translation FKs (coming from the seeder).
 	let response = env
 		.app
 		.post("/locations")
@@ -82,7 +81,7 @@ async fn get_location_test() {
 		env.app.get(format!("/locations/{}", location.id).as_str()).await;
 
 	assert_eq!(response.status_code(), StatusCode::OK);
-	let location_response = response.json::<LocationResponse>();
+	let location_response = response.json::<FilledLocation>();
 
 	assert_eq!(location_response.id, location.id);
 	assert_eq!(location_response.name, location.name);

@@ -7,7 +7,14 @@ use axum::{Extension, Json};
 
 use crate::DbPool;
 use crate::error::Error;
-use crate::models::{Bounds, Location, NewLocation, ProfileId};
+use crate::models::{
+	Bounds,
+	FilledLocation,
+	Location,
+	LocationFilter,
+	NewLocation,
+	ProfileId,
+};
 use crate::schemas::location::{
 	CreateLocationRequest,
 	LocationResponse,
@@ -49,18 +56,23 @@ pub(crate) async fn create_location(
 }
 
 /// Get a location from the database.
+///
+/// /location/{id}
+/// /location/{id}?distance=51.123-3.456-5
+/// /location/{id}?name=KCGG UZ Gent
+/// /location/{id}?has_reservations=1/0
+/// /location/{id}?open_on=2025-01-01
 #[instrument(skip(pool))]
 pub(crate) async fn get_location(
 	State(pool): State<DbPool>,
+	Query(filter): Query<LocationFilter>,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let result = Location::get_by_id(id, &conn).await?;
+	let result = FilledLocation::search_by_id(id, filter, &conn).await?;
 
-	let response = LocationResponse::from(result);
-
-	Ok((StatusCode::OK, Json(response)))
+	Ok((StatusCode::OK, Json(result)))
 }
 
 /// Get all positions of locations from the database.
@@ -68,7 +80,6 @@ pub(crate) async fn get_location(
 pub(crate) async fn get_location_positions(
 	State(pool): State<DbPool>,
 ) -> Result<impl IntoResponse, Error> {
-	// Get a connection from the pool.
 	let conn = pool.get().await?;
 
 	let positions = Location::get_latlng_positions(&conn).await?;

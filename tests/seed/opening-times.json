@@ -1,0 +1,9 @@
+[
+	{
+		"location_id": 1,
+		"start_time": "2025-01-01T08:00:00",
+		"end_time": "2025-01-01T22:00:00",
+		"seat_count": 100,
+		"is_reservable": true
+	}
+]
