@@ -33,6 +33,7 @@ use crate::controllers::profile::{
 	disable_profile,
 	get_all_profiles,
 	get_current_profile,
+	get_profile_locations,
 	update_current_profile,
 };
 use crate::controllers::translation::{
@@ -92,6 +93,7 @@ fn profile_routes(state: &AppState) -> Router<AppState> {
 	Router::new()
 		.route("/", get(get_all_profiles))
 		.route("/me", get(get_current_profile).patch(update_current_profile))
+		.route("/{profile_id}/locations", get(get_profile_locations))
 		.merge(protected)
 		.route_layer(AuthLayer::new(state.clone()))
 }
