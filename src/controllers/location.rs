@@ -56,23 +56,18 @@ pub(crate) async fn create_location(
 }
 
 /// Get a location from the database.
-///
-/// /location/{id}
-/// /location/{id}?distance=51.123-3.456-5
-/// /location/{id}?name=KCGG UZ Gent
-/// /location/{id}?has_reservations=1/0
-/// /location/{id}?open_on=2025-01-01
 #[instrument(skip(pool))]
 pub(crate) async fn get_location(
 	State(pool): State<DbPool>,
-	Query(filter): Query<LocationFilter>,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let result = FilledLocation::search_by_id(id, filter, &conn).await?;
+	let result = Location::get_by_id(id, &conn).await?;
 
-	Ok((StatusCode::OK, Json(result)))
+	let response = LocationResponse::from(result);
+
+	Ok((StatusCode::OK, Json(response)))
 }
 
 /// Get all positions of locations from the database.
@@ -91,19 +86,23 @@ pub(crate) async fn get_location_positions(
 /// The latlng bounds include the southwestern and northeastern corners.
 /// The southwestern corner is the minimum latitude and longitude, and the
 /// northeastern corner is the maximum latitude and longitude.
+///
+/// /location/{id}
+/// /location/{id}?distance=51.123-3.456-5
+/// /location/{id}?name=KCGG UZ Gent
+/// /location/{id}?has_reservations=1/0
+/// /location/{id}?open_on=2025-01-01
 #[instrument(skip(pool))]
 pub(crate) async fn get_locations(
 	State(pool): State<DbPool>,
+	Query(filter): Query<LocationFilter>,
 	Query(bounds): Query<Bounds>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let locations = Location::get_all(bounds, &conn).await?;
+	let locations = FilledLocation::search(filter, bounds, &conn).await?;
 
-	let response: Vec<LocationResponse> =
-		locations.into_iter().map(LocationResponse::from).collect();
-
-	Ok((StatusCode::OK, Json(response)))
+	Ok((StatusCode::OK, Json(locations)))
 }
 
 /// Update a location in the database.

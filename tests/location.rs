@@ -81,7 +81,7 @@ async fn get_location_test() {
 		env.app.get(format!("/locations/{}", location.id).as_str()).await;
 
 	assert_eq!(response.status_code(), StatusCode::OK);
-	let location_response = response.json::<FilledLocation>();
+	let location_response = response.json::<LocationResponse>();
 
 	assert_eq!(location_response.id, location.id);
 	assert_eq!(location_response.name, location.name);
@@ -110,7 +110,7 @@ async fn get_locations_test() {
 	assert_eq!(response.status_code(), StatusCode::OK);
 
 	// Check if the location is in the response
-	let locations = response.json::<Vec<LocationResponse>>();
+	let locations = response.json::<Vec<FilledLocation>>();
 	assert!(locations.iter().any(|l| l.id == location.id));
 	assert!(locations.iter().any(|l| l.name == location.name));
 }

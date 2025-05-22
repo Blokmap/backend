@@ -10,6 +10,7 @@ use diesel::sql_types::{Bool, Double, Jsonb, Nullable, Timestamp};
 use serde::{Deserialize, Serialize};
 
 use self::schema::filled_location;
+use super::Bounds;
 use crate::{DbConn, Error};
 
 pub(crate) mod schema {
@@ -206,17 +207,28 @@ impl LocationFilter {
 }
 
 impl FilledLocation {
-	/// Get a [`FilledLocation`] by its id and a given [`LocationFilter`]
+	/// Search through all [`FilledLocation`] with a given [`LocationFilter`]
 	///
 	/// # Errors
 	#[instrument(skip(conn))]
-	pub async fn search_by_id(
-		query_id: i32,
+	pub async fn search(
 		location_filter: LocationFilter,
+		bounds: Bounds,
 		conn: &DbConn,
-	) -> Result<Self, Error> {
-		let mut filter: BoxedCondition =
-			Box::new(filled_location::id.eq(query_id).nullable());
+	) -> Result<Vec<Self>, Error> {
+		let (north_lat, north_lng) =
+			(bounds.north_east_lat, bounds.north_east_lng);
+
+		let (south_lat, south_lng) =
+			(bounds.south_west_lat, bounds.south_west_lng);
+
+		let mut filter: BoxedCondition = Box::new(
+			filled_location::latitude.between(south_lat, north_lat).and(
+				filled_location::longitude
+					.between(south_lng, north_lng)
+					.nullable(),
+			),
+		);
 
 		if let Some(f) = location_filter.into_boxed_condition()? {
 			filter = Box::new(filter.and(f));
@@ -227,7 +239,7 @@ impl FilledLocation {
 				filled_location::table
 					.filter(filter)
 					.select(FilledLocation::as_select())
-					.get_result(conn)
+					.get_results(conn)
 			})
 			.await??;
 
