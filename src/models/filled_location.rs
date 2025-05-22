@@ -10,7 +10,6 @@ use diesel::sql_types::{Bool, Double, Jsonb, Nullable, Timestamp};
 use serde::{Deserialize, Serialize};
 
 use self::schema::filled_location;
-use super::Bounds;
 use crate::{DbConn, Error};
 
 pub(crate) mod schema {
@@ -118,11 +117,17 @@ where
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LocationFilter {
 	pub distance:         Option<String>,
 	pub name:             Option<String>,
 	pub has_reservations: Option<bool>,
 	pub open_on:          Option<NaiveDateTime>,
+
+	pub north_east_lat: Option<f64>,
+	pub north_east_lng: Option<f64>,
+	pub south_west_lat: Option<f64>,
+	pub south_west_lng: Option<f64>,
 }
 
 type BoxedCondition = Box<
@@ -134,7 +139,7 @@ impl LocationFilter {
 		let mut conditions: Vec<BoxedCondition> = vec![];
 
 		if let Some(distance) = self.distance {
-			let parts: Vec<&str> = distance.split('-').collect();
+			let parts: Vec<&str> = distance.split('_').collect();
 			if parts.len() != 3 {
 				return Err(Error::ValidationError(
 					"expected parameter to be <lat>-<lng>-<dist>".into(),
@@ -194,6 +199,22 @@ impl LocationFilter {
 			));
 		}
 
+		if let Some(north_lat) = self.north_east_lat {
+			// The route controller guarantees that if one bound is present,
+			// all of them are
+			let north_lng = self.north_east_lng.unwrap();
+			let south_lat = self.south_west_lat.unwrap();
+			let south_lng = self.south_west_lng.unwrap();
+
+			conditions.push(Box::new(
+				filled_location::latitude.between(south_lat, north_lat).and(
+					filled_location::longitude
+						.between(south_lng, north_lng)
+						.nullable(),
+				),
+			));
+		}
+
 		Ok(conditions.into_iter().fold(
 			None,
 			|conditions: Option<BoxedCondition>, condition| {
@@ -213,22 +234,10 @@ impl FilledLocation {
 	#[instrument(skip(conn))]
 	pub async fn search(
 		location_filter: LocationFilter,
-		bounds: Bounds,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
-		let (north_lat, north_lng) =
-			(bounds.north_east_lat, bounds.north_east_lng);
-
-		let (south_lat, south_lng) =
-			(bounds.south_west_lat, bounds.south_west_lng);
-
-		let mut filter: BoxedCondition = Box::new(
-			filled_location::latitude.between(south_lat, north_lat).and(
-				filled_location::longitude
-					.between(south_lng, north_lng)
-					.nullable(),
-			),
-		);
+		let mut filter: BoxedCondition =
+			Box::new(true.as_sql::<Bool>().eq(true).nullable());
 
 		if let Some(f) = location_filter.into_boxed_condition()? {
 			filter = Box::new(filter.and(f));

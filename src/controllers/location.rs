@@ -8,7 +8,6 @@ use axum::{Extension, Json};
 use crate::DbPool;
 use crate::error::Error;
 use crate::models::{
-	Bounds,
 	FilledLocation,
 	Location,
 	LocationFilter,
@@ -96,11 +95,30 @@ pub(crate) async fn get_location_positions(
 pub(crate) async fn get_locations(
 	State(pool): State<DbPool>,
 	Query(filter): Query<LocationFilter>,
-	Query(bounds): Query<Bounds>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let locations = FilledLocation::search(filter, bounds, &conn).await?;
+	info!("{filter:?}");
+
+	let all_bounds = filter.north_east_lat.is_some()
+		&& filter.north_east_lng.is_some()
+		&& filter.south_west_lat.is_some()
+		&& filter.south_west_lng.is_some();
+
+	let any_bounds = filter.north_east_lat.is_some()
+		|| filter.north_east_lng.is_some()
+		|| filter.south_west_lat.is_some()
+		|| filter.south_west_lng.is_some();
+
+	if all_bounds != any_bounds {
+		return Err(Error::ValidationError(
+			"expected all of northEastLat, northEastLng, southWestLat, \
+			 southWestLng to be set"
+				.into(),
+		));
+	}
+
+	let locations = FilledLocation::search(filter, &conn).await?;
 
 	Ok((StatusCode::OK, Json(locations)))
 }

@@ -8,15 +8,6 @@ use crate::DbConn;
 use crate::error::Error;
 use crate::schema::{location, opening_time, translation};
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Bounds {
-	pub north_east_lat: f64,
-	pub north_east_lng: f64,
-	pub south_west_lat: f64,
-	pub south_west_lng: f64,
-}
-
 #[derive(
 	Clone, Debug, Deserialize, Serialize, Identifiable, Queryable, Selectable,
 )]
@@ -78,53 +69,6 @@ impl Location {
 			.await??;
 
 		Ok(result)
-	}
-
-	/// Get all [`Location`]s and include their [`Translation`]s.
-	///
-	/// # Errors
-	pub async fn get_all(
-		bounds: Bounds,
-		conn: &DbConn,
-	) -> Result<Vec<(Location, Translation, Translation)>, Error> {
-		let locations = conn
-			.interact(move |conn| {
-				// Alias the translation table twice to join it twice.
-				let (description, excerpt) = diesel::alias!(
-					translation as description,
-					translation as excerpt
-				);
-
-				// Get the bounds for the locations.
-				let (north_lat, north_lng) =
-					(bounds.north_east_lat, bounds.north_east_lng);
-
-				let (south_lat, south_lng) =
-					(bounds.south_west_lat, bounds.south_west_lng);
-
-				location::table
-					.filter(
-						location::latitude.between(south_lat, north_lat).and(
-							location::longitude.between(south_lng, north_lng),
-						),
-					)
-					.inner_join(
-						description.on(location::description_id
-							.eq(description.field(translation::id))),
-					)
-					.inner_join(excerpt.on(
-						location::excerpt_id.eq(excerpt.field(translation::id)),
-					))
-					.select((
-						location::all_columns,
-						description.fields(translation::all_columns),
-						excerpt.fields(translation::all_columns),
-					))
-					.load(conn)
-			})
-			.await??;
-
-		Ok(locations)
 	}
 
 	/// Get all the latlng positions of the locations.
