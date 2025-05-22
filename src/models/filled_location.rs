@@ -119,7 +119,10 @@ where
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LocationFilter {
-	pub distance:         Option<String>,
+	pub distance:   Option<f64>,
+	pub center_lat: Option<f64>,
+	pub center_lng: Option<f64>,
+
 	pub name:             Option<String>,
 	pub has_reservations: Option<bool>,
 	pub open_on:          Option<NaiveDateTime>,
@@ -135,26 +138,14 @@ type BoxedCondition = Box<
 >;
 
 impl LocationFilter {
-	fn into_boxed_condition(self) -> Result<Option<BoxedCondition>, Error> {
+	fn into_boxed_condition(self) -> Option<BoxedCondition> {
 		let mut conditions: Vec<BoxedCondition> = vec![];
 
-		if let Some(distance) = self.distance {
-			let parts: Vec<&str> = distance.split('_').collect();
-			if parts.len() != 3 {
-				return Err(Error::ValidationError(
-					"expected parameter to be <lat>-<lng>-<dist>".into(),
-				));
-			}
-
-			let lat: f64 = parts[0].parse().map_err(|_| {
-				Error::ValidationError("expected lat to be f64".into())
-			})?;
-			let lng: f64 = parts[1].parse().map_err(|_| {
-				Error::ValidationError("expected lng to be f64".into())
-			})?;
-			let dist: f64 = parts[2].parse().map_err(|_| {
-				Error::ValidationError("expected dist to be f64".into())
-			})?;
+		if let Some(dist) = self.distance {
+			// The route controller guarantees that if one param is present,
+			// all of them are
+			let lat = self.center_lat.unwrap();
+			let lng = self.center_lng.unwrap();
 
 			conditions.push(Box::new(
 				sql::<Double>("2 * 6371 * asin(sqrt(1 - cos(radians( ")
@@ -215,7 +206,7 @@ impl LocationFilter {
 			));
 		}
 
-		Ok(conditions.into_iter().fold(
+		conditions.into_iter().fold(
 			None,
 			|conditions: Option<BoxedCondition>, condition| {
 				Some(match conditions {
@@ -223,7 +214,7 @@ impl LocationFilter {
 					None => condition,
 				})
 			},
-		))
+		)
 	}
 }
 
@@ -239,7 +230,7 @@ impl FilledLocation {
 		let mut filter: BoxedCondition =
 			Box::new(true.as_sql::<Bool>().eq(true).nullable());
 
-		if let Some(f) = location_filter.into_boxed_condition()? {
+		if let Some(f) = location_filter.into_boxed_condition() {
 			filter = Box::new(filter.and(f));
 		}
 

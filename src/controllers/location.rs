@@ -98,7 +98,19 @@ pub(crate) async fn get_locations(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	info!("{filter:?}");
+	let all_dist = filter.distance.is_some()
+		&& filter.center_lat.is_some()
+		&& filter.center_lng.is_some();
+
+	let any_dist = filter.distance.is_some()
+		|| filter.center_lat.is_some()
+		|| filter.center_lng.is_some();
+
+	if all_dist != any_dist {
+		return Err(Error::ValidationError(
+			"expected all of distance, centerLat, centerLng to be set".into(),
+		));
+	}
 
 	let all_bounds = filter.north_east_lat.is_some()
 		&& filter.north_east_lng.is_some()
