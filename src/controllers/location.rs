@@ -1,13 +1,24 @@
 //! Controllers for [`Location`]s
 
-use axum::extract::{Path, Query, State};
+use std::fs::File;
+use std::io::Write;
+use std::path::PathBuf;
+
+use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use axum::{Extension, Json};
+use uuid::Uuid;
 
 use crate::DbPool;
 use crate::error::Error;
-use crate::models::{Bounds, Location, NewLocation, ProfileId};
+use crate::models::{
+	Bounds,
+	Location,
+	NewLocation,
+	NewLocationImage,
+	ProfileId,
+};
 use crate::schemas::location::{
 	CreateLocationRequest,
 	LocationResponse,
@@ -46,6 +57,53 @@ pub(crate) async fn create_location(
 	let response = LocationResponse::from(location);
 
 	Ok((StatusCode::CREATED, Json(response)))
+}
+
+#[instrument(skip(pool, file))]
+pub(crate) async fn upload_location_image(
+	State(pool): State<DbPool>,
+	Extension(profile_id): Extension<ProfileId>,
+	Path(id): Path<i32>,
+	mut file: Multipart,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let mut image_paths = vec![];
+
+	while let Some(field) = file.next_field().await? {
+		let extension = match field.content_type() {
+			Some("image/png") => "png",
+			Some("image/jpg" | "image/jpeg") => "jpg",
+			Some("image/webp") => "webp",
+			_ => "",
+		};
+
+		let image_uuid = Uuid::new_v4().to_string();
+		let rel_filepath = PathBuf::from(id.to_string())
+			.join(image_uuid)
+			.with_extension(extension);
+
+		let abs_filepath = PathBuf::from("/mnt/files").join(&rel_filepath);
+
+		let prefix = abs_filepath.parent().unwrap();
+		std::fs::create_dir_all(prefix)?;
+
+		let bytes = field.bytes().await?;
+
+		let mut file = File::create(&abs_filepath)?;
+		file.write_all(&bytes)?;
+
+		let new_image = NewLocationImage {
+			location_id: id,
+			file_path:   rel_filepath.to_string_lossy().into_owned(),
+			uploaded_by: *profile_id,
+		};
+
+		let image = new_image.insert(&conn).await?;
+		image_paths.push(image.file_path);
+	}
+
+	Ok((StatusCode::CREATED, Json(image_paths)))
 }
 
 /// Get a location from the database.

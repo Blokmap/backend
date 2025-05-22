@@ -6,4 +6,4 @@ WORKDIR /volume/blokmap-backend
 
 COPY . .
 
-CMD ["cargo", "watch", "--features", "seeder", "-x", "run"]
+CMD ["cargo", "watch", "-x", "run"]

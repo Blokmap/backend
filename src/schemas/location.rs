@@ -46,6 +46,7 @@ pub struct LocationResponse {
 	pub description:   Option<TranslationResponse>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub excerpt:       Option<TranslationResponse>,
+	pub image_paths:   Vec<String>,
 }
 
 impl From<Location> for LocationResponse {
@@ -64,6 +65,7 @@ impl From<Location> for LocationResponse {
 			coords:        (location.latitude, location.longitude),
 			description:   None,
 			excerpt:       None,
+			image_paths:   vec![],
 		}
 	}
 }
@@ -86,6 +88,37 @@ impl From<(Location, Translation, Translation)> for LocationResponse {
 			coords:        (location.latitude, location.longitude),
 			description:   Some(description.into()),
 			excerpt:       Some(excerpt.into()),
+			image_paths:   vec![],
+		}
+	}
+}
+
+impl From<(Location, Translation, Translation, Vec<String>)>
+	for LocationResponse
+{
+	fn from(
+		(location, description, excerpt, image_paths): (
+			Location,
+			Translation,
+			Translation,
+			Vec<String>,
+		),
+	) -> Self {
+		Self {
+			id: location.id,
+			name: location.name,
+			seat_count: location.seat_count,
+			is_reservable: location.is_reservable,
+			is_visible: location.is_visible,
+			street: location.street,
+			number: location.number,
+			zip: location.zip,
+			city: location.city,
+			province: location.province,
+			coords: (location.latitude, location.longitude),
+			description: Some(description.into()),
+			excerpt: Some(excerpt.into()),
+			image_paths,
 		}
 	}
 }

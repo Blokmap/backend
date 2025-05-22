@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use super::Translation;
 use crate::DbConn;
 use crate::error::Error;
-use crate::schema::{location, translation};
+use crate::schema::{location, location_image, translation};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -45,14 +45,15 @@ pub struct Location {
 }
 
 impl Location {
-	/// Get a [`Location`] by its id and include its [`Translation`]s.
+	/// Get a [`Location`] by its id and include its [`Translation`]s and
+	/// image filepaths.
 	///
 	/// # Errors
 	pub async fn get_by_id(
 		loc_id: i32,
 		conn: &DbConn,
-	) -> Result<(Location, Translation, Translation), Error> {
-		let result = conn
+	) -> Result<(Location, Translation, Translation, Vec<String>), Error> {
+		let (loc, desc, exc): (Location, Translation, Translation) = conn
 			.interact(move |conn| {
 				let (description, excerpt) = diesel::alias!(
 					translation as description,
@@ -77,7 +78,18 @@ impl Location {
 			})
 			.await??;
 
-		Ok(result)
+		let images = conn
+			.interact(move |conn| {
+				use crate::schema::location_image::dsl::*;
+
+				location_image
+					.filter(location_id.eq(loc.id))
+					.select(file_path)
+					.get_results(conn)
+			})
+			.await??;
+
+		Ok((loc, desc, exc, images))
 	}
 
 	/// Get all locations created by a given profile
@@ -232,6 +244,56 @@ pub struct OpeningTime {
 	pub is_reservable: Option<bool>,
 	pub created_at:    DateTime<Utc>,
 	pub updated_at:    DateTime<Utc>,
+}
+
+#[derive(
+	Associations,
+	Clone,
+	Debug,
+	Deserialize,
+	Identifiable,
+	Queryable,
+	Selectable,
+	Serialize,
+)]
+#[diesel(belongs_to(Location))]
+#[diesel(table_name = location_image)]
+pub struct LocationImage {
+	pub id:          i32,
+	pub location_id: i32,
+	pub file_path:   String,
+	pub uploaded_at: NaiveDateTime,
+	pub uploaded_by: i32,
+	pub approved_at: Option<NaiveDateTime>,
+	pub approved_by: Option<i32>,
+}
+
+#[derive(Clone, Debug, Deserialize, Insertable, Serialize)]
+#[diesel(table_name = location_image)]
+pub struct NewLocationImage {
+	pub location_id: i32,
+	pub file_path:   String,
+	pub uploaded_by: i32,
+}
+
+impl NewLocationImage {
+	/// Insert this [`NewLocationImage`] into the database.
+	///
+	/// # Errors
+	pub async fn insert(self, conn: &DbConn) -> Result<LocationImage, Error> {
+		let image = conn
+			.interact(move |conn| {
+				use self::location_image::dsl::*;
+
+				diesel::insert_into(location_image)
+					.values(self)
+					.returning(LocationImage::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(image)
+	}
 }
 
 #[derive(Debug, Deserialize, Insertable)]

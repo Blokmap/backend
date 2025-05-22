@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
+use axum::extract::multipart::MultipartError;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use diesel::result::DatabaseErrorKind;
@@ -27,6 +28,9 @@ pub enum Error {
 	/// Any error related to logging in
 	#[error(transparent)]
 	LoginError(#[from] LoginError),
+	/// Any error related to parsing multipart data
+	#[error(transparent)]
+	MultipartError(#[from] MultipartError),
 	/// Invalid or missing token
 	#[error(transparent)]
 	TokenError(#[from] TokenError),
@@ -51,6 +55,7 @@ impl IntoResponse for Error {
 			Self::Forbidden | Self::LoginError(_) | Self::TokenError(_) => {
 				StatusCode::FORBIDDEN
 			},
+			Self::MultipartError(_) => StatusCode::BAD_REQUEST,
 			Self::NotFound(_) => StatusCode::NOT_FOUND,
 			Self::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
 		};
@@ -97,6 +102,9 @@ pub enum InternalServerError {
 	/// Error interacting with a database connection
 	#[error("database interaction error -- {0:?}")]
 	DatabaseInteractionError(deadpool_diesel::InteractError),
+	/// Error handling some form of I/O
+	#[error("I/O error -- {0:?}")]
+	IOError(std::io::Error),
 	/// Error hashing some value
 	#[error("hash error -- {0:?}")]
 	HashError(argon2::password_hash::Error),
@@ -242,5 +250,11 @@ impl From<lettre::error::Error> for Error {
 impl From<redis::RedisError> for Error {
 	fn from(err: redis::RedisError) -> Self {
 		InternalServerError::RedisError(err).into()
+	}
+}
+
+impl From<std::io::Error> for Error {
+	fn from(err: std::io::Error) -> Self {
+		InternalServerError::IOError(err).into()
 	}
 }

@@ -18,7 +18,7 @@ codegen-units = 1
 
 [dependencies]
 argon2 = "0.5.3"
-axum = { version = "0.8.1", features = ["macros"] }
+axum = { version = "0.8.1", features = ["macros", "multipart"] }
 axum-extra = { version = "0.10.0", features = ["cookie", "cookie-private"] }
 chrono = { version = "0.4.40", features = ["serde"] }
 deadpool-diesel = { version = "0.6.1", features = ["postgres", "tracing"] }
