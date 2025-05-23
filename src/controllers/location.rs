@@ -7,13 +7,7 @@ use axum::{Extension, Json};
 
 use crate::DbPool;
 use crate::error::Error;
-use crate::models::{
-	FilledLocation,
-	Location,
-	LocationFilter,
-	NewLocation,
-	ProfileId,
-};
+use crate::models::{Location, LocationFilter, NewLocation, ProfileId};
 use crate::schemas::location::{
 	CreateLocationRequest,
 	LocationResponse,
@@ -130,7 +124,9 @@ pub(crate) async fn get_locations(
 		));
 	}
 
-	let locations = FilledLocation::search(filter, &conn).await?;
+	let locations = Location::search(filter, &conn).await?;
+	let locations: Vec<_> =
+		locations.into_iter().map(LocationResponse::from).collect();
 
 	Ok((StatusCode::OK, Json(locations)))
 }

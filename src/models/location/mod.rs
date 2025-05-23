@@ -1,18 +1,35 @@
+use std::collections::HashMap;
+use std::hash::Hash;
+
 use chrono::{NaiveDateTime, Utc};
+use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::{Identifiable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
 
-use super::Translation;
+use super::{OpeningTime, Translation};
 use crate::DbConn;
 use crate::error::Error;
 use crate::schema::{location, opening_time, translation};
+
+mod filter;
+
+pub use filter::*;
+
+diesel::alias!(
+	translation as description: DescriptionAlias,
+	translation as excerpt: ExcerptAlias,
+);
+
+pub type FullLocationData =
+	(Location, Translation, Translation, Vec<OpeningTime>);
 
 #[derive(
 	Clone, Debug, Deserialize, Serialize, Identifiable, Queryable, Selectable,
 )]
 #[serde(rename_all = "camelCase")]
 #[diesel(table_name = location)]
+#[diesel(check_for_backend(Pg))]
 pub struct Location {
 	pub id:             i32,
 	pub name:           String,
@@ -35,21 +52,45 @@ pub struct Location {
 	pub updated_at:     NaiveDateTime,
 }
 
+impl Hash for Location {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.id.hash(state) }
+}
+
+impl PartialEq for Location {
+	fn eq(&self, other: &Self) -> bool { self.id == other.id }
+}
+
+impl Eq for Location {}
+
 impl Location {
+	fn group_by_id(
+		data: Vec<(Location, Translation, Translation, Option<OpeningTime>)>,
+	) -> Vec<FullLocationData> {
+		let mut id_map = HashMap::new();
+
+		for (loc, desc, exc, times) in data {
+			let entry = id_map.entry((loc, desc, exc)).or_insert(vec![]);
+
+			if let Some(times) = times {
+				entry.push(times);
+			}
+		}
+
+		id_map
+			.into_iter()
+			.map(|((loc, desc, exc), times)| (loc, desc, exc, times))
+			.collect()
+	}
+
 	/// Get a [`Location`] by its id and include its [`Translation`]s.
 	///
 	/// # Errors
 	pub async fn get_by_id(
 		loc_id: i32,
 		conn: &DbConn,
-	) -> Result<(Location, Translation, Translation), Error> {
+	) -> Result<FullLocationData, Error> {
 		let result = conn
 			.interact(move |conn| {
-				let (description, excerpt) = diesel::alias!(
-					translation as description,
-					translation as excerpt
-				);
-
 				location::table
 					.filter(location::id.eq(loc_id))
 					.inner_join(
@@ -59,16 +100,21 @@ impl Location {
 					.inner_join(excerpt.on(
 						location::excerpt_id.eq(excerpt.field(translation::id)),
 					))
+					.left_outer_join(opening_time::table)
 					.select((
 						location::all_columns,
 						description.fields(translation::all_columns),
 						excerpt.fields(translation::all_columns),
+						opening_time::all_columns.nullable(),
 					))
-					.first(conn)
+					.get_results(conn)
 			})
 			.await??;
 
-		Ok(result)
+		match Self::group_by_id(result).first() {
+			Some(r) => Ok(r.clone()),
+			None => Err(Error::NotFound(String::new())),
+		}
 	}
 
 	/// Get all the latlng positions of the locations.
@@ -126,23 +172,6 @@ impl Location {
 	}
 }
 
-#[derive(
-	Queryable, Identifiable, Associations, Serialize, Selectable, Debug,
-)]
-#[diesel(belongs_to(Location))]
-#[diesel(table_name = crate::schema::opening_time)]
-#[serde(rename_all = "camelCase")]
-pub struct OpeningTime {
-	pub id:            i32,
-	pub location_id:   i32,
-	pub start_time:    NaiveDateTime,
-	pub end_time:      NaiveDateTime,
-	pub seat_count:    Option<i32>,
-	pub is_reservable: Option<bool>,
-	pub created_at:    NaiveDateTime,
-	pub updated_at:    NaiveDateTime,
-}
-
 #[derive(Debug, Deserialize, Insertable)]
 #[diesel(table_name = crate::schema::location)]
 pub struct NewLocation {
@@ -182,7 +211,7 @@ impl NewLocation {
 	}
 }
 
-#[derive(Debug, Deserialize, AsChangeset)]
+#[derive(AsChangeset, Clone, Debug, Deserialize)]
 #[diesel(table_name = crate::schema::location)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateLocation {
@@ -218,35 +247,5 @@ impl UpdateLocation {
 			.await??;
 
 		Ok(location)
-	}
-}
-
-#[derive(Deserialize, Insertable)]
-#[diesel(table_name = crate::schema::opening_time)]
-pub struct NewOpeningTime {
-	pub location_id:   i32,
-	pub start_time:    NaiveDateTime,
-	pub end_time:      NaiveDateTime,
-	pub seat_count:    Option<i32>,
-	pub is_reservable: Option<bool>,
-}
-
-impl NewOpeningTime {
-	/// Insert this [`NewOpeningTime`] into the database.
-	///
-	/// # Errors
-	pub async fn insert(self, conn: &DbConn) -> Result<OpeningTime, Error> {
-		let opening_time = conn
-			.interact(|conn| {
-				use self::opening_time::dsl::*;
-
-				diesel::insert_into(opening_time)
-					.values(self)
-					.returning(OpeningTime::as_returning())
-					.get_result(conn)
-			})
-			.await??;
-
-		Ok(opening_time)
 	}
 }

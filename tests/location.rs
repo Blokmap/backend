@@ -1,6 +1,5 @@
 mod common;
 use axum::http::StatusCode;
-use blokmap::models::FilledLocation;
 use blokmap::schemas::location::LocationResponse;
 use common::TestEnv;
 
@@ -110,7 +109,7 @@ async fn get_locations_test() {
 	assert_eq!(response.status_code(), StatusCode::OK);
 
 	// Check if the location is in the response
-	let locations = response.json::<Vec<FilledLocation>>();
+	let locations = response.json::<Vec<LocationResponse>>();
 	assert!(locations.iter().any(|l| l.id == location.id));
 	assert!(locations.iter().any(|l| l.name == location.name));
 }
