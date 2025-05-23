@@ -41,7 +41,7 @@ async fn main() {
 
 	let mailer = Mailer::new(&config, stub_mailbox);
 
-	// Crate the app router and listener.
+	// Create the app router and listener.
 	let router = routes::get_app_router(AppState {
 		config,
 		database_pool,

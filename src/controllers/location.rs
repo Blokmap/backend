@@ -7,7 +7,7 @@ use axum::{Extension, Json};
 
 use crate::DbPool;
 use crate::error::Error;
-use crate::models::{Bounds, Location, NewLocation, ProfileId};
+use crate::models::{Location, LocationFilter, NewLocation, ProfileId};
 use crate::schemas::location::{
 	CreateLocationRequest,
 	LocationResponse,
@@ -68,7 +68,6 @@ pub(crate) async fn get_location(
 pub(crate) async fn get_location_positions(
 	State(pool): State<DbPool>,
 ) -> Result<impl IntoResponse, Error> {
-	// Get a connection from the pool.
 	let conn = pool.get().await?;
 
 	let positions = Location::get_latlng_positions(&conn).await?;
@@ -80,19 +79,56 @@ pub(crate) async fn get_location_positions(
 /// The latlng bounds include the southwestern and northeastern corners.
 /// The southwestern corner is the minimum latitude and longitude, and the
 /// northeastern corner is the maximum latitude and longitude.
+///
+/// /location/{id}
+/// /location/{id}?distance=51.123-3.456-5
+/// /location/{id}?name=KCGG UZ Gent
+/// /location/{id}?has_reservations=1/0
+/// /location/{id}?open_on=2025-01-01
 #[instrument(skip(pool))]
 pub(crate) async fn get_locations(
 	State(pool): State<DbPool>,
-	Query(bounds): Query<Bounds>,
+	Query(filter): Query<LocationFilter>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let locations = Location::get_all(bounds, &conn).await?;
+	let all_dist = filter.distance.is_some()
+		&& filter.center_lat.is_some()
+		&& filter.center_lng.is_some();
 
-	let response: Vec<LocationResponse> =
+	let any_dist = filter.distance.is_some()
+		|| filter.center_lat.is_some()
+		|| filter.center_lng.is_some();
+
+	if all_dist != any_dist {
+		return Err(Error::ValidationError(
+			"expected all of distance, centerLat, centerLng to be set".into(),
+		));
+	}
+
+	let all_bounds = filter.north_east_lat.is_some()
+		&& filter.north_east_lng.is_some()
+		&& filter.south_west_lat.is_some()
+		&& filter.south_west_lng.is_some();
+
+	let any_bounds = filter.north_east_lat.is_some()
+		|| filter.north_east_lng.is_some()
+		|| filter.south_west_lat.is_some()
+		|| filter.south_west_lng.is_some();
+
+	if all_bounds != any_bounds {
+		return Err(Error::ValidationError(
+			"expected all of northEastLat, northEastLng, southWestLat, \
+			 southWestLng to be set"
+				.into(),
+		));
+	}
+
+	let locations = Location::search(filter, &conn).await?;
+	let locations: Vec<_> =
 		locations.into_iter().map(LocationResponse::from).collect();
 
-	Ok((StatusCode::OK, Json(response)))
+	Ok((StatusCode::OK, Json(locations)))
 }
 
 /// Update a location in the database.

@@ -7,6 +7,7 @@ use blokmap::mailer::{Mailer, StubMailbox};
 use blokmap::models::{
 	Location,
 	NewLocation,
+	NewOpeningTime,
 	NewTranslation,
 	Profile,
 	Translation,
@@ -79,6 +80,20 @@ impl TestEnv {
 					async |conn, locations: Vec<NewLocation>| {
 						for location in locations {
 							location.insert(conn).await?;
+						}
+
+						Ok(())
+					},
+				)
+				.await;
+
+			// Seed opening times
+			seeder
+				.populate(
+					"tests/seed/opening-times.json",
+					async |conn, times: Vec<NewOpeningTime>| {
+						for time in times {
+							time.insert(conn).await?;
 						}
 
 						Ok(())

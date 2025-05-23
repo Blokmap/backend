@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::models::{NewTranslation, Translation, UpdateTranslation};
 
 /// The data needed to make a new [`Translation`].
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateTranslationRequest {
 	#[serde(flatten)]
@@ -11,7 +11,7 @@ pub struct CreateTranslationRequest {
 }
 
 /// The data needed to update a [`Translation`].
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateTranslationRequest {
 	#[serde(flatten)]
@@ -19,7 +19,7 @@ pub struct UpdateTranslationRequest {
 }
 
 /// The data returned when making a new [`Translation`]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TranslationResponse {
 	#[serde(flatten)]

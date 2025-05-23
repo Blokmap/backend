@@ -7,8 +7,6 @@ use common::TestEnv;
 async fn create_location_test() {
 	let env = TestEnv::new().await.login("test").await;
 
-	// Attempt to create a location with wrong name and description
-	// translation FKs (coming from the seeder).
 	let response = env
 		.app
 		.post("/locations")
