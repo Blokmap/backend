@@ -58,7 +58,7 @@ pub fn get_app_router(state: AppState) -> Router {
 		.layer(
 			ServiceBuilder::new()
 				.layer(TraceLayer::new_for_http())
-				.layer(TimeoutLayer::new(Duration::from_secs(5)))
+				.layer(TimeoutLayer::new(Duration::from_secs(10)))
 				.layer(CompressionLayer::new()),
 		)
 		.with_state(state)

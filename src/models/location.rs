@@ -240,22 +240,25 @@ pub struct NewLocationImage {
 }
 
 impl NewLocationImage {
-	/// Insert this [`NewLocationImage`] into the database.
+	/// Insert this list of [`NewLocationImage`]s into the database.
 	///
 	/// # Errors
-	pub async fn insert(self, conn: &DbConn) -> Result<LocationImage, Error> {
-		let image = conn
+	pub async fn bulk_insert(
+		v: Vec<Self>,
+		conn: &DbConn,
+	) -> Result<Vec<LocationImage>, Error> {
+		let images = conn
 			.interact(move |conn| {
 				use self::location_image::dsl::*;
 
 				diesel::insert_into(location_image)
-					.values(self)
+					.values(v)
 					.returning(LocationImage::as_returning())
-					.get_result(conn)
+					.get_results(conn)
 			})
 			.await??;
 
-		Ok(image)
+		Ok(images)
 	}
 }
 
