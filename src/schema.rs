@@ -46,12 +46,12 @@ diesel::table! {
 	opening_time (id) {
 		id -> Int4,
 		location_id -> Int4,
-		start_time -> Timestamptz,
-		end_time -> Timestamptz,
+		start_time -> Timestamp,
+		end_time -> Timestamp,
 		seat_count -> Nullable<Int4>,
 		is_reservable -> Nullable<Bool>,
-		created_at -> Timestamptz,
-		updated_at -> Timestamptz,
+		created_at -> Timestamp,
+		updated_at -> Timestamp,
 	}
 }
 

@@ -6,7 +6,14 @@ use axum::{Extension, Json};
 use uuid::Uuid;
 
 use crate::mailer::Mailer;
-use crate::models::{Profile, ProfileId, ProfileState, UpdateProfile};
+use crate::models::{
+	Location,
+	Profile,
+	ProfileId,
+	ProfileState,
+	UpdateProfile,
+};
+use crate::schemas::location::LocationResponse;
 use crate::schemas::profile::{ProfileResponse, UpdateProfileRequest};
 use crate::{Config, DbPool, Error};
 
@@ -108,4 +115,16 @@ pub(crate) async fn activate_profile(
 	info!("disabled profile {profile_id}");
 
 	Ok(NoContent)
+}
+
+#[instrument(skip(pool))]
+pub(crate) async fn get_profile_locations(
+	State(pool): State<DbPool>,
+	Path(profile_id): Path<i32>,
+) -> Result<Json<Vec<LocationResponse>>, Error> {
+	let conn = pool.get().await?;
+	let locations = Location::get_by_profile_id(profile_id, &conn).await?;
+	let locations = locations.into_iter().map(LocationResponse::from).collect();
+
+	Ok(Json(locations))
 }

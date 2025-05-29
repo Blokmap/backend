@@ -4,6 +4,7 @@ use blokmap::models::{Profile, ProfileState};
 
 mod common;
 
+use blokmap::schemas::location::LocationResponse;
 use blokmap::schemas::profile::{ProfileResponse, UpdateProfileRequest};
 use common::TestEnv;
 
@@ -199,4 +200,14 @@ async fn activate_profile_not_admin() {
 	let bob = Profile::get(test_id, &conn).await.unwrap();
 
 	assert_eq!(bob.state, ProfileState::Disabled);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn get_profile_locations() {
+	let env = TestEnv::new().await.login("test").await;
+
+	let response = env.app.get("/profile/1/locations").await;
+	let _ = response.json::<Vec<LocationResponse>>();
+
+	assert_eq!(response.status_code(), StatusCode::OK);
 }

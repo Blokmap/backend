@@ -25,6 +25,7 @@ deadpool-diesel = { version = "0.6.1", features = ["postgres", "tracing"] }
 diesel = { version = "2.2.7", features = [
 	"postgres",
 	"chrono",
+	"serde_json",
 	"uuid",
 	"i-implement-a-third-party-backend-and-opt-into-breaking-changes",
 ] }
