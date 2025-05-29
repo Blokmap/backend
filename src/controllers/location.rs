@@ -194,12 +194,6 @@ pub(crate) async fn get_location_positions(
 /// The latlng bounds include the southwestern and northeastern corners.
 /// The southwestern corner is the minimum latitude and longitude, and the
 /// northeastern corner is the maximum latitude and longitude.
-///
-/// /location/{id}
-/// /location/{id}?distance=51.123-3.456-5
-/// /location/{id}?name=KCGG UZ Gent
-/// /location/{id}?has_reservations=1/0
-/// /location/{id}?open_on=2025-01-01
 #[instrument(skip(pool))]
 pub(crate) async fn get_locations(
 	State(pool): State<DbPool>,
