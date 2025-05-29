@@ -27,6 +27,7 @@ use crate::controllers::location::{
 	get_location_positions,
 	get_locations,
 	update_location,
+	upload_location_image,
 };
 use crate::controllers::profile::{
 	activate_profile,
@@ -58,7 +59,7 @@ pub fn get_app_router(state: AppState) -> Router {
 		.layer(
 			ServiceBuilder::new()
 				.layer(TraceLayer::new_for_http())
-				.layer(TimeoutLayer::new(Duration::from_secs(5)))
+				.layer(TimeoutLayer::new(Duration::from_secs(10)))
 				.layer(CompressionLayer::new()),
 		)
 		.with_state(state)
@@ -108,6 +109,7 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 	let authenticated = Router::new()
 		.route("/", post(create_location))
 		.route("/{id}", post(update_location).delete(delete_location))
+		.route("/{id}/image", post(upload_location_image))
 		.route_layer(AuthLayer::new(state.clone()));
 
 	Router::new()

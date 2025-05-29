@@ -45,6 +45,7 @@ pub struct LocationResponse {
 	pub coords:        (f64, f64),
 	pub description:   Option<TranslationResponse>,
 	pub excerpt:       Option<TranslationResponse>,
+	pub image_paths:   Vec<String>,
 	pub opening_times: Vec<OpeningTimeResponse>,
 }
 
@@ -64,6 +65,7 @@ impl From<Location> for LocationResponse {
 			coords:        (location.latitude, location.longitude),
 			description:   None,
 			excerpt:       None,
+			image_paths:   vec![],
 			opening_times: vec![],
 		}
 	}
@@ -94,6 +96,7 @@ impl From<(Location, Translation, Translation, Vec<OpeningTime>)>
 			coords:        (location.latitude, location.longitude),
 			description:   Some(description.into()),
 			excerpt:       Some(excerpt.into()),
+			image_paths:   vec![],
 			opening_times: opening_times.into_iter().map(Into::into).collect(),
 		}
 	}

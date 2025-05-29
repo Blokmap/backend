@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use super::{OpeningTime, Translation};
 use crate::DbConn;
 use crate::error::Error;
-use crate::schema::{location, opening_time, translation};
+use crate::schema::{location, location_image, opening_time, translation};
 
 mod filter;
 
@@ -203,6 +203,59 @@ impl Location {
 		.await??;
 
 		Ok(())
+	}
+}
+
+#[derive(
+	Associations,
+	Clone,
+	Debug,
+	Deserialize,
+	Identifiable,
+	Queryable,
+	Selectable,
+	Serialize,
+)]
+#[diesel(belongs_to(Location))]
+#[diesel(table_name = location_image)]
+pub struct LocationImage {
+	pub id:          i32,
+	pub location_id: i32,
+	pub file_path:   String,
+	pub uploaded_at: NaiveDateTime,
+	pub uploaded_by: i32,
+	pub approved_at: Option<NaiveDateTime>,
+	pub approved_by: Option<i32>,
+}
+
+#[derive(Clone, Debug, Deserialize, Insertable, Serialize)]
+#[diesel(table_name = location_image)]
+pub struct NewLocationImage {
+	pub location_id: i32,
+	pub file_path:   String,
+	pub uploaded_by: i32,
+}
+
+impl NewLocationImage {
+	/// Insert this list of [`NewLocationImage`]s into the database.
+	///
+	/// # Errors
+	pub async fn bulk_insert(
+		v: Vec<Self>,
+		conn: &DbConn,
+	) -> Result<Vec<LocationImage>, Error> {
+		let images = conn
+			.interact(move |conn| {
+				use self::location_image::dsl::*;
+
+				diesel::insert_into(location_image)
+					.values(v)
+					.returning(LocationImage::as_returning())
+					.get_results(conn)
+			})
+			.await??;
+
+		Ok(images)
 	}
 }
 

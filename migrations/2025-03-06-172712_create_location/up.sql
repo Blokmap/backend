@@ -67,3 +67,28 @@ CREATE INDEX idx_opening_times_start_end ON opening_time(start_time, end_time);
 
 -- Automatically update `updated_at`
 SELECT diesel_manage_updated_at('opening_time');
+
+CREATE TABLE location_image (
+	id          SERIAL    PRIMARY KEY,
+	location_id INTEGER   NOT NULL,
+	file_path   TEXT      NOT NULL,
+	uploaded_at TIMESTAMP NOT NULL     DEFAULT now(),
+	uploaded_by INTEGER   NOT NULL,
+	approved_at TIMESTAMP,
+	approved_by INTEGER,
+
+	CONSTRAINT fk_location_id
+	FOREIGN KEY (location_id)
+	REFERENCES location(id)
+	ON DELETE CASCADE,
+
+	CONSTRAINT fk_uploaded_by
+	FOREIGN KEY (uploaded_by)
+	REFERENCES profile(id)
+	ON DELETE SET NULL,
+
+	CONSTRAINT fk_approved_by
+	FOREIGN KEY (approved_by)
+	REFERENCES profile(id)
+	ON DELETE SET NULL
+)

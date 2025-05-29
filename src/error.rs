@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
+use axum::extract::multipart::MultipartError;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use diesel::result::DatabaseErrorKind;
@@ -21,12 +22,18 @@ pub enum Error {
 	/// Opaque internal server error
 	#[error("internal server error")]
 	InternalServerError,
+	/// Decoding an image failed somehow
+	#[error("{0}")]
+	InvalidImage(String),
 	/// Resource not found
 	#[error("not found - {0}")]
 	NotFound(String),
 	/// Any error related to logging in
 	#[error(transparent)]
 	LoginError(#[from] LoginError),
+	/// Any error related to parsing multipart data
+	#[error(transparent)]
+	MultipartError(#[from] MultipartError),
 	/// Invalid or missing token
 	#[error(transparent)]
 	TokenError(#[from] TokenError),
@@ -50,6 +57,9 @@ impl IntoResponse for Error {
 			Self::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
 			Self::Forbidden | Self::LoginError(_) | Self::TokenError(_) => {
 				StatusCode::FORBIDDEN
+			},
+			Self::MultipartError(_) | Self::InvalidImage(_) => {
+				StatusCode::BAD_REQUEST
 			},
 			Self::NotFound(_) => StatusCode::NOT_FOUND,
 			Self::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
@@ -97,6 +107,12 @@ pub enum InternalServerError {
 	/// Error interacting with a database connection
 	#[error("database interaction error -- {0:?}")]
 	DatabaseInteractionError(deadpool_diesel::InteractError),
+	/// Error handling some form of I/O
+	#[error("I/O error -- {0:?}")]
+	IOError(std::io::Error),
+	/// Error performing some image operation
+	#[error("image error -- {0:?}")]
+	ImageError(image::ImageError),
 	/// Error hashing some value
 	#[error("hash error -- {0:?}")]
 	HashError(argon2::password_hash::Error),
@@ -242,5 +258,29 @@ impl From<lettre::error::Error> for Error {
 impl From<redis::RedisError> for Error {
 	fn from(err: redis::RedisError) -> Self {
 		InternalServerError::RedisError(err).into()
+	}
+}
+
+impl From<std::io::Error> for Error {
+	fn from(err: std::io::Error) -> Self {
+		InternalServerError::IOError(err).into()
+	}
+}
+
+impl From<image::ImageError> for Error {
+	fn from(value: image::ImageError) -> Self {
+		match value {
+			image::ImageError::Decoding(e) => Self::InvalidImage(e.to_string()),
+			image::ImageError::IoError(e) => {
+				InternalServerError::IOError(e).into()
+			},
+			e => InternalServerError::ImageError(e).into(),
+		}
+	}
+}
+
+impl From<fast_image_resize::ResizeError> for Error {
+	fn from(value: fast_image_resize::ResizeError) -> Self {
+		Self::InvalidImage(value.to_string())
 	}
 }
