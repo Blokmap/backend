@@ -1,10 +1,3 @@
-// ▼▼ Required for alpine builds to work ▼▼
-extern crate openssl;
-#[allow(unused_imports)]
-#[macro_use]
-extern crate diesel;
-// ▲▲ Required for alpine builds to work ▲▲
-
 #[macro_use]
 extern crate tracing;
 

@@ -1,4 +1,4 @@
-FROM clux/muslrust:1.87.0-stable
+FROM rust:1.87.0-slim
 
 RUN cargo install cargo-watch
 

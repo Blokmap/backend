@@ -430,7 +430,6 @@ dependencies = [
  "image",
  "lettre",
  "mime",
- "openssl",
  "parking_lot",
  "rayon",
  "redis",
