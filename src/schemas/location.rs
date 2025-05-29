@@ -96,7 +96,7 @@ impl From<(Location, Translation, Translation, Vec<OpeningTime>)>
 			coords:        (location.latitude, location.longitude),
 			description:   Some(description.into()),
 			excerpt:       Some(excerpt.into()),
-			image_paths: vec![],
+			image_paths:   vec![],
 			opening_times: opening_times.into_iter().map(Into::into).collect(),
 		}
 	}

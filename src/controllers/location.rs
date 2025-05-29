@@ -18,7 +18,13 @@ use uuid::Uuid;
 
 use crate::DbPool;
 use crate::error::Error;
-use crate::models::{Location, LocationFilter, NewLocation, NewLocationImage, ProfileId};
+use crate::models::{
+	Location,
+	LocationFilter,
+	NewLocation,
+	NewLocationImage,
+	ProfileId,
+};
 use crate::schemas::location::{
 	CreateLocationRequest,
 	LocationResponse,

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use super::{OpeningTime, Translation};
 use crate::DbConn;
 use crate::error::Error;
-use crate::schema::{location, opening_time, location_image, translation};
+use crate::schema::{location, location_image, opening_time, translation};
 
 mod filter;
 
