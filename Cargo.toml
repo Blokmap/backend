@@ -22,13 +22,7 @@ axum = { version = "0.8.1", features = ["macros", "multipart"] }
 axum-extra = { version = "0.10.0", features = ["cookie", "cookie-private"] }
 chrono = { version = "0.4.40", features = ["serde"] }
 deadpool-diesel = { version = "0.6.1", features = ["postgres", "tracing"] }
-diesel = { version = "2.2.7", features = [
-	"postgres",
-	"chrono",
-	"serde_json",
-	"uuid",
-	"i-implement-a-third-party-backend-and-opt-into-breaking-changes",
-] }
+diesel = { version = "2.2.7", features = ["postgres", "chrono", "serde_json", "uuid"] }
 diesel-derive-enum = { version = "2.1.0", features = ["postgres"] }
 fast_image_resize = { version = "5.1.4", features=["image", "rayon"] }
 image = "0.25.6"
