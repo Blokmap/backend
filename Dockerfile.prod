@@ -1,4 +1,4 @@
-FROM clux/muslrust:1.85.0-stable AS build
+FROM clux/muslrust:1.87.0-stable AS build
 
 RUN cargo new --vcs none --bin --edition 2024 blokmap
 
