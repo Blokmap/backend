@@ -242,6 +242,23 @@ PaginatedResponse<Authority[]> {
 }
 ```
 
+### `GET /authorities/permissions`
+
+List all available authority permissions.
+
+**Response**
+
+```typescript
+{
+  manage_members: number;
+  manage_locations: number;
+  manage_tags: number;
+  manage_opening_times: number;
+  manage_reservations: number;
+  ...
+}
+```
+
 ---
 
 ### `POST /authorities`
@@ -311,6 +328,36 @@ Location[] {
 
 ---
 
+### `POST /authorities/{id}/locations`
+
+Create a new location for an authority.
+
+
+**Body**
+
+```typescript
+{
+	name: string;
+	description: Translation;
+	excerpt: Translation;
+	seatCount: number;
+	isReservable: boolean;
+	reservationBlockSize: number;
+	minReservationLength: number | null;
+	maxReservationLength: number | null;
+	isVisible: boolean;
+	street: string;
+	number: string;
+	zip: string;
+	city: string;
+	province: string;
+	latitude: number;
+	longitude: number;
+}
+```
+
+---
+
 ### `GET /authorities/{id}/members`
 
 List members of an authority.
@@ -319,15 +366,15 @@ List members of an authority.
 
 ```typescript
 Profile[] {
-    id: number;
-    username: string|null;
-    email: string;
-    firstName: string;
-    lastName: string;
-    state: ProfileState;
-    permissions: number;
-    institution?: Institution|null;
-    avatarUrl?: string|null;
+  id: number;
+  username: string|null;
+  email: string;
+  firstName: string;
+  lastName: string;
+  state: ProfileState;
+  permissions: string[];
+  institution?: Institution|null;
+  avatarUrl?: string|null;
 }
 ```
 
@@ -341,8 +388,8 @@ Add profile to authority.
 
 ```typescript
 {
-  "profileId": number,
-  "permissions": number
+  profileId: number,
+  permissions: string[];
 }
 ```
 
@@ -362,7 +409,7 @@ Update permissions for a profile in an authority.
 
 ```typescript
 {
-  "permissions": number
+  permissions: string[];
 }
 ```
 
@@ -388,12 +435,12 @@ Search for locations (`is_visible` = `true`). Filters can be applied via query p
 
 ```typescript
 Partial<Location> {
-    id: number;
-    name: string;
-    city: string;
-    province: string;
-    latitude: number;
-    longitude: number;
+  id: number;
+  name: string;
+  city: string;
+  province: string;
+  latitude: number;
+  longitude: number;
 }
 ```
 
@@ -442,6 +489,26 @@ PaginatedResponse<Location[]> {
     updatedBy?: Profile|null; // Only available to admins
     updatedAt: string;
   }
+}
+```
+
+---
+
+### `GET /locations/permissions`
+
+List all available location permissions.
+
+**Response**
+
+```typescript
+{
+  manage_members: number;
+  manage_images: number;
+  manage_opening_times: number;
+  manage_reservations: number;
+  manage_tags: number;
+  manage_location: number;
+  ...
 }
 ```
 
@@ -498,7 +565,6 @@ Create a new location.
 
 ```typescript
 {
-	authorityId: number | null; // Check if user has permission to create locations under authority
 	name: string;
 	description: Translation;
 	excerpt: Translation;
@@ -623,7 +689,7 @@ Profile[] {
   firstName: string;
   lastName: string;
   state: ProfileState;
-  permissions: number;
+  permissions: string[];
   institution?: Institution|null;
 }
 ```
@@ -638,8 +704,8 @@ Add profile to a location to manage.
 
 ```typescript
 {
-  profileId: number,
-  permissions: number
+  profileId: number;
+  permissions: string[];
 }
 ```
 
@@ -659,7 +725,7 @@ Update permissions for a profile in a location.
 
 ```typescript
 {
-  permissions: number
+  permissions: string[];
 }
 ```
 
