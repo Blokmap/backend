@@ -217,6 +217,77 @@ Unblock a user (admins). Also clears the reason for blocking.
 
 ---
 
+### `GET /profiles/{id}/authorities`
+
+List all authorities a profile is a member of.
+
+**Response**
+
+```typescript
+AuthorityProfile[] {
+    authority: Authority;
+    permissions: string[];
+}
+```
+
+---
+
+### `GET /profiles/{id}/reservations`
+
+List all reservations made by a profile.
+
+> **Note**: the response objects do not correspond to how reservations are stored in the database. Here, reservations are grouped by `opening_time_id` and `block_index` for **consecutive block indices** of the opening time. This way, the response is more efficient and easier to work with: a reservation semantically corresponds to a continuous block of time reserved by a profile for a specific opening time, instead of a single reservation per block index.
+
+**Response**
+
+```typescript
+Reservation[] {
+    id: number;
+    openingTime: OpeningTime;
+    blockIndex: number;
+    startTime: string; // Computed start time of the reservation block
+    endTime: string; // Computed end time of the reservation block
+    confirmedAt: string|null;
+    confirmedBy?: Profile|null;
+    updatedAt: string;
+    createdAt: string;
+}
+```
+
+### `GET /profiles/{id}/reviews`
+
+List all reviews made by a profile.
+
+**Response**
+
+```typescript
+Review[] {
+    id: number;
+    locationId: number;
+    rating: number;
+    body: string|null;
+    createdAt: string;
+    updatedAt: string;
+}
+```
+
+---
+
+## `GET /profiles/{id}/locations`
+
+List all locations a profile has permissions to manage.
+
+**Response**
+
+```typescript
+LocationProfile[] {
+    location: Location;
+    permissions: string[];
+}
+```
+
+---
+
 ## Authorities
 
 ### `GET /authorities`
