@@ -392,6 +392,8 @@ Search for locations (`is_visible` = `true`). Filters can be applied via query p
 }]
 ```
 
+---
+
 ### `GET /locations`
 
 List all locations (paginated).
@@ -505,6 +507,8 @@ Create a new location.
 	longitude: number;
 }
 ```
+
+---
 
 ### `POST /locations/{id}/images`
 
@@ -719,6 +723,8 @@ Update an opening time for a location. Should check if the user has permission t
 
 Delete an opening time for a location. Should check if the user has permission to delete opening times for the location.
 
+---
+
 ### `GET /locations/{id}/opening-times/{id}/reservations`
 
 List reservations for an opening time.
@@ -827,6 +833,8 @@ List all tags. No pagination needed, as the list will be quite small.
 }]
 ```
 
+---
+
 ### `POST /tags`
 
 Create a new tag. Only for admins.
@@ -906,6 +914,8 @@ Update a translation.
 }
 ```
 
+---
+
 ### `DELETE /translations/{id}`
 
 Delete a translation.
@@ -947,6 +957,8 @@ Create a review. Check if the user did not already review the location.
   body: string|null
 }
 ```
+
+---
 
 ### `PATCH /locations/{id}/reviews/{reviewId}`
 
