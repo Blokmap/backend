@@ -805,7 +805,7 @@ Delete an opening time for a location. Should check if the user has permission t
 
 List reservations for an opening time.
 
-> **Note**: the response objects do not correspond to how reservations are stored in the database. Here, reservations are grouped by `opening_time_id` and `profile_id`. This way, the response is more efficient and easier to work with: a reservation semantically corresponds to a continuous block of time reserved by a profile for a specific opening time, instead of a single reservation per block index.
+> **Note**: the response objects do not correspond to how reservations are stored in the database. Here, reservations are grouped by `opening_time_id` and `profile_id` for **consecutive block indices** of the opening time. This way, the response is more efficient and easier to work with: a reservation semantically corresponds to a continuous block of time reserved by a profile for a specific opening time, instead of a single reservation per block index.
 
 **Response**
 
@@ -888,9 +888,9 @@ Create a reservation for an opening time. This endpoint checks the following:
 
 ---
 
-### `DELETE /locations/{id}/opening-times/{id}/reservations/user/{profileId}`
+### `DELETE /locations/{id}/opening-times/{id}/reservations/user/{profileId}/{blockIndex}`
 
-Delete all reservations for a profile in an opening time (so all blocks). This endpoint should check if the user has permission to delete reservations for the opening time.
+Delete all consecutive reservations for a profile in an opening time (starting from the block index). This endpoint should check if the user has permission to delete reservations for the opening time.
 
 ---
 
