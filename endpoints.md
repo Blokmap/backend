@@ -98,15 +98,15 @@ List all institutions.
 
 ```typescript
 Institution[] {
-    name: string;
-    email: string|null;
-    phone: string|null;
-    street: string|null;
-    number: string|null;
-    zip: string|null;
-    city: string|null;
-    province: string|null;
-    country: string|null;
+  name: string;
+  email: string|null;
+  phone: string|null;
+  street: string|null;
+  number: string|null;
+  zip: string|null;
+  city: string|null;
+  province: string|null;
+  country: string|null;
 }
 ```
 
@@ -122,14 +122,14 @@ List all profiles (paginated).
 
 ```typescript
 Profile[] {
-    id: number;
-    username: string|null;
-    email: string;
-    firstName: string;
-    lastName: string;
-    state: ProfileState;
-    avatarUrl: string|null;
-    institutionName: string|null;
+  id: number;
+  username: string|null;
+  email: string;
+  firstName: string;
+  lastName: string;
+  state: ProfileState;
+  avatarUrl: string|null;
+  institutionName: string|null;
 }
 ```
 
@@ -143,15 +143,15 @@ Get a specific profile.
 
 ```typescript
 Profile {
-    id: number;
-    username: string|null;
-    email: string;
-    firstName: string;
-    lastName: string;
-    state: ProfileState;
-    institutionName: string|null;
-    avatarUrl: string|null;
-    authorities?: Authority[];
+  id: number;
+  username: string|null;
+  email: string;
+  firstName: string;
+  lastName: string;
+  state: ProfileState;
+  institutionName: string|null;
+  avatarUrl: string|null;
+  authorities?: Authority[];
 }
 ```
 
@@ -165,13 +165,13 @@ Update a profile. (Only for non-SSO users)
 
 ```typescript
 {
-    email?: string; // Sets pending email
-    firstName?: string;
-    lastName?: string;
-    password?: string;
-    passwordConfirmation?: string;
-    insitutionName?: string; // Only for admins
-    state?: ProfileState; // Only for admins
+  email?: string; // Sets pending email
+  firstName?: string;
+  lastName?: string;
+  password?: string;
+  passwordConfirmation?: string;
+  insitutionName?: string; // Only for admins
+  state?: ProfileState; // Only for admins
 }
 ```
 
@@ -225,8 +225,8 @@ List all authorities a profile is a member of.
 
 ```typescript
 AuthorityProfile[] {
-    authority: Authority;
-    permissions: string[];
+  authority: Authority;
+  permissions: string[];
 }
 ```
 
@@ -236,21 +236,20 @@ AuthorityProfile[] {
 
 List all reservations made by a profile.
 
-> **Note**: the response objects do not correspond to how reservations are stored in the database. Here, reservations are grouped by `opening_time_id` and `block_index` for **consecutive block indices** of the opening time. This way, the response is more efficient and easier to work with: a reservation semantically corresponds to a continuous block of time reserved by a profile for a specific opening time, instead of a single reservation per block index.
-
 **Response**
 
 ```typescript
 Reservation[] {
-    id: number;
-    openingTime: OpeningTime;
-    blockIndex: number;
-    startTime: string; // Computed start time of the reservation block
-    endTime: string; // Computed end time of the reservation block
-    confirmedAt: string|null;
-    confirmedBy?: Profile|null;
-    updatedAt: string;
-    createdAt: string;
+  id: number;
+  openingTime: OpeningTime;
+  baseBlockIndex: number;
+  blockCount: number; // Number of consecutive blocks reserved
+  startTime: string; // Computed start time of the reservation block
+  endTime: string; // Computed end time of the reservation block
+  confirmedAt: string|null;
+  confirmedBy?: Profile|null;
+  updatedAt: string;
+  createdAt: string;
 }
 ```
 
@@ -876,14 +875,13 @@ Delete an opening time for a location. Should check if the user has permission t
 
 List reservations for an opening time.
 
-> **Note**: the response objects do not correspond to how reservations are stored in the database. Here, reservations are grouped by `opening_time_id` and `profile_id` for **consecutive block indices** of the opening time. This way, the response is more efficient and easier to work with: a reservation semantically corresponds to a continuous block of time reserved by a profile for a specific opening time, instead of a single reservation per block index.
-
 **Response**
 
 ```typescript
 Reservation[] {
   id: number;
-  blockIndex: number;
+  baseBlockIndex: number;
+  blockCount: number; // Number of consecutive blocks reserved
   startTime: string; // Computed start time of the reservation block (first block index of the reservation)
   endTime: string; // Computed end time of the reservation block (last block index of the reservation)
   profile: Profile;
@@ -896,33 +894,9 @@ Reservation[] {
 
 ---
 
-### `GET /locations/{id}/opening-times/{id}/reservations/blocks/{idx}`
+### `GET /locations/{id}/reservations?date={date}`
 
-List reservations for an opening time and block index.
-This endpoint is used to get the reservations for a specific block of time within an opening time.
-
-**Response**
-
-```typescript
-Reservation[] {
-  id: number;
-  startTime: string; // Computed start time of the reservation block
-  endTime: string; // Computed end time of the reservation block
-  profile: Profile;
-  confirmedAt: string|null;
-  confirmedBy?: Profile|null;
-  updatedAt: string;
-  createdAt: string;
-}
-```
-
----
-
-### `GET /locations/{id}/reservations/{date?}`
-
-List reservations for a location. If `date` is present in the path, it should return reservations for that specific date. If not, it should return all (paginated) reservations for the location, ordered by id.
-
-> **Note**: the response objects do not correspond to how reservations are stored in the database. Here, reservations are grouped by `opening_time_id` and `profile_id`. This way, the response is more efficient and easier to work with: a reservation semantically corresponds to a continuous block of time reserved by a profile for a specific opening time, instead of a single reservation per block index.
+List reservations for a location. If `date` is present in the query, it should return reservations for that specific date. If not, it should return all (paginated) reservations for the location, ordered by id.
 
 **Response**
 
@@ -930,7 +904,8 @@ List reservations for a location. If `date` is present in the path, it should re
 Reservation[] {
   id: number;
   openingTime?: OpeningTime;
-  blockIndex: number;
+  baseBlockIndex: number;
+  blockCount: number; // Number of consecutive blocks reserved
   startTime: string; // Computed start time of the reservation block
   endTime: string; // Computed end time of the reservation block
   profile: Profile;
