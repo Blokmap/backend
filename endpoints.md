@@ -1,6 +1,6 @@
 # API Endpoints
 
-**Pagination**: Most endpoints support pagination via `page` and `per_page` query parameters. These endpoints return a `total` field in the response to indicate the total number of items available. Default values are `page=1` and `per_page=20`. Pagination also implies searchability, with a `query` parameter to filter results based on a search term.
+**Pagination**: Most endpoints support pagination via `page` and `per_page` query parameters. These endpoints return a `total` field in the response to indicate the total number of items available. Default values are `page=1` and `per_page=20`. The actual data is then returned in the `data` field of the response. Pagination also implies searchability, with a `query` parameter to filter results based on a search term. For locations, this search would typically filter on `name`, `description`, and `excerpt`. For profiles, it would filter on `username`, `email`, `firstName`, and `lastName`.
 
 **Includes**: Many endpoints support the `include` query parameter to conditionally fetch related entities (e.g., `institution`, `authority`, `tags`). These fields are indicated with the `?` symbol on the fields in the response model.
 
@@ -81,7 +81,7 @@ Get current authenticated user profile.
 	firstName: string;
 	lastName: string;
 	state: ProfileState;
-    avatarUrl: string|null;
+	avatarUrl: string | null;
 	insitution: Institution | null;
 }
 ```
@@ -185,7 +185,7 @@ Upload a profile avatar image. The image should be a valid image file (e.g., PNG
 
 ```typescript
 {
-    file: File;
+	file: File;
 }
 ```
 
