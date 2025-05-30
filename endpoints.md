@@ -14,8 +14,8 @@ Login with username (_which can be the username or email address_) and password 
 
 ```typescript
 {
-	username: string,
-	password: string
+	username: string;
+	password: string;
 }
 ```
 
@@ -74,7 +74,7 @@ Get current authenticated user profile.
 **Response**
 
 ```typescript
-{
+Profile {
 	id: number;
 	username: string;
 	email: string;
@@ -97,7 +97,7 @@ List all institutions.
 **Response**
 
 ```typescript
-[{
+Institution[] {
     name: string;
     email: string|null;
     phone: string|null;
@@ -107,7 +107,7 @@ List all institutions.
     city: string|null;
     province: string|null;
     country: string|null;
-}]
+}
 ```
 
 ---
@@ -121,7 +121,7 @@ List all profiles (paginated).
 **Response**
 
 ```typescript
-[{
+Profile[] {
     id: number;
     username: string|null;
     email: string;
@@ -130,7 +130,7 @@ List all profiles (paginated).
     state: ProfileState;
     avatarUrl: string|null;
     institutionName: string|null;
-}]
+}
 ```
 
 ---
@@ -142,7 +142,7 @@ Get a specific profile.
 **Response**
 
 ```typescript
-{
+Profile {
     id: number;
     username: string|null;
     email: string;
@@ -226,7 +226,11 @@ List all authorities (paginated).
 **Response**
 
 ```typescript
-[{
+PaginatedResponse<Authority[]> {
+  page: number;
+  perPage: number;
+  total: number;
+  data: Authority[] {
     id: number;
     name: string;
     description: string|null;
@@ -234,7 +238,8 @@ List all authorities (paginated).
     updatedBy?: Profile|null;
     members?: Profile[];
     locations?: Location[];
-}]
+  }
+}
 ```
 
 ---
@@ -276,7 +281,7 @@ List all locations for an authority.
 **Response**
 
 ```typescript
-[{
+Location[] {
     id: number;
     name: string;
     description: Translation;
@@ -301,7 +306,7 @@ List all locations for an authority.
     createdAt: string;
     updatedBy?: Profile|null;
     updatedAt: string;
-}]
+}
 ```
 
 ---
@@ -313,7 +318,7 @@ List members of an authority.
 **Response**
 
 ```typescript
-[{
+Profile[] {
     id: number;
     username: string|null;
     email: string;
@@ -323,7 +328,7 @@ List members of an authority.
     permissions: number;
     institution?: Institution|null;
     avatarUrl?: string|null;
-}]
+}
 ```
 
 ---
@@ -382,14 +387,14 @@ Search for locations (`is_visible` = `true`). Filters can be applied via query p
 **Response**
 
 ```typescript
-[{
+Partial<Location> {
     id: number;
     name: string;
     city: string;
     province: string;
     latitude: number;
     longitude: number;
-}]
+}
 ```
 
 ---
@@ -401,7 +406,11 @@ List all locations (paginated).
 **Response**
 
 ```typescript
-[{
+PaginatedResponse<Location[]> {
+  page: number;
+  perPage: number;
+  total: number;
+  data: Location[] {
     id: number;
     name: string;
     description: Translation;
@@ -432,7 +441,8 @@ List all locations (paginated).
     createdAt: string;
     updatedBy?: Profile|null; // Only available to admins
     updatedAt: string;
-}]
+  }
+}
 ```
 
 ---
@@ -444,37 +454,37 @@ Get a single location.
 **Response**
 
 ```typescript
-{
-    id: number;
-    name: string;
-    description: Translation;
-    excerpt: Translation;
-    seatCount: number;
-    reservationBlockSize: number;
-    minReservationLength: number|null;
-    maxReservationLength: number|null;
-    isReservable: boolean;
-    isVisible: boolean;
-    street: string;
-    number: string;
-    zip: string;
-    city: string;
-    province: string;
-    latitude: number;
-    longitude: number;
-    images?: Image[] {
-        id: number;
-        url: string;
-    };
-    openingTimes?: OpeningTime[]; // Opening times for the current week (monday - sunday)
-    tags?: Tag[];
-    authority?: Authority|null;
-    approvedBy?: Profile|null; // Only available to admins
-    approvedAt?: string|null; // Only available to admins
-    createdBy?: Profile|null;
-    createdAt: string;
-    updatedBy?: Profile|null; // Only available to admins
-    updatedAt: string;
+Location {
+  id: number;
+  name: string;
+  description: Translation;
+  excerpt: Translation;
+  seatCount: number;
+  reservationBlockSize: number;
+  minReservationLength: number|null;
+  maxReservationLength: number|null;
+  isReservable: boolean;
+  isVisible: boolean;
+  street: string;
+  number: string;
+  zip: string;
+  city: string;
+  province: string;
+  latitude: number;
+  longitude: number;
+  images?: Image[] {
+      id: number;
+      url: string;
+  };
+  openingTimes?: OpeningTime[]; // Opening times for the current week (monday - sunday)
+  tags?: Tag[];
+  authority?: Authority|null;
+  approvedBy?: Profile|null; // Only available to admins
+  approvedAt?: string|null; // Only available to admins
+  createdBy?: Profile|null;
+  createdAt: string;
+  updatedBy?: Profile|null; // Only available to admins
+  updatedAt: string;
 }
 ```
 
@@ -518,7 +528,7 @@ Upload one or more images for a location. The images should be valid image files
 
 ```typescript
 {
-    files: File[];
+  files: File[];
 }
 ```
 
@@ -538,22 +548,22 @@ Update a location.
 
 ```typescript
 {
-    name?: string,
-    seatCount?: number;
-    isReservable?: boolean;
-    reservationBlockSize?: number;
-    description?: Translation;
-    excerpt?: Translation;
-    minReservationLength?: number|null;
-    maxReservationLength?: number|null;
-    isVisible?: boolean,
-    street?: string,
-    number?: string,
-    zip?: string,
-    city?: string,
-    province?: string,
-    latitude?: number,
-    longitude?: number
+  name?: string,
+  seatCount?: number;
+  isReservable?: boolean;
+  reservationBlockSize?: number;
+  description?: Translation;
+  excerpt?: Translation;
+  minReservationLength?: number|null;
+  maxReservationLength?: number|null;
+  isVisible?: boolean,
+  street?: string,
+  number?: string,
+  zip?: string,
+  city?: string,
+  province?: string,
+  latitude?: number,
+  longitude?: number
 }
 ```
 
@@ -593,7 +603,7 @@ Sets the location's tags. As implied by the POST method, this replaces the exist
 
 ```typescript
 {
-    "tags": string[]
+  "tags": string[]
 }
 ```
 
@@ -606,16 +616,16 @@ List members of a location. Members are profiles that have permissions to manage
 **Response**
 
 ```typescript
-[{
-    id: number;
-    username: string|null;
-    email: string;
-    firstName: string;
-    lastName: string;
-    state: ProfileState;
-    permissions: number;
-    institution?: Institution|null;
-}]
+Profile[] {
+  id: number;
+  username: string|null;
+  email: string;
+  firstName: string;
+  lastName: string;
+  state: ProfileState;
+  permissions: number;
+  institution?: Institution|null;
+}
 ```
 
 ---
@@ -628,8 +638,8 @@ Add profile to a location to manage.
 
 ```typescript
 {
-  "profileId": number,
-  "permissions": number
+  profileId: number,
+  permissions: number
 }
 ```
 
@@ -649,7 +659,7 @@ Update permissions for a profile in a location.
 
 ```typescript
 {
-  "permissions": number
+  permissions: number
 }
 ```
 
@@ -667,18 +677,18 @@ List opening times for a location. Filters can be applied via query parameters:
 **Response**
 
 ```typescript
-[{
-    id: number;
-    startTime: string;
-    endTime: string;
-    seatCount: number|null;
-    reservableFrom: string|null;
-    reservableUntil: string|null;
-    createdBy?: Profile|null;
-    createdAt: string;
-    updatedBy?: Profile|null; // Only available to admins
-    updatedAt: string;
-}]
+OpeningTime[] {
+  id: number;
+  startTime: string;
+  endTime: string;
+  seatCount: number|null;
+  reservableFrom: string|null;
+  reservableUntil: string|null;
+  createdBy?: Profile|null;
+  createdAt: string;
+  updatedBy?: Profile|null; // Only available to admins
+  updatedAt: string;
+}
 ```
 
 ---
@@ -691,11 +701,11 @@ Create an opening time for a location. Should check if the user has permission t
 
 ```typescript
 {
-    startTime: string,
-    endTime: string,
-    seatCount?: number|null,
-    reservableFrom?: string|null,
-    reservableUntil?: string|null
+  startTime: string,
+  endTime: string,
+  seatCount?: number|null,
+  reservableFrom?: string|null,
+  reservableUntil?: string|null
 }
 ```
 
@@ -709,11 +719,11 @@ Update an opening time for a location. Should check if the user has permission t
 
 ```typescript
 {
-    startTime?: string,
-    endTime?: string,
-    seatCount?: number|null,
-    reservableFrom?: string|null,
-    reservableUntil?: string|null
+  startTime?: string,
+  endTime?: string,
+  seatCount?: number|null,
+  reservableFrom?: string|null,
+  reservableUntil?: string|null
 }
 ```
 
@@ -734,17 +744,17 @@ List reservations for an opening time.
 **Response**
 
 ```typescript
-[{
-    id: number;
-    blockIndex: number;
-    startTime: string; // Computed start time of the reservation block (first block index of the reservation)
-    endTime: string; // Computed end time of the reservation block (last block index of the reservation)
-    profile: Profile;
-    confirmedAt: string|null;
-    confirmedBy?: Profile|null;
-    updatedAt: string;
-    createdAt: string;
-}]
+Reservation[] {
+  id: number;
+  blockIndex: number;
+  startTime: string; // Computed start time of the reservation block (first block index of the reservation)
+  endTime: string; // Computed end time of the reservation block (last block index of the reservation)
+  profile: Profile;
+  confirmedAt: string|null;
+  confirmedBy?: Profile|null;
+  updatedAt: string;
+  createdAt: string;
+}
 ```
 
 ---
@@ -757,16 +767,16 @@ This endpoint is used to get the reservations for a specific block of time withi
 **Response**
 
 ```typescript
-[{
-    id: number;
-    startTime: string; // Computed start time of the reservation block
-    endTime: string; // Computed end time of the reservation block
-    profile: Profile;
-    confirmedAt: string|null;
-    confirmedBy?: Profile|null;
-    updatedAt: string;
-    createdAt: string;
-}]
+Reservation[] {
+  id: number;
+  startTime: string; // Computed start time of the reservation block
+  endTime: string; // Computed end time of the reservation block
+  profile: Profile;
+  confirmedAt: string|null;
+  confirmedBy?: Profile|null;
+  updatedAt: string;
+  createdAt: string;
+}
 ```
 
 ---
@@ -780,15 +790,15 @@ List reservations for a location. If `date` is present in the path, it should re
 **Response**
 
 ```typescript
-[{
-    id: number;
-    openingTime?: OpeningTime;
-    blockIndex: number;
-    startTime: string; // Computed start time of the reservation block
-    endTime: string; // Computed end time of the reservation block
-    profile: Profile;
-    confirmedAt: string|null;
-}]
+Reservation[] {
+  id: number;
+  openingTime?: OpeningTime;
+  blockIndex: number;
+  startTime: string; // Computed start time of the reservation block
+  endTime: string; // Computed end time of the reservation block
+  profile: Profile;
+  confirmedAt: string|null;
+}
 ```
 
 ---
@@ -805,8 +815,8 @@ Create a reservation for an opening time. This endpoint checks the following:
 
 ```typescript
 {
-  "startTime": Time,
-  "endTime": Time
+  startTime: Time,
+  endTime: Time
 }
 ```
 
@@ -827,10 +837,10 @@ List all tags. No pagination needed, as the list will be quite small.
 **Response**
 
 ```typescript
-[{
-    id: string;
-    name: Translation;
-}]
+Tag[] {
+  id: string;
+  name: Translation;
+}
 ```
 
 ---
@@ -843,13 +853,13 @@ Create a new tag. Only for admins.
 
 ```typescript
 {
-    id: string;
-    name: Translation {
-        nl: string,
-        en: string,
-        fr: string,
-        de: string
-    }
+  id: string;
+  name: Translation {
+    nl: string,
+    en: string,
+    fr: string,
+    de: string
+  }
 }
 ```
 
@@ -863,12 +873,12 @@ Update an existing tag's name in the different languages.
 
 ```typescript
 {
-    name?: Translation {
-        nl?: string|null,
-        en?: string|null,
-        fr?: string|null,
-        de?: string|null
-    }
+  name?: Translation {
+    nl?: string|null,
+    en?: string|null,
+    fr?: string|null,
+    de?: string|null
+  }
 }
 ```
 
@@ -890,10 +900,10 @@ Create a translation.
 
 ```typescript
 {
-    nl: string,
-    en: string,
-    fr: string,
-    de: string
+  nl: string,
+  en: string,
+  fr: string,
+  de: string
 }
 ```
 
@@ -907,10 +917,10 @@ Update a translation.
 
 ```typescript
 {
-    nl?: string|null,
-    en?: string|null,
-    fr?: string|null,
-    de?: string|null
+  nl?: string|null,
+  en?: string|null,
+  fr?: string|null,
+  de?: string|null
 }
 ```
 
@@ -931,7 +941,11 @@ List (paginated) reviews for a location.
 **Response**
 
 ```typescript
-[{
+PaginatedResponse<Review[]> {
+  page: number;
+  perPage: number;
+  total: number;
+  data: Review[] {
     id: number;
     profile: Partial<Profile> {
         firstName: string; // Only first name is needed for non-admins
@@ -940,7 +954,9 @@ List (paginated) reviews for a location.
     rating: number;
     body: string|null;
     createdAt: string;
-}]
+    updatedAt: string;
+  }
+}
 ```
 
 ---
