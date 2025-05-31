@@ -934,9 +934,9 @@ Create a reservation for an opening time. This endpoint checks the following:
 
 ---
 
-### `DELETE /locations/{id}/opening-times/{id}/reservations/user/{profileId}/{blockIndex}`
+### `DELETE /locations/{id}/opening-times/{id}/reservations/{reservationId}`
 
-Delete all consecutive reservations for a profile in an opening time (starting from the block index). This endpoint should check if the user has permission to delete reservations for the opening time.
+Delete a reservations for a profile in an opening time. This endpoint should check if the user has permission to delete reservations for the opening time.
 
 ---
 
