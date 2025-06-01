@@ -91,4 +91,9 @@ CREATE TABLE location_image (
 	FOREIGN KEY (approved_by)
 	REFERENCES profile(id)
 	ON DELETE SET NULL
-)
+);
+
+ALTER TABLE profile
+ADD CONSTRAINT fk_profile_avatar_image_id
+FOREIGN KEY (avatar_image_id)
+REFERENCES location_image(id);

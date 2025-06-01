@@ -31,6 +31,9 @@ pub enum Error {
 	/// Any error related to logging in
 	#[error(transparent)]
 	LoginError(#[from] LoginError),
+	/// Any error related to OAuth login
+	#[error(transparent)]
+	OAuthError(#[from] OAuthError),
 	/// Any error related to parsing multipart data
 	#[error(transparent)]
 	MultipartError(#[from] MultipartError),
@@ -55,9 +58,10 @@ impl IntoResponse for Error {
 		let status = match self {
 			Self::Duplicate(_) => StatusCode::CONFLICT,
 			Self::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
-			Self::Forbidden | Self::LoginError(_) | Self::TokenError(_) => {
-				StatusCode::FORBIDDEN
-			},
+			Self::Forbidden
+			| Self::LoginError(_)
+			| Self::OAuthError(_)
+			| Self::TokenError(_) => StatusCode::FORBIDDEN,
 			Self::MultipartError(_) | Self::InvalidImage(_) => {
 				StatusCode::BAD_REQUEST
 			},
@@ -82,6 +86,19 @@ pub enum LoginError {
 	PendingEmailVerification,
 	#[error("profile is disabled")]
 	Disabled,
+}
+
+/// Any error related to OAuth login
+#[derive(Debug, Error)]
+pub enum OAuthError {
+	#[error("invalid CSRF token provided")]
+	InvalidCSRFToken,
+	#[error("missing CSRF token cookie")]
+	MissingCSRFTokenCookie,
+	#[error("missing email field in ID token")]
+	MissingEmailField,
+	#[error("missing nonce cookie")]
+	MissingNonceCookie,
 }
 
 /// Any error related to a token

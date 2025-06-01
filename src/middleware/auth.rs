@@ -88,7 +88,7 @@ where
 
 						use crate::schema::profile::dsl::*;
 
-						profile.filter(admin.eq(true)).first::<Profile>(conn)
+						profile.filter(is_admin.eq(true)).first::<Profile>(conn)
 					})
 					.await
 					.unwrap();

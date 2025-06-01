@@ -19,7 +19,7 @@ pub mod routes;
 pub mod schema;
 pub mod schemas;
 
-pub use config::Config;
+pub use config::*;
 pub use error::*;
 use mailer::Mailer;
 use redis::aio::MultiplexedConnection;
@@ -38,6 +38,7 @@ pub type RedisConn = MultiplexedConnection;
 #[derive(Clone)]
 pub struct AppState {
 	pub config:           Config,
+	pub sso_config:       SsoConfig,
 	pub database_pool:    DbPool,
 	pub redis_connection: RedisConn,
 	pub cookie_jar_key:   Key,
@@ -46,6 +47,10 @@ pub struct AppState {
 
 impl FromRef<AppState> for Config {
 	fn from_ref(input: &AppState) -> Self { input.config.clone() }
+}
+
+impl FromRef<AppState> for SsoConfig {
+	fn from_ref(input: &AppState) -> Self { input.sso_config.clone() }
 }
 
 impl FromRef<AppState> for DbPool {

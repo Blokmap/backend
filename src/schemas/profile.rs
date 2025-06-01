@@ -20,7 +20,7 @@ impl From<Profile> for ProfileResponse {
 			id:            profile.id,
 			username:      profile.username,
 			email:         profile.email,
-			is_admin:      profile.admin,
+			is_admin:      profile.is_admin,
 			created_at:    profile.created_at,
 			last_login_at: profile.last_login_at,
 		}
