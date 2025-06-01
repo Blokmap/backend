@@ -62,6 +62,10 @@ diesel::table! {
 	profile (id) {
 		id -> Int4,
 		username -> Text,
+		first_name -> Nullable<Text>,
+		last_name -> Nullable<Text>,
+		avatar_image_id -> Nullable<Int4>,
+		institution_name -> Nullable<Text>,
 		password_hash -> Text,
 		password_reset_token -> Nullable<Text>,
 		password_reset_token_expiry -> Nullable<Timestamp>,
@@ -69,9 +73,12 @@ diesel::table! {
 		pending_email -> Nullable<Text>,
 		email_confirmation_token -> Nullable<Text>,
 		email_confirmation_token_expiry -> Nullable<Timestamp>,
-		admin -> Bool,
+		is_admin -> Bool,
+		block_reason -> Nullable<Text>,
 		state -> ProfileState,
 		created_at -> Timestamp,
+		updated_at -> Timestamp,
+		updated_by -> Nullable<Int4>,
 		last_login_at -> Timestamp,
 	}
 }

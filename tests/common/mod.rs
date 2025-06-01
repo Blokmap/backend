@@ -12,7 +12,15 @@ use blokmap::models::{
 	Profile,
 	Translation,
 };
-use blokmap::{AppState, Config, Error, SeedProfile, Seeder, routes};
+use blokmap::{
+	AppState,
+	Config,
+	Error,
+	SeedProfile,
+	Seeder,
+	SsoConfig,
+	routes,
+};
 use mock_redis::{RedisUrlGuard, RedisUrlProvider};
 
 mod wrap_mail;
@@ -38,6 +46,7 @@ impl TestEnv {
 	pub async fn new() -> Self {
 		// Load the configuration from the environment
 		let config = Config::from_env();
+		let sso_config = SsoConfig::stub();
 
 		// Create a test database pool
 		let test_pool_guard = (*DATABASE_PROVIDER).acquire().await;
@@ -118,6 +127,7 @@ impl TestEnv {
 		// Create the test app.
 		let app = routes::get_app_router(AppState {
 			config,
+			sso_config,
 			database_pool: test_pool.clone(),
 			redis_connection,
 			cookie_jar_key,

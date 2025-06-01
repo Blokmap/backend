@@ -20,6 +20,8 @@ use crate::models::ephemeral::Session;
 use crate::models::{NewProfile, Profile, ProfileId, ProfileState};
 use crate::{Config, DbPool, Error, LoginError, RedisConn, TokenError};
 
+pub mod sso;
+
 static USERNAME_REGEX: LazyLock<Regex> =
 	LazyLock::new(|| Regex::new(r"^[a-zA-Z][a-zA-Z0-9-_]*$").unwrap());
 

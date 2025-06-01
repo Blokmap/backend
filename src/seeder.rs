@@ -68,7 +68,7 @@ pub struct SeedProfile {
 	pub password: String,
 	pub email:    String,
 	#[serde(default)]
-	pub admin:    bool,
+	pub is_admin: bool,
 	#[serde(default)]
 	pub state:    ProfileState,
 }
@@ -79,7 +79,7 @@ struct InsertableSeedProfile {
 	username:      String,
 	password_hash: String,
 	email:         String,
-	admin:         bool,
+	is_admin:      bool,
 	state:         ProfileState,
 }
 
@@ -95,7 +95,7 @@ impl SeedProfile {
 			username:      self.username,
 			password_hash: hash,
 			email:         self.email,
-			admin:         self.admin,
+			is_admin:      self.is_admin,
 			state:         self.state,
 		};
 

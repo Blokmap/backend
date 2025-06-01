@@ -77,7 +77,7 @@ where
 				Err(e) => return Ok(e.into_response()),
 			};
 
-			if !profile.admin {
+			if !profile.is_admin {
 				debug!("Profile ID {} is not an admin", profile_id);
 				return Ok(Error::Forbidden.into_response());
 			}

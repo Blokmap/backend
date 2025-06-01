@@ -3,28 +3,28 @@
         "username": "test",
         "email": "test@example.com",
         "password": "foo",
-        "admin": false,
+        "is_admin": false,
         "state": "Active"
     },
     {
         "username": "test2",
         "email": "test2@example.com",
         "password": "foo",
-        "admin": false,
+        "is_admin": false,
         "state": "Active"
     },
     {
         "username": "test-admin",
         "email": "test-admin@example.com",
         "password": "foo",
-        "admin": true,
+        "is_admin": true,
         "state": "Active"
     },
     {
         "username": "test-disabled",
         "email": "test-disabled@example.com",
         "password": "foo",
-        "admin": false,
+        "is_admin": false,
         "state": "Disabled"
     }
 ]

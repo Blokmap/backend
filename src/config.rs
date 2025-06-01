@@ -3,9 +3,24 @@ use std::sync::Arc;
 use chrono::Duration;
 use deadpool_diesel::postgres::{Manager, Pool};
 use lettre::Address;
+use openidconnect::{ClientId, ClientSecret};
 
 use crate::RedisConn;
 use crate::mailer::StubMailbox;
+
+/// Get an environment variable or panic if it is not set.
+fn get_env(var: &str) -> String {
+	std::env::var(var).unwrap_or_else(|_| panic!("{var} must be set"))
+}
+
+/// Get an environment variable or use a default value.
+fn get_env_default(var: &str, default: impl Into<String>) -> String {
+	std::env::var(var).unwrap_or_else(|_| {
+		warn!("{var} not set, using default");
+
+		default.into()
+	})
+}
 
 /// Configuration settings for the application
 #[derive(Clone, Debug)]
@@ -33,77 +48,59 @@ pub struct Config {
 }
 
 impl Config {
-	/// Get an environment variable or panic if it is not set.
-	fn get_env(var: &str) -> String {
-		std::env::var(var).unwrap_or_else(|_| panic!("{var} must be set"))
-	}
-
-	/// Get an environment variable or use a default value.
-	fn get_env_default(var: &str, default: impl Into<String>) -> String {
-		std::env::var(var).unwrap_or_else(|_| {
-			warn!("{var} not set, using default");
-
-			default.into()
-		})
-	}
-
 	/// Create a new [`Config`] from environment variables
 	///
 	/// # Panics
-	/// Panics if an environment variable is missing
+	/// Panics if a required environment variable is missing
 	#[must_use]
 	pub fn from_env() -> Self {
-		let database_url = Self::get_env("DATABASE_URL");
-		let redis_url = Self::get_env("REDIS_URL");
+		let database_url = get_env("DATABASE_URL");
+		let redis_url = get_env("REDIS_URL");
 
-		let production = Self::get_env_default("PRODUCTION", "false")
-			.parse::<bool>()
-			.unwrap();
+		let production =
+			get_env_default("PRODUCTION", "false").parse::<bool>().unwrap();
 
-		let frontend_url = Self::get_env("FRONTEND_URL");
+		let frontend_url = get_env("FRONTEND_URL");
 
 		let email_confirmation_token_lifetime = Duration::minutes(
-			Self::get_env_default("EMAIL_CONFIRMATION_TOKEN_LIFETIME", "5")
+			get_env_default("EMAIL_CONFIRMATION_TOKEN_LIFETIME", "5")
 				.parse::<i64>()
 				.unwrap(),
 		);
 		let password_reset_token_lifetime = Duration::minutes(
-			Self::get_env_default("PASSWORD_RESET_TOKEN_LIFETIME", "5")
+			get_env_default("PASSWORD_RESET_TOKEN_LIFETIME", "5")
 				.parse::<i64>()
 				.unwrap(),
 		);
 
 		let access_token_name =
-			Self::get_env_default("ACCESS_TOKEN_NAME", "blokmap_access_token");
+			get_env_default("ACCESS_TOKEN_NAME", "blokmap_access_token");
 
 		let access_token_lifetime = time::Duration::minutes(
-			Self::get_env_default("ACCESS_TOKEN_LIFETIME_MINUTES", "10")
+			get_env_default("ACCESS_TOKEN_LIFETIME_MINUTES", "10")
 				.parse::<i64>()
 				.unwrap(),
 		);
 
-		let refresh_token_name = Self::get_env_default(
-			"REFRESH_TOKEN_NAME",
-			"blokmap_refresh_token",
-		);
+		let refresh_token_name =
+			get_env_default("REFRESH_TOKEN_NAME", "blokmap_refresh_token");
 
 		let refresh_token_lifetime = time::Duration::minutes(
-			Self::get_env_default("REFRESH_TOKEN_LIFETIME_MINUTES", "10080") // 1 week
+			get_env_default("REFRESH_TOKEN_LIFETIME_MINUTES", "10080") // 1 week
 				.parse::<i64>()
 				.unwrap(),
 		);
 
 		let email_address =
-			Self::get_env_default("EMAIL_ADDRESS", "blokmap@gmail.com")
+			get_env_default("EMAIL_ADDRESS", "blokmap@gmail.com")
 				.parse::<Address>()
 				.expect("INVALID EMAIL ADDRESS");
 
-		let email_queue_size = Self::get_env_default("EMAIL_QUEUE_SIZE", "32")
+		let email_queue_size = get_env_default("EMAIL_QUEUE_SIZE", "32")
 			.parse::<usize>()
 			.expect("INVALID EMAIL QUEUE SIZE");
 
-		let email_smtp_server =
-			Self::get_env_default("EMAIL_SMTP_SERVER", "stub");
+		let email_smtp_server = get_env_default("EMAIL_SMTP_SERVER", "stub");
 
 		let email_smtp_password =
 			std::fs::read_to_string("/run/secrets/smtp-password")
@@ -167,5 +164,45 @@ impl Config {
 			.get_multiplexed_async_connection()
 			.await
 			.expect("COULD NOT CONNECT TO REDIS")
+	}
+}
+
+#[derive(Debug, Clone)]
+pub struct SsoConfig {
+	pub google_client_id:     ClientId,
+	pub google_client_secret: ClientSecret,
+}
+
+impl SsoConfig {
+	/// Create a new [`SsoConfig`] from environment variables
+	///
+	/// # Panics
+	/// Panics if a required environment variable is missing
+	#[must_use]
+	pub fn from_env() -> Self {
+		let google_oidc_credentials =
+			std::fs::read_to_string("/run/secrets/google-oidc-credentials")
+				.expect("GOOGLE OIDC CREDENTIALS MISSING");
+
+		let google_oidc_credentials =
+			google_oidc_credentials.lines().collect::<Vec<_>>();
+
+		assert_eq!(google_oidc_credentials.len(), 2);
+
+		let google_client_id =
+			ClientId::new(google_oidc_credentials[0].to_owned());
+		let google_client_secret =
+			ClientSecret::new(google_oidc_credentials[1].to_owned());
+
+		Self { google_client_id, google_client_secret }
+	}
+
+	/// Create a new [`SsoConfig`] with all fields empty to be used in tests
+	#[must_use]
+	pub fn stub() -> Self {
+		Self {
+			google_client_id:     ClientId::new(String::new()),
+			google_client_secret: ClientSecret::new(String::new()),
+		}
 	}
 }
