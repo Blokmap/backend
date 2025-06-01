@@ -49,6 +49,8 @@ pub async fn sso_login(
 	Path(provider): Path<String>,
 	mut jar: PrivateCookieJar,
 ) -> Result<impl IntoResponse, Error> {
+	warn!("UNSTABLE SSO LOGIN USED");
+
 	if provider != "google" {
 		unimplemented!();
 	}
@@ -126,6 +128,8 @@ pub async fn sso_callback(
 	Query(query): Query<OAuthResponse>,
 	mut jar: PrivateCookieJar,
 ) -> Result<impl IntoResponse, Error> {
+	warn!("UNSTABLE SSO LOGIN USED");
+
 	let csrf_cookie =
 		jar.get("csrf-token").ok_or(OAuthError::MissingCSRFTokenCookie)?;
 	let nonce_cookie =
