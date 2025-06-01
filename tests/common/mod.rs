@@ -46,7 +46,7 @@ impl TestEnv {
 	pub async fn new() -> Self {
 		// Load the configuration from the environment
 		let config = Config::from_env();
-		let sso_config = SsoConfig::from_env();
+		let sso_config = SsoConfig::stub();
 
 		// Create a test database pool
 		let test_pool_guard = (*DATABASE_PROVIDER).acquire().await;

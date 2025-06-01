@@ -174,7 +174,7 @@ pub struct SsoConfig {
 }
 
 impl SsoConfig {
-	/// Create a new [`Config`] from environment variables
+	/// Create a new [`SsoConfig`] from environment variables
 	///
 	/// # Panics
 	/// Panics if a required environment variable is missing
@@ -195,5 +195,14 @@ impl SsoConfig {
 			ClientSecret::new(google_oidc_credentials[1].to_owned());
 
 		Self { google_client_id, google_client_secret }
+	}
+
+	/// Create a new [`SsoConfig`] with all fields empty to be used in tests
+	#[must_use]
+	pub fn stub() -> Self {
+		Self {
+			google_client_id:     ClientId::new(String::new()),
+			google_client_secret: ClientSecret::new(String::new()),
+		}
 	}
 }
