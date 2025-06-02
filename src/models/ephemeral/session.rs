@@ -16,7 +16,7 @@ pub struct Session {
 impl Session {
 	/// Create and store a new [`Session`] for a given [`Profile`]
 	#[instrument(skip_all)]
-	pub(crate) async fn create(
+	pub async fn create(
 		config: &Config,
 		profile: &Profile,
 		conn: &mut RedisConn,
@@ -38,7 +38,7 @@ impl Session {
 		Ok(session)
 	}
 
-	pub(crate) async fn get(
+	pub async fn get(
 		id: &Uuid,
 		conn: &mut RedisConn,
 	) -> Result<Option<Self>, Error> {
@@ -51,14 +51,10 @@ impl Session {
 	}
 
 	/// Convert this [`Session`] into an access token cookie
-	pub(crate) fn to_access_token_cookie(
-		self,
-		config: &Config,
-	) -> Cookie<'static> {
+	pub fn to_access_token_cookie(self, config: &Config) -> Cookie<'static> {
 		let secure = config.production;
 
 		Cookie::build((config.access_token_name.clone(), self.id.to_string()))
-			.domain("")
 			.http_only(true)
 			.max_age(config.access_token_lifetime)
 			.path("/")
@@ -68,17 +64,13 @@ impl Session {
 	}
 
 	/// Convert this [`Session`] into an refresh token cookie
-	pub(crate) fn to_refresh_token_cookie(
-		self,
-		config: &Config,
-	) -> Cookie<'static> {
+	pub fn to_refresh_token_cookie(self, config: &Config) -> Cookie<'static> {
 		let secure = config.production;
 
 		Cookie::build((
 			config.refresh_token_name.clone(),
 			self.profile_id.to_string(),
 		))
-		.domain("")
 		.http_only(true)
 		.max_age(config.refresh_token_lifetime)
 		.path("/")

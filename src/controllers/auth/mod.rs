@@ -6,6 +6,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use axum::{Extension, Json};
 use axum_extra::extract::PrivateCookieJar;
+use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::Utc;
 use uuid::Uuid;
 use validator::Validate;
@@ -277,6 +278,7 @@ pub(crate) async fn login_profile_with_email(
 	}
 
 	let password_hash = PasswordHash::new(&profile.password_hash)?;
+
 	Argon2::default()
 		.verify_password(login_data.password.as_bytes(), &password_hash)?;
 
@@ -299,11 +301,10 @@ pub(crate) async fn logout_profile(
 	jar: PrivateCookieJar,
 	Extension(profile_id): Extension<ProfileId>,
 ) -> Result<(PrivateCookieJar, NoContent), Error> {
-	// Unwrap is safe because the auth middleware guarantees the token exists
-	let mut revoked_access_token = jar.get(&config.access_token_name).unwrap();
-	revoked_access_token.make_removal();
+	let access_token = Cookie::build(config.access_token_name).path("/");
+	let refresh_token = Cookie::build(config.refresh_token_name).path("/");
 
-	let jar = jar.add(revoked_access_token);
+	let jar = jar.remove(access_token).remove(refresh_token);
 
 	info!("logged out profile {profile_id}");
 

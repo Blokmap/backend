@@ -16,7 +16,7 @@ async fn main() {
 	tracing_subscriber::fmt()
 		.pretty()
 		.with_thread_names(true)
-		.with_max_level(Level::DEBUG)
+		.with_max_level(Level::INFO)
 		.init();
 
 	// Load the configuration from the environment,

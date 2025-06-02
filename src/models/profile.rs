@@ -397,6 +397,7 @@ impl Profile {
 					pending_email.eq(None::<String>),
 					email_confirmation_token.eq(None::<String>),
 					email_confirmation_token_expiry.eq(None::<NaiveDateTime>),
+					state.eq(ProfileState::Active),
 				))
 				.execute(conn)
 		})
