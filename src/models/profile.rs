@@ -4,6 +4,7 @@ use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::{Argon2, PasswordHasher};
 use chrono::{NaiveDateTime, TimeDelta, Utc};
+use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel_derive_enum::DbEnum;
 use lettre::message::Mailbox;
@@ -53,13 +54,14 @@ pub enum ProfileState {
 	Serialize,
 )]
 #[diesel(table_name = profile)]
+#[diesel(check_for_backend(Pg))]
 pub struct Profile {
 	pub id:                              i32,
 	pub username:                        String,
 	pub first_name:                      Option<String>,
 	pub last_name:                       Option<String>,
 	pub avatar_image_id:                 Option<i32>,
-	pub institution_name:                Option<String>,
+	pub institution_id:                  Option<i32>,
 	#[serde(skip)]
 	pub password_hash:                   String,
 	#[serde(skip)]

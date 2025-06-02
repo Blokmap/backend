@@ -1,12 +1,12 @@
 use axum::http::StatusCode;
-use blokmap::controllers::auth::{
+use blokmap::models::Profile;
+use blokmap::schemas::auth::{
 	LoginEmailRequest,
 	LoginUsernameRequest,
 	PasswordResetData,
 	PasswordResetRequest,
 	RegisterRequest,
 };
-use blokmap::models::Profile;
 
 mod common;
 

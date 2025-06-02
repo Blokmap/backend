@@ -5,7 +5,7 @@ use diesel::dsl::{InnerJoinQuerySource, LeftJoinQuerySource, sql};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::query_source::{Alias, AliasedField};
-use diesel::sql_types::{Bool, Double, Nullable, Timestamp};
+use diesel::sql_types::{Bool, Date, Double, Nullable, Time};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -102,9 +102,13 @@ impl LocationFilter {
 		if let Some(open_on) = self.open_on {
 			conditions.push(Box::new(
 				open_on
-					.into_sql::<Timestamp>()
-					.between(opening_time::start_time, opening_time::end_time)
-					.nullable()
+					.date()
+					.into_sql::<Date>()
+					.eq(opening_time::day)
+					.and(open_on.time().into_sql::<Time>().between(
+						opening_time::start_time,
+						opening_time::end_time,
+					))
 					.and(opening_time::id.is_not_null())
 					.nullable(),
 			));

@@ -41,7 +41,9 @@ pub struct Translation {
 	pub fr:         Option<String>,
 	pub de:         Option<String>,
 	pub created_at: NaiveDateTime,
+	pub created_by: Option<i32>,
 	pub updated_at: NaiveDateTime,
+	pub updated_by: Option<i32>,
 }
 
 impl Hash for Translation {

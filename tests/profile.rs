@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
-use blokmap::controllers::auth::LoginUsernameRequest;
 use blokmap::models::{Profile, ProfileState};
+use blokmap::schemas::auth::LoginUsernameRequest;
 
 mod common;
 

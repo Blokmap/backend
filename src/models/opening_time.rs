@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use diesel::backend::Backend;
 use diesel::deserialize::FromSql;
 use diesel::pg::Pg;
@@ -27,14 +27,17 @@ use crate::{DbConn, Error};
 #[diesel(check_for_backend(Pg))]
 #[serde(rename_all = "camelCase")]
 pub struct OpeningTime {
-	pub id:            i32,
-	pub location_id:   i32,
-	pub start_time:    NaiveDateTime,
-	pub end_time:      NaiveDateTime,
-	pub seat_count:    Option<i32>,
-	pub is_reservable: Option<bool>,
-	pub created_at:    NaiveDateTime,
-	pub updated_at:    NaiveDateTime,
+	pub id:              i32,
+	pub location_id:     i32,
+	pub day:             NaiveDate,
+	pub start_time:      NaiveTime,
+	pub end_time:        NaiveTime,
+	pub seat_count:      Option<i32>,
+	pub reservable_from: Option<NaiveDateTime>,
+	pub created_at:      NaiveDateTime,
+	pub created_by:      Option<i32>,
+	pub updated_at:      NaiveDateTime,
+	pub updated_by:      Option<i32>,
 }
 
 impl Hash for OpeningTime {
@@ -71,11 +74,12 @@ where
 #[derive(Clone, Debug, Deserialize, Insertable, Serialize)]
 #[diesel(table_name = crate::schema::opening_time)]
 pub struct NewOpeningTime {
-	pub location_id:   i32,
-	pub start_time:    NaiveDateTime,
-	pub end_time:      NaiveDateTime,
-	pub seat_count:    Option<i32>,
-	pub is_reservable: Option<bool>,
+	pub location_id:     i32,
+	pub day:             NaiveDate,
+	pub start_time:      NaiveTime,
+	pub end_time:        NaiveTime,
+	pub seat_count:      Option<i32>,
+	pub reservable_from: Option<NaiveDateTime>,
 }
 
 impl NewOpeningTime {

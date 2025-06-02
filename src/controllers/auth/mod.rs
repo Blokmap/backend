@@ -1,7 +1,5 @@
 //! Controllers for authorization
 
-use std::sync::LazyLock;
-
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -9,45 +7,22 @@ use axum::response::{IntoResponse, NoContent};
 use axum::{Extension, Json};
 use axum_extra::extract::PrivateCookieJar;
 use chrono::Utc;
-use regex::Regex;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use validator::Validate;
-use validator_derive::Validate;
 
 use crate::mailer::Mailer;
 use crate::models::ephemeral::Session;
 use crate::models::{NewProfile, Profile, ProfileId, ProfileState};
+use crate::schemas::auth::{
+	LoginEmailRequest,
+	LoginUsernameRequest,
+	PasswordResetData,
+	PasswordResetRequest,
+	RegisterRequest,
+};
 use crate::{Config, DbPool, Error, LoginError, RedisConn, TokenError};
 
 pub mod sso;
-
-static USERNAME_REGEX: LazyLock<Regex> =
-	LazyLock::new(|| Regex::new(r"^[a-zA-Z][a-zA-Z0-9-_]*$").unwrap());
-
-#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
-pub struct RegisterRequest {
-	#[validate(regex(
-		path = *USERNAME_REGEX,
-		message = "username must start with a letter and only contain letters, numbers, dashes, or underscores",
-		code = "username-regex"
-	))]
-	#[validate(length(
-		min = 2,
-		max = 32,
-		message = "username must be between 2 and 32 characters long",
-		code = "username-length"
-	))]
-	pub username: String,
-	#[validate(length(
-		min = 8,
-		message = "password must be at least 8 characters long",
-		code = "password-length"
-	))]
-	pub password: String,
-	#[validate(email(message = "invalid email", code = "email"))]
-	pub email:    String,
-}
 
 #[instrument(skip_all)]
 pub(crate) async fn register_profile(
@@ -179,11 +154,6 @@ pub(crate) async fn confirm_email(
 	Ok((jar, NoContent))
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct PasswordResetRequest {
-	pub username: String,
-}
-
 #[instrument(skip(pool, config, mailer, request))]
 pub(crate) async fn request_password_reset(
 	State(pool): State<DbPool>,
@@ -213,17 +183,6 @@ pub(crate) async fn request_password_reset(
 		.await?;
 
 	Ok(NoContent)
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
-pub struct PasswordResetData {
-	pub token:    String,
-	#[validate(length(
-		min = 16,
-		message = "password must be at least 16 characters long",
-		code = "password-length"
-	))]
-	pub password: String,
 }
 
 #[instrument(skip_all)]
@@ -262,12 +221,6 @@ pub(crate) async fn reset_password(
 	Ok((jar, NoContent))
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct LoginUsernameRequest {
-	pub username: String,
-	pub password: String,
-}
-
 #[instrument(skip_all)]
 pub(crate) async fn login_profile_with_username(
 	State(pool): State<DbPool>,
@@ -302,12 +255,6 @@ pub(crate) async fn login_profile_with_username(
 	info!("logged in profile {} with username", profile.id);
 
 	Ok((jar, NoContent))
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct LoginEmailRequest {
-	pub email:    String,
-	pub password: String,
 }
 
 #[instrument(skip_all)]
