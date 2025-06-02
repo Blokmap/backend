@@ -11,8 +11,7 @@ use crate::AppState;
 use crate::controllers::auth::sso::{sso_callback, sso_login};
 use crate::controllers::auth::{
 	confirm_email,
-	login_profile_with_email,
-	login_profile_with_username,
+	login_profile,
 	logout_profile,
 	register_profile,
 	request_password_reset,
@@ -77,8 +76,7 @@ fn auth_routes(state: &AppState) -> Router<AppState> {
 		)
 		.route("/request_password_reset", post(request_password_reset))
 		.route("/reset_password", post(reset_password))
-		.route("/login/username", post(login_profile_with_username))
-		.route("/login/email", post(login_profile_with_email))
+		.route("/login", post(login_profile))
 		.route("/sso/{provider}", get(sso_login))
 		.route("/sso/callback", get(sso_callback))
 		.route(

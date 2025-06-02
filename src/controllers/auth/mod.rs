@@ -15,7 +15,6 @@ use crate::mailer::Mailer;
 use crate::models::ephemeral::Session;
 use crate::models::{NewProfile, Profile, ProfileId, ProfileState};
 use crate::schemas::auth::{
-	LoginEmailRequest,
 	LoginUsernameRequest,
 	PasswordResetData,
 	PasswordResetRequest,
@@ -223,7 +222,7 @@ pub(crate) async fn reset_password(
 }
 
 #[instrument(skip_all)]
-pub(crate) async fn login_profile_with_username(
+pub(crate) async fn login_profile(
 	State(pool): State<DbPool>,
 	State(mut r_conn): State<RedisConn>,
 	State(config): State<Config>,
@@ -231,7 +230,8 @@ pub(crate) async fn login_profile_with_username(
 	Json(login_data): Json<LoginUsernameRequest>,
 ) -> Result<(PrivateCookieJar, NoContent), Error> {
 	let conn = pool.get().await?;
-	let profile = Profile::get_by_username(login_data.username, &conn).await?;
+	let profile =
+		Profile::get_by_email_or_username(login_data.username, &conn).await?;
 
 	match profile.state {
 		ProfileState::Active => (),
@@ -242,6 +242,7 @@ pub(crate) async fn login_profile_with_username(
 	}
 
 	let password_hash = PasswordHash::new(&profile.password_hash)?;
+
 	Argon2::default()
 		.verify_password(login_data.password.as_bytes(), &password_hash)?;
 
@@ -254,43 +255,6 @@ pub(crate) async fn login_profile_with_username(
 	let profile = profile.update_last_login(&conn).await?;
 
 	info!("logged in profile {} with username", profile.id);
-
-	Ok((jar, NoContent))
-}
-
-#[instrument(skip_all)]
-pub(crate) async fn login_profile_with_email(
-	State(pool): State<DbPool>,
-	State(mut r_conn): State<RedisConn>,
-	State(config): State<Config>,
-	jar: PrivateCookieJar,
-	Json(login_data): Json<LoginEmailRequest>,
-) -> Result<(PrivateCookieJar, NoContent), Error> {
-	let conn = pool.get().await?;
-	let profile = Profile::get_by_email(login_data.email, &conn).await?;
-
-	match profile.state {
-		ProfileState::Active => (),
-		ProfileState::Disabled => return Err(LoginError::Disabled.into()),
-		ProfileState::PendingEmailVerification => {
-			return Err(LoginError::PendingEmailVerification.into());
-		},
-	}
-
-	let password_hash = PasswordHash::new(&profile.password_hash)?;
-
-	Argon2::default()
-		.verify_password(login_data.password.as_bytes(), &password_hash)?;
-
-	let session = Session::create(&config, &profile, &mut r_conn).await?;
-	let access_token_cookie = session.to_access_token_cookie(&config);
-	let refresh_token_cookie = session.to_refresh_token_cookie(&config);
-
-	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
-
-	let profile = profile.update_last_login(&conn).await?;
-
-	info!("logged in profile {} with email", profile.id);
 
 	Ok((jar, NoContent))
 }

@@ -336,6 +336,27 @@ impl Profile {
 		Ok(profile)
 	}
 
+	/// Get a [`Profile`] given a email or username.
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	#[instrument(skip(conn))]
+	pub async fn get_by_email_or_username(
+		query: String,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let profile = conn
+			.interact(move |conn| {
+				use self::profile::dsl::*;
+				profile
+					.filter(email.eq(&query).or(username.eq(&query)))
+					.first(conn)
+			})
+			.await??;
+
+		Ok(profile)
+	}
+
 	/// Get a profile given its email confirmation token
 	///
 	/// # Errors
