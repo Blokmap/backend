@@ -28,7 +28,8 @@ pub struct Config {
 	pub database_url: String,
 	pub redis_url:    String,
 
-	pub production: bool,
+	pub production:  bool,
+	pub skip_verify: bool,
 
 	pub frontend_url: String,
 
@@ -59,6 +60,9 @@ impl Config {
 
 		let production =
 			get_env_default("PRODUCTION", "false").parse::<bool>().unwrap();
+
+		let skip_verify =
+			get_env_default("SKIP_VERIFY", "true").parse::<bool>().unwrap();
 
 		let frontend_url = get_env("FRONTEND_URL");
 
@@ -114,6 +118,7 @@ impl Config {
 			database_url,
 			redis_url,
 			production,
+			skip_verify,
 			frontend_url,
 			email_confirmation_token_lifetime,
 			password_reset_token_lifetime,
