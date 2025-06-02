@@ -493,6 +493,8 @@ Search for locations (`is_visible` = `true`). Filters can be applied via query p
 
 -   `language`: Language code (e.g. `nl`, `en`, `fr`, `de`)
 -   `query`: Search query (filters on `name`, `description`, `excerpt`)
+-   `open_on_day`: Day on which the location is open
+-	`open_on_time`: Time on which the location is open (requres `open_on_day`)
 -   `center_lat`: Latitude of the center point for distance search
 -   `center_lng`: Longitude of the center point for distance search
 -   `distance`: Distance in meters from the center point (default: 1000)
