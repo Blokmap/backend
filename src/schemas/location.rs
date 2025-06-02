@@ -7,19 +7,21 @@ use crate::models::{Location, OpeningTime, Translation, UpdateLocation};
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateLocationRequest {
-	pub name:           String,
-	pub description_id: i32,
-	pub excerpt_id:     i32,
-	pub seat_count:     i32,
-	pub is_reservable:  bool,
-	pub is_visible:     bool,
-	pub street:         String,
-	pub number:         String,
-	pub zip:            String,
-	pub city:           String,
-	pub province:       String,
-	pub latitude:       f64,
-	pub longitude:      f64,
+	pub name:                   String,
+	pub description_id:         i32,
+	pub excerpt_id:             i32,
+	pub seat_count:             i32,
+	pub is_reservable:          bool,
+	pub reservation_block_size: i32,
+	pub is_visible:             bool,
+	pub street:                 String,
+	pub number:                 String,
+	pub zip:                    String,
+	pub city:                   String,
+	pub province:               String,
+	pub country:                String,
+	pub latitude:               f64,
+	pub longitude:              f64,
 }
 
 #[derive(Clone, Debug, Deserialize)]

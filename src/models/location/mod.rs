@@ -10,7 +10,8 @@ use serde::{Deserialize, Serialize};
 use super::{OpeningTime, Translation};
 use crate::DbConn;
 use crate::error::Error;
-use crate::schema::{location, location_image, opening_time, translation};
+use crate::models::{Image, NewImage, NewLocationImage};
+use crate::schema::{location, opening_time, translation};
 
 mod filter;
 
@@ -31,25 +32,34 @@ pub type FullLocationData =
 #[diesel(table_name = location)]
 #[diesel(check_for_backend(Pg))]
 pub struct Location {
-	pub id:             i32,
-	pub name:           String,
-	pub description_id: i32,
-	pub excerpt_id:     i32,
-	pub seat_count:     i32,
-	pub is_reservable:  bool,
-	pub is_visible:     bool,
-	pub street:         String,
-	pub number:         String,
-	pub zip:            String,
-	pub city:           String,
-	pub province:       String,
-	pub latitude:       f64,
-	pub longitude:      f64,
-	pub created_by_id:  i32,
-	pub approved_by_id: Option<i32>,
-	pub approved_at:    Option<NaiveDateTime>,
-	pub created_at:     NaiveDateTime,
-	pub updated_at:     NaiveDateTime,
+	pub id:                     i32,
+	pub name:                   String,
+	pub authority_id:           Option<i32>,
+	pub description_id:         i32,
+	pub excerpt_id:             i32,
+	pub seat_count:             i32,
+	pub is_reservable:          bool,
+	pub reservation_block_size: i32,
+	pub min_reservation_length: Option<i32>,
+	pub max_reservation_length: Option<i32>,
+	pub is_visible:             bool,
+	pub street:                 String,
+	pub number:                 String,
+	pub zip:                    String,
+	pub city:                   String,
+	pub province:               String,
+	pub country:                String,
+	pub latitude:               f64,
+	pub longitude:              f64,
+	pub approved_at:            Option<NaiveDateTime>,
+	pub approved_by:            Option<i32>,
+	pub rejected_at:            Option<NaiveDateTime>,
+	pub rejected_by:            Option<i32>,
+	pub rejected_reason:        Option<String>,
+	pub created_at:             NaiveDateTime,
+	pub created_by:             i32,
+	pub updated_at:             NaiveDateTime,
+	pub updated_by:             Option<i32>,
 }
 
 impl Hash for Location {
@@ -129,7 +139,7 @@ impl Location {
 				use self::location::dsl::*;
 
 				location
-					.filter(created_by_id.eq(profile_id))
+					.filter(created_by.eq(profile_id))
 					.inner_join(description.on(
 						description_id.eq(description.field(translation::id)),
 					))
@@ -195,7 +205,7 @@ impl Location {
 
 			diesel::update(location.filter(id.eq(loc_id)))
 				.set((
-					approved_by_id.eq(profile_id),
+					approved_by.eq(profile_id),
 					approved_at.eq(Utc::now().naive_utc()),
 				))
 				.execute(conn)
@@ -204,78 +214,68 @@ impl Location {
 
 		Ok(())
 	}
-}
 
-#[derive(
-	Associations,
-	Clone,
-	Debug,
-	Deserialize,
-	Identifiable,
-	Queryable,
-	Selectable,
-	Serialize,
-)]
-#[diesel(belongs_to(Location))]
-#[diesel(table_name = location_image)]
-pub struct LocationImage {
-	pub id:          i32,
-	pub location_id: i32,
-	pub file_path:   String,
-	pub uploaded_at: NaiveDateTime,
-	pub uploaded_by: i32,
-	pub approved_at: Option<NaiveDateTime>,
-	pub approved_by: Option<i32>,
-}
-
-#[derive(Clone, Debug, Deserialize, Insertable, Serialize)]
-#[diesel(table_name = location_image)]
-pub struct NewLocationImage {
-	pub location_id: i32,
-	pub file_path:   String,
-	pub uploaded_by: i32,
-}
-
-impl NewLocationImage {
-	/// Insert this list of [`NewLocationImage`]s into the database.
+	/// Bulk insert a list of [`NewImage`]s for a specific [`Location`]
 	///
 	/// # Errors
-	pub async fn bulk_insert(
-		v: Vec<Self>,
+	pub async fn insert_images(
+		loc_id: i32,
+		images: Vec<NewImage>,
 		conn: &DbConn,
-	) -> Result<Vec<LocationImage>, Error> {
-		let images = conn
+	) -> Result<Vec<Image>, Error> {
+		let inserted_images = conn
 			.interact(move |conn| {
-				use self::location_image::dsl::*;
+				conn.transaction::<Vec<Image>, Error, _>(|conn| {
+					use crate::schema::image::dsl::*;
+					use crate::schema::location_image::dsl::*;
 
-				diesel::insert_into(location_image)
-					.values(v)
-					.returning(LocationImage::as_returning())
-					.get_results(conn)
+					let images = diesel::insert_into(image)
+						.values(images)
+						.returning(Image::as_returning())
+						.get_results(conn)?;
+
+					let location_images = images
+						.iter()
+						.map(|i| {
+							NewLocationImage {
+								location_id: loc_id,
+								image_id:    i.id,
+							}
+						})
+						.collect::<Vec<_>>();
+
+					diesel::insert_into(location_image)
+						.values(location_images)
+						.execute(conn)?;
+
+					Ok(images)
+				})
 			})
 			.await??;
 
-		Ok(images)
+		Ok(inserted_images)
 	}
 }
 
 #[derive(Debug, Deserialize, Insertable)]
 #[diesel(table_name = crate::schema::location)]
 pub struct NewLocation {
-	pub name:           String,
-	pub description_id: i32,
-	pub excerpt_id:     i32,
-	pub seat_count:     i32,
-	pub is_reservable:  bool,
-	pub is_visible:     bool,
-	pub street:         String,
-	pub number:         String,
-	pub zip:            String,
-	pub city:           String,
-	pub province:       String,
-	pub latitude:       f64,
-	pub longitude:      f64,
-	pub created_by_id:  i32,
+	pub name:                   String,
+	pub description_id:         i32,
+	pub excerpt_id:             i32,
+	pub seat_count:             i32,
+	pub is_reservable:          bool,
+	pub reservation_block_size: i32,
+	pub is_visible:             bool,
+	pub street:                 String,
+	pub number:                 String,
+	pub zip:                    String,
+	pub city:                   String,
+	pub country:                String,
+	pub province:               String,
+	pub latitude:               f64,
+	pub longitude:              f64,
+	pub created_by:             i32,
 }
 
 impl NewLocation {

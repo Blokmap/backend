@@ -16,12 +16,14 @@ async fn create_location_test() {
 			"excerptId": 1,
 			"seatCount": 10,
 			"isReservable": true,
+			"reservationBlockSize": 20,
 			"isVisible": true,
 			"street": "Test Street",
 			"number": "123",
 			"zip": "1234AB",
 			"city": "Test City",
 			"province": "Test Province",
+			"country": "BE",
 			"latitude": 52.0,
 			"longitude": 4.0
 		}))
@@ -202,7 +204,7 @@ async fn approve_location_test() {
 
 	// Check if the location is approved
 	let updated_location = env.get_location().await.unwrap();
-	assert_eq!(updated_location.approved_by_id, Some(profile.id));
+	assert_eq!(updated_location.approved_by, Some(profile.id));
 }
 
 #[tokio::test(flavor = "multi_thread")]

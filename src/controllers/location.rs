@@ -21,8 +21,8 @@ use crate::error::Error;
 use crate::models::{
 	Location,
 	LocationFilter,
+	NewImage,
 	NewLocation,
-	NewLocationImage,
 	ProfileId,
 };
 use crate::schemas::location::{
@@ -41,20 +41,22 @@ pub(crate) async fn create_location(
 	let conn = pool.get().await?;
 
 	let request = NewLocation {
-		name:           request.name,
-		description_id: request.description_id,
-		excerpt_id:     request.excerpt_id,
-		seat_count:     request.seat_count,
-		is_reservable:  request.is_reservable,
-		is_visible:     request.is_visible,
-		street:         request.street,
-		number:         request.number,
-		zip:            request.zip,
-		city:           request.city,
-		province:       request.province,
-		latitude:       request.latitude,
-		longitude:      request.longitude,
-		created_by_id:  *profile_id,
+		name:                   request.name,
+		description_id:         request.description_id,
+		excerpt_id:             request.excerpt_id,
+		seat_count:             request.seat_count,
+		is_reservable:          request.is_reservable,
+		reservation_block_size: request.reservation_block_size,
+		is_visible:             request.is_visible,
+		street:                 request.street,
+		number:                 request.number,
+		zip:                    request.zip,
+		city:                   request.city,
+		province:               request.province,
+		country:                request.country,
+		latitude:               request.latitude,
+		longitude:              request.longitude,
+		created_by:             *profile_id,
 	};
 
 	let location = request.insert(&conn).await?;
@@ -146,17 +148,16 @@ pub(crate) async fn upload_location_image(
 
 			file.flush()?;
 
-			let new_image = NewLocationImage {
-				location_id: id,
+			let new_image = NewImage {
 				file_path:   rel_filepath.to_string_lossy().into_owned(),
 				uploaded_by: *profile_id,
 			};
 
 			Ok(new_image)
 		})
-		.collect::<Result<Vec<NewLocationImage>, Error>>()?;
+		.collect::<Result<Vec<NewImage>, Error>>()?;
 
-	let images = NewLocationImage::bulk_insert(new_images, &conn).await?;
+	let images = Location::insert_images(id, new_images, &conn).await?;
 
 	let image_paths: Vec<_> = images.into_iter().map(|i| i.file_path).collect();
 
@@ -252,7 +253,7 @@ pub(crate) async fn update_location(
 
 	let (location, ..) = Location::get_by_id(id, &conn).await?;
 
-	if *profile_id != location.created_by_id {
+	if *profile_id != location.created_by {
 		return Err(Error::Forbidden);
 	}
 

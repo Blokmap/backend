@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use axum_extra::extract::cookie::Key;
 use axum_test::TestServer;
-use blokmap::controllers::auth::LoginUsernameRequest;
 use blokmap::mailer::{Mailer, StubMailbox};
 use blokmap::models::{
 	Location,
@@ -12,6 +11,7 @@ use blokmap::models::{
 	Profile,
 	Translation,
 };
+use blokmap::schemas::auth::LoginUsernameRequest;
 use blokmap::{
 	AppState,
 	Config,
