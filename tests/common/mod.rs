@@ -45,8 +45,11 @@ impl TestEnv {
 	/// Panics if building a test server or mailbox fails
 	pub async fn new() -> Self {
 		// Load the configuration from the environment
-		let config = Config::from_env();
+		let mut config = Config::from_env();
 		let sso_config = SsoConfig::stub();
+
+		config.production = true;
+		config.skip_verify = false;
 
 		// Create a test database pool
 		let test_pool_guard = (*DATABASE_PROVIDER).acquire().await;

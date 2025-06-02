@@ -5,7 +5,7 @@ use std::sync::LazyLock;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::response::NoContent;
+use axum::response::{IntoResponse, NoContent};
 use axum::{Extension, Json};
 use axum_extra::extract::PrivateCookieJar;
 use chrono::Utc;
@@ -52,10 +52,12 @@ pub struct RegisterRequest {
 #[instrument(skip_all)]
 pub(crate) async fn register_profile(
 	State(pool): State<DbPool>,
+	State(mut r_conn): State<RedisConn>,
 	State(config): State<Config>,
 	State(mailer): State<Mailer>,
+	jar: PrivateCookieJar,
 	Json(register_data): Json<RegisterRequest>,
-) -> Result<(StatusCode, Json<Profile>), Error> {
+) -> Result<impl IntoResponse, Error> {
 	register_data.validate()?;
 
 	let email_confirmation_token = Uuid::new_v4().to_string();
@@ -72,26 +74,45 @@ pub(crate) async fn register_profile(
 
 	let conn = pool.get().await?;
 	let new_profile = insertable_profile.insert(&conn).await?;
-	// Unwrap is safe as the token was explicitly set in the insertable profile
-	let confirmation_token =
-		new_profile.email_confirmation_token.clone().unwrap();
 
-	mailer
-		.send_confirm_email(
-			&new_profile,
-			&confirmation_token,
-			&config.frontend_url,
-		)
-		.await?;
+	if !config.production && config.skip_verify {
+		new_profile.confirm_email(&conn).await?;
 
-	info!(
-		"registered new profile id: {} username: {} email: {}",
-		new_profile.id,
-		new_profile.username,
-		new_profile.pending_email.clone().unwrap()
-	);
+		let session =
+			Session::create(&config, &new_profile, &mut r_conn).await?;
+		let access_token_cookie = session.to_access_token_cookie(&config);
+		let refresh_token_cookie = session.to_refresh_token_cookie(&config);
 
-	Ok((StatusCode::CREATED, Json(new_profile)))
+		let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
+
+		let profile = new_profile.update_last_login(&conn).await?;
+
+		info!("confirmed email for profile {}", profile.id);
+
+		Ok((StatusCode::CREATED, jar, Json(profile)).into_response())
+	} else {
+		// Unwrap is safe as the token was explicitly set in the insertable
+		// profile
+		let confirmation_token =
+			new_profile.email_confirmation_token.clone().unwrap();
+
+		mailer
+			.send_confirm_email(
+				&new_profile,
+				&confirmation_token,
+				&config.frontend_url,
+			)
+			.await?;
+
+		info!(
+			"registered new profile id: {} username: {} email: {}",
+			new_profile.id,
+			new_profile.username,
+			new_profile.pending_email.clone().unwrap()
+		);
+
+		Ok((StatusCode::CREATED, Json(new_profile)).into_response())
+	}
 }
 
 pub(crate) async fn resend_confirmation_email(
