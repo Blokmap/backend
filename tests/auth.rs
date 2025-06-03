@@ -1,7 +1,6 @@
 use axum::http::StatusCode;
 use blokmap::models::Profile;
 use blokmap::schemas::auth::{
-	LoginEmailRequest,
 	LoginUsernameRequest,
 	PasswordResetData,
 	PasswordResetRequest,
@@ -480,7 +479,7 @@ async fn reset_password() {
 
 	let response = env
 		.app
-		.post("/auth/login/username")
+		.post("/auth/login")
 		.json(&LoginUsernameRequest {
 			username: "test".to_string(),
 			password: "bobdebouwer1234567!".to_string(),
@@ -554,7 +553,7 @@ async fn login_username() {
 
 	let response = env
 		.app
-		.post("/auth/login/username")
+		.post("/auth/login")
 		.json(&LoginUsernameRequest {
 			username: "test".to_string(),
 			password: "foo".to_string(),
@@ -572,7 +571,7 @@ async fn login_username_disabled() {
 
 	let response = env
 		.app
-		.post("/auth/login/username")
+		.post("/auth/login")
 		.json(&LoginUsernameRequest {
 			username: "test-disabled".to_string(),
 			password: "foo".to_string(),
@@ -590,9 +589,9 @@ async fn login_email() {
 
 	let response = env
 		.app
-		.post("/auth/login/email")
-		.json(&LoginEmailRequest {
-			email:    "test@example.com".to_string(),
+		.post("/auth/login")
+		.json(&LoginUsernameRequest {
+			username: "test@example.com".to_string(),
 			password: "foo".to_string(),
 		})
 		.await;
@@ -608,9 +607,9 @@ async fn login_email_disabled() {
 
 	let response = env
 		.app
-		.post("/auth/login/email")
-		.json(&LoginEmailRequest {
-			email:    "test-disabled@example.com".to_string(),
+		.post("/auth/login")
+		.json(&LoginUsernameRequest {
+			username: "test-disabled@example.com".to_string(),
 			password: "foo".to_string(),
 		})
 		.await;
@@ -626,7 +625,7 @@ async fn logout() {
 
 	let response = env
 		.app
-		.post("/auth/login/username")
+		.post("/auth/login")
 		.json(&LoginUsernameRequest {
 			username: "test".to_string(),
 			password: "foo".to_string(),

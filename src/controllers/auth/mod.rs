@@ -6,7 +6,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use axum::{Extension, Json};
 use axum_extra::extract::PrivateCookieJar;
-use axum_extra::extract::cookie::{Cookie, SameSite};
+use axum_extra::extract::cookie::Cookie;
 use chrono::Utc;
 use uuid::Uuid;
 use validator::Validate;

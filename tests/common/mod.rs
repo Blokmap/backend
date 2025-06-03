@@ -153,7 +153,7 @@ impl TestEnv {
 	#[allow(dead_code)]
 	pub async fn login(self, username: &str) -> Self {
 		self.app
-			.post("/auth/login/username")
+			.post("/auth/login")
 			.json(&LoginUsernameRequest {
 				username: username.to_string(),
 				password: "foo".to_string(),

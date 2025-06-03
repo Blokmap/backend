@@ -14,7 +14,7 @@ async fn get_all_profiles() {
 
 	let response = env
 		.app
-		.post("/auth/login/username")
+		.post("/auth/login")
 		.json(&LoginUsernameRequest {
 			username: "test".to_string(),
 			password: "foo".to_string(),

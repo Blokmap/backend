@@ -38,6 +38,10 @@ impl Session {
 		Ok(session)
 	}
 
+	/// Get a session from the cache
+	///
+	/// # Errors
+	/// Fails if interacting with the cache fails
 	pub async fn get(
 		id: &Uuid,
 		conn: &mut RedisConn,
@@ -51,6 +55,7 @@ impl Session {
 	}
 
 	/// Convert this [`Session`] into an access token cookie
+	#[must_use]
 	pub fn to_access_token_cookie(self, config: &Config) -> Cookie<'static> {
 		let secure = config.production;
 
@@ -64,6 +69,7 @@ impl Session {
 	}
 
 	/// Convert this [`Session`] into an refresh token cookie
+	#[must_use]
 	pub fn to_refresh_token_cookie(self, config: &Config) -> Cookie<'static> {
 		let secure = config.production;
 
