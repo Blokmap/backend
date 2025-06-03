@@ -493,9 +493,12 @@ Search for locations (`is_visible` = `true`). Filters can be applied via query p
 
 -   `language`: Language code (e.g. `nl`, `en`, `fr`, `de`)
 -   `query`: Search query (filters on `name`, `description`, `excerpt`)
+-   `open_on_day`: Day on which the location is open
+-   `open_on_time`: Time on which the location is open (requres `open_on_day`)
 -   `center_lat`: Latitude of the center point for distance search
 -   `center_lng`: Longitude of the center point for distance search
 -   `distance`: Distance in meters from the center point (default: 1000)
+-   `is_reservable`: Location can be reserved
 -   `north_east_lat`: Latitude of the northeast corner for bounding box search
 -   `north_east_lng`: Longitude of the northeast corner for bounding box search
 -   `south_west_lat`: Latitude of the southwest corner for bounding box search
@@ -507,8 +510,6 @@ Search for locations (`is_visible` = `true`). Filters can be applied via query p
 Partial<Location> {
   id: number;
   name: string;
-  city: string;
-  province: string;
   latitude: number;
   longitude: number;
 }
@@ -594,19 +595,21 @@ Get a single location.
 Location {
   id: number;
   name: string;
+  authority?: Authority|null;
   description: Translation;
   excerpt: Translation;
   seatCount: number;
+  isReservable: boolean;
   reservationBlockSize: number;
   minReservationLength: number|null;
   maxReservationLength: number|null;
-  isReservable: boolean;
   isVisible: boolean;
   street: string;
   number: string;
   zip: string;
   city: string;
   province: string;
+  country: string;
   latitude: number;
   longitude: number;
   images?: Image[] {
@@ -615,7 +618,6 @@ Location {
   };
   openingTimes?: OpeningTime[]; // Opening times for the current week (monday - sunday)
   tags?: Tag[];
-  authority?: Authority|null;
   approvedBy?: Profile|null; // Only available to admins
   approvedAt?: string|null; // Only available to admins
   createdBy?: Profile|null;
@@ -635,22 +637,26 @@ Create a new location.
 
 ```typescript
 {
-	name: string;
-	description: Translation;
-	excerpt: Translation;
-	seatCount: number;
-	isReservable: boolean;
-	reservationBlockSize: number;
-	minReservationLength: number | null;
-	maxReservationLength: number | null;
-	isVisible: boolean;
-	street: string;
-	number: string;
-	zip: string;
-	city: string;
-	province: string;
-	latitude: number;
-	longitude: number;
+  location: {
+    name: string;
+    authorityId: number | null;
+    seatCount: number;
+    isReservable: boolean;
+    reservationBlockSize: number;
+    minReservationLength: number | null;
+    maxReservationLength: number | null;
+    isVisible: boolean;
+    street: string;
+    number: string;
+    zip: string;
+    city: string;
+    province: string;
+    country: string;
+    latitude: number;
+    longitude: number;
+  };
+  description: Translation;
+  excerpt: Translation;
 }
 ```
 

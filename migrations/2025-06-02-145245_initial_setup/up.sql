@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 CREATE TYPE PROFILE_STATE AS ENUM ('pending_email_verification', 'active', 'disabled');
 
 CREATE TABLE profile (
@@ -191,7 +193,7 @@ CREATE TABLE location (
     rejected_by            INTEGER,
     rejected_reason        TEXT,
     created_at             TIMESTAMP NOT NULL    DEFAULT now(),
-    created_by             INTEGER   NOT NULL,
+    created_by             INTEGER,
     updated_at             TIMESTAMP NOT NULL    DEFAULT now(),
 	updated_by             INTEGER,
 

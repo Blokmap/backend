@@ -1,13 +1,18 @@
 //! Controllers for [`Translation`]s
 
-use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
+use axum::{Extension, Json};
 
 use crate::DbPool;
 use crate::error::Error;
-use crate::models::Translation;
+use crate::models::{
+	NewTranslation,
+	ProfileId,
+	Translation,
+	UpdateTranslation,
+};
 use crate::schemas::translation::{
 	CreateTranslationRequest,
 	TranslationResponse,
@@ -18,13 +23,22 @@ use crate::schemas::translation::{
 #[instrument(skip(pool))]
 pub(crate) async fn create_translation(
 	State(pool): State<DbPool>,
+	Extension(profile_id): Extension<ProfileId>,
 	Json(request): Json<CreateTranslationRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	// Get a connection from the pool.
 	let conn = pool.get().await?;
 
+	let translation = NewTranslation {
+		nl:         request.nl,
+		en:         request.en,
+		fr:         request.fr,
+		de:         request.de,
+		created_by: *profile_id,
+	};
+
 	// Insert the translation into the database.
-	let translation = request.translation.insert(&conn).await?;
+	let translation = translation.insert(&conn).await?;
 
 	// Return a response with the created translation.
 	let response = TranslationResponse::from(translation);
@@ -70,14 +84,23 @@ pub(crate) async fn delete_translation(
 #[instrument(skip(pool))]
 pub(crate) async fn update_translation(
 	State(pool): State<DbPool>,
+	Extension(profile_id): Extension<ProfileId>,
 	Path(id): Path<i32>,
 	Json(request): Json<UpdateTranslationRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	// Get a connection from the pool.
 	let conn = pool.get().await?;
 
+	let translation = UpdateTranslation {
+		nl:         request.nl,
+		en:         request.en,
+		fr:         request.fr,
+		de:         request.de,
+		updated_by: *profile_id,
+	};
+
 	// Update the translation in the database.
-	let translation = request.translation.update(id, &conn).await?;
+	let translation = translation.update(id, &conn).await?;
 
 	// Return a response with the updated translation.
 	let response = TranslationResponse::from(translation);

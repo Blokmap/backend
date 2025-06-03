@@ -5,13 +5,21 @@ use chrono::{NaiveDateTime, Utc};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::{Identifiable, Queryable, Selectable};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use super::{OpeningTime, Translation};
 use crate::DbConn;
 use crate::error::Error;
-use crate::models::{Image, NewImage, NewLocationImage};
-use crate::schema::{location, opening_time, translation};
+use crate::models::{
+	Image,
+	NewImage,
+	NewLocationImage,
+	NewTranslation,
+	Profile,
+};
+use crate::schema::{location, opening_time, profile, translation};
+use crate::schemas::location::LocationData;
 
 mod filter;
 
@@ -20,10 +28,30 @@ pub use filter::*;
 diesel::alias!(
 	translation as description: DescriptionAlias,
 	translation as excerpt: ExcerptAlias,
+	profile as approver: ApproverAlias,
+	profile as creater: CreaterAlias,
+	profile as updater: UpdaterAlias,
 );
 
-pub type FullLocationData =
-	(Location, Translation, Translation, Vec<OpeningTime>);
+pub type LocationBackfill = (
+	Location,
+	Translation,
+	Translation,
+	Option<OpeningTime>,
+	Option<Profile>,
+	Option<Profile>,
+	Option<Profile>,
+);
+
+pub type FullLocationData = (
+	Location,
+	Translation,
+	Translation,
+	Vec<OpeningTime>,
+	Option<Profile>,
+	Option<Profile>,
+	Option<Profile>,
+);
 
 #[derive(
 	Clone, Debug, Deserialize, Serialize, Identifiable, Queryable, Selectable,
@@ -57,7 +85,7 @@ pub struct Location {
 	pub rejected_by:            Option<i32>,
 	pub rejected_reason:        Option<String>,
 	pub created_at:             NaiveDateTime,
-	pub created_by:             i32,
+	pub created_by:             Option<i32>,
 	pub updated_at:             NaiveDateTime,
 	pub updated_by:             Option<i32>,
 }
@@ -73,13 +101,13 @@ impl PartialEq for Location {
 impl Eq for Location {}
 
 impl Location {
-	fn group_by_id(
-		data: Vec<(Location, Translation, Translation, Option<OpeningTime>)>,
-	) -> Vec<FullLocationData> {
+	fn group_by_id(data: Vec<LocationBackfill>) -> Vec<FullLocationData> {
 		let mut id_map = HashMap::new();
 
-		for (loc, desc, exc, times) in data {
-			let entry = id_map.entry((loc, desc, exc)).or_insert(vec![]);
+		for (loc, desc, exc, times, aprv, crt, updt) in data {
+			let entry = id_map
+				.entry((loc, desc, exc, aprv, crt, updt))
+				.or_insert(vec![]);
 
 			if let Some(times) = times {
 				entry.push(times);
@@ -87,9 +115,56 @@ impl Location {
 		}
 
 		id_map
-			.into_iter()
-			.map(|((loc, desc, exc), times)| (loc, desc, exc, times))
+			.into_par_iter()
+			.map(|((loc, desc, exc, aprv, crt, updt), times)| {
+				(loc, desc, exc, times, aprv, crt, updt)
+			})
 			.collect()
+	}
+
+	/// Get all [`Location`]s
+	///
+	/// # Errors
+	pub async fn get_all(
+		conn: &DbConn,
+	) -> Result<Vec<FullLocationData>, Error> {
+		let locations = conn
+			.interact(move |conn| {
+				location::table
+					.inner_join(
+						description.on(location::description_id
+							.eq(description.field(translation::id))),
+					)
+					.inner_join(excerpt.on(
+						location::excerpt_id.eq(excerpt.field(translation::id)),
+					))
+					.left_outer_join(opening_time::table)
+					.left_outer_join(
+						approver.on(location::approved_by
+							.eq(approver.field(profile::id).nullable())),
+					)
+					.left_outer_join(
+						creater.on(location::created_by
+							.eq(creater.field(profile::id).nullable())),
+					)
+					.left_outer_join(
+						updater.on(location::updated_by
+							.eq(updater.field(profile::id).nullable())),
+					)
+					.select((
+						location::all_columns,
+						description.fields(translation::all_columns),
+						excerpt.fields(translation::all_columns),
+						opening_time::all_columns.nullable(),
+						approver.fields(profile::all_columns).nullable(),
+						creater.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
+					))
+					.load(conn)
+			})
+			.await??;
+
+		Ok(Self::group_by_id(locations))
 	}
 
 	/// Get a [`Location`] by its id and include its [`Translation`]s.
@@ -111,11 +186,26 @@ impl Location {
 						location::excerpt_id.eq(excerpt.field(translation::id)),
 					))
 					.left_outer_join(opening_time::table)
+					.left_outer_join(
+						approver.on(location::approved_by
+							.eq(approver.field(profile::id).nullable())),
+					)
+					.left_outer_join(
+						creater.on(location::created_by
+							.eq(creater.field(profile::id).nullable())),
+					)
+					.left_outer_join(
+						updater.on(location::updated_by
+							.eq(updater.field(profile::id).nullable())),
+					)
 					.select((
 						location::all_columns,
 						description.fields(translation::all_columns),
 						excerpt.fields(translation::all_columns),
 						opening_time::all_columns.nullable(),
+						approver.fields(profile::all_columns).nullable(),
+						creater.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
 					))
 					.get_results(conn)
 			})
@@ -148,11 +238,23 @@ impl Location {
 							.on(excerpt_id.eq(excerpt.field(translation::id))),
 					)
 					.left_outer_join(opening_time::table)
+					.left_outer_join(approver.on(
+						approved_by.eq(approver.field(profile::id).nullable()),
+					))
+					.left_outer_join(creater.on(
+						created_by.eq(creater.field(profile::id).nullable()),
+					))
+					.left_outer_join(updater.on(
+						updated_by.eq(updater.field(profile::id).nullable()),
+					))
 					.select((
 						Location::as_select(),
 						description.fields(translation::all_columns),
 						excerpt.fields(translation::all_columns),
 						opening_time::all_columns.nullable(),
+						approver.fields(profile::all_columns).nullable(),
+						creater.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
 					))
 					.load(conn)
 			})
@@ -254,6 +356,65 @@ impl Location {
 			.await??;
 
 		Ok(inserted_images)
+	}
+
+	/// Create a new [`Location`] with its corresponding [`Translation`]s given
+	/// a compound data struct
+	///
+	/// # Errors
+	pub async fn new(
+		creator: i32,
+		loc_data: LocationData,
+		desc_data: NewTranslation,
+		exc_data: NewTranslation,
+		conn: &DbConn,
+	) -> Result<(Self, Translation, Translation), Error> {
+		let records = conn
+			.interact(move |conn| {
+				conn.transaction::<_, Error, _>(|conn| {
+					use crate::schema::location::dsl::location;
+					use crate::schema::translation::dsl::translation;
+
+					let desc = diesel::insert_into(translation)
+						.values(desc_data)
+						.returning(Translation::as_returning())
+						.get_result(conn)?;
+
+					let exc = diesel::insert_into(translation)
+						.values(exc_data)
+						.returning(Translation::as_returning())
+						.get_result(conn)?;
+
+					let new_location = NewLocation {
+						name:                   loc_data.name,
+						description_id:         desc.id,
+						excerpt_id:             exc.id,
+						seat_count:             loc_data.seat_count,
+						is_reservable:          loc_data.is_reservable,
+						reservation_block_size: loc_data.reservation_block_size,
+						is_visible:             loc_data.is_visible,
+						street:                 loc_data.street,
+						number:                 loc_data.number,
+						zip:                    loc_data.zip,
+						city:                   loc_data.city,
+						country:                loc_data.country,
+						province:               loc_data.province,
+						latitude:               loc_data.latitude,
+						longitude:              loc_data.longitude,
+						created_by:             creator,
+					};
+
+					let loc = diesel::insert_into(location)
+						.values(new_location)
+						.returning(Location::as_returning())
+						.get_result(conn)?;
+
+					Ok((loc, desc, exc))
+				})
+			})
+			.await??;
+
+		Ok(records)
 	}
 }
 

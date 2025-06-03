@@ -1,5 +1,6 @@
 mod common;
 use axum::http::StatusCode;
+use blokmap::models::PartialLocation;
 use blokmap::schemas::location::LocationResponse;
 use common::TestEnv;
 
@@ -11,21 +12,27 @@ async fn create_location_test() {
 		.app
 		.post("/locations")
 		.json(&serde_json::json!({
-			"name": "Test Location",
-			"descriptionId": 1,
-			"excerptId": 1,
-			"seatCount": 10,
-			"isReservable": true,
-			"reservationBlockSize": 20,
-			"isVisible": true,
-			"street": "Test Street",
-			"number": "123",
-			"zip": "1234AB",
-			"city": "Test City",
-			"province": "Test Province",
-			"country": "BE",
-			"latitude": 52.0,
-			"longitude": 4.0
+			"location": {
+				"name": "Test Location",
+				"seatCount": 10,
+				"isReservable": true,
+				"reservationBlockSize": 20,
+				"isVisible": true,
+				"street": "Test Street",
+				"number": "123",
+				"zip": "1234AB",
+				"city": "Test City",
+				"province": "Test Province",
+				"country": "BE",
+				"latitude": 52.0,
+				"longitude": 4.0
+			},
+			"description": {
+				"nl": "test-description"
+			},
+			"excerpt": {
+				"nl": "test-excerpt"
+			},
 		}))
 		.await;
 
@@ -35,10 +42,10 @@ async fn create_location_test() {
 	assert_eq!(location.name, "Test Location");
 
 	let description = location.description.unwrap();
-	assert!(description.translation.nl.is_some());
+	assert!(description.nl.is_some());
 
 	let excerpt = location.excerpt.unwrap();
-	assert!(excerpt.translation.nl.is_some());
+	assert!(excerpt.nl.is_some());
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -95,11 +102,28 @@ async fn get_locations_test() {
 	// Get a test location in the database
 	let location = env.get_location().await.unwrap();
 
+	let response = env.app.get("/locations").await;
+
+	assert_eq!(response.status_code(), StatusCode::OK);
+
+	// Check if the location is in the response
+	let locations = response.json::<Vec<LocationResponse>>();
+	assert!(locations.iter().any(|l| l.id == location.id));
+	assert!(locations.iter().any(|l| l.name == location.name));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn search_locations_test() {
+	let env = TestEnv::new().await;
+
+	// Get a test location in the database
+	let location = env.get_location().await.unwrap();
+
 	// Get the locations from the app router
 	// Use the location above to fill the query parameters
 	let response = env
 		.app
-		.get("/locations")
+		.get("/locations/search")
 		.add_query_params([
 			("northEastLat", location.latitude + 1.0),
 			("northEastLng", location.longitude + 1.0),
@@ -111,7 +135,7 @@ async fn get_locations_test() {
 	assert_eq!(response.status_code(), StatusCode::OK);
 
 	// Check if the location is in the response
-	let locations = response.json::<Vec<LocationResponse>>();
+	let locations = response.json::<Vec<PartialLocation>>();
 	assert!(locations.iter().any(|l| l.id == location.id));
 	assert!(locations.iter().any(|l| l.name == location.name));
 }

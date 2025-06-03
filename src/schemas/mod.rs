@@ -1,9 +1,12 @@
 use serde::{Deserialize, Deserializer};
 
 pub mod auth;
+pub mod authority;
+pub mod image;
 pub mod location;
 pub mod opening_time;
 pub mod profile;
+pub mod tag;
 pub mod translation;
 
 /// Deserialize a value into an `Option<T>`,

@@ -1,34 +1,42 @@
 use std::f64;
 
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveTime};
 use diesel::dsl::{InnerJoinQuerySource, LeftJoinQuerySource, sql};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::query_source::{Alias, AliasedField};
-use diesel::sql_types::{Bool, Date, Double, Nullable, Time};
+use diesel::sql_types::{Bool, Date, Double, Nullable, Text, Time};
 use serde::{Deserialize, Serialize};
 
-use super::{
-	DescriptionAlias,
-	ExcerptAlias,
-	FullLocationData,
-	description,
-	excerpt,
-};
+use super::{DescriptionAlias, ExcerptAlias, description, excerpt};
 use crate::models::Location;
 use crate::schema::{location, opening_time, translation};
 use crate::{DbConn, Error};
 
+#[derive(Clone, Debug, Deserialize, Queryable, Selectable, Serialize)]
+#[diesel(table_name = location)]
+#[diesel(check_for_backend(Pg))]
+pub struct PartialLocation {
+	pub id:        i32,
+	pub name:      String,
+	pub latitude:  f64,
+	pub longitude: f64,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LocationFilter {
-	pub distance:   Option<f64>,
+	pub language: Option<String>,
+	pub query:    Option<String>,
+
+	pub open_on_day:  Option<NaiveDate>,
+	pub open_on_time: Option<NaiveTime>,
+
 	pub center_lat: Option<f64>,
 	pub center_lng: Option<f64>,
+	pub distance:   Option<f64>,
 
-	pub name:             Option<String>,
-	pub has_reservations: Option<bool>,
-	pub open_on:          Option<NaiveDateTime>,
+	pub is_reservable: Option<bool>,
 
 	pub north_east_lat: Option<f64>,
 	pub north_east_lng: Option<f64>,
@@ -67,6 +75,37 @@ impl LocationFilter {
 	fn into_boxed_condition(self) -> Option<BoxedCondition> {
 		let mut conditions: Vec<BoxedCondition> = vec![];
 
+		if let Some(query) = self.query {
+			let language = self
+				.language
+				.unwrap_or_else(|| String::from("en"))
+				.to_ascii_lowercase();
+
+			let dyn_description = diesel_dynamic_schema::table("description");
+			let dyn_excerpt = diesel_dynamic_schema::table("excerpt");
+
+			let name_filter = sql::<Bool>("")
+				.bind::<Text, _>(location::name)
+				.sql(" % ")
+				.bind::<Text, _>(query.clone());
+
+			let desc_filter = sql::<Bool>("")
+				.bind::<Text, _>(dyn_description.column(language.clone()))
+				.sql(" % ")
+				.bind::<Text, _>(query.clone())
+				.nullable();
+
+			let exc_filter = sql::<Bool>("")
+				.bind::<Text, _>(dyn_excerpt.column(language))
+				.sql(" % ")
+				.bind::<Text, _>(query)
+				.nullable();
+
+			conditions.push(Box::new(
+				name_filter.or(desc_filter).or(exc_filter).nullable(),
+			));
+		}
+
 		if let Some(dist) = self.distance {
 			// The route controller guarantees that if one param is present,
 			// all of them are
@@ -89,29 +128,33 @@ impl LocationFilter {
 			));
 		}
 
-		if let Some(name) = self.name {
-			conditions.push(Box::new(location::name.eq(name).nullable()));
-		}
-
-		if let Some(has_reservations) = self.has_reservations {
+		if let Some(is_reservable) = self.is_reservable {
 			conditions.push(Box::new(
-				location::is_reservable.eq(has_reservations).nullable(),
+				location::is_reservable.eq(is_reservable).nullable(),
 			));
 		}
 
-		if let Some(open_on) = self.open_on {
+		if let Some(open_on_day) = self.open_on_day {
 			conditions.push(Box::new(
-				open_on
-					.date()
+				open_on_day
 					.into_sql::<Date>()
 					.eq(opening_time::day)
-					.and(open_on.time().into_sql::<Time>().between(
-						opening_time::start_time,
-						opening_time::end_time,
-					))
 					.and(opening_time::id.is_not_null())
 					.nullable(),
 			));
+
+			if let Some(open_on_time) = self.open_on_time {
+				conditions.push(Box::new(
+					open_on_time
+						.into_sql::<Time>()
+						.between(
+							opening_time::start_time,
+							opening_time::end_time,
+						)
+						.and(opening_time::id.is_not_null())
+						.nullable(),
+				));
+			}
 		}
 
 		if let Some(north_lat) = self.north_east_lat {
@@ -150,13 +193,15 @@ impl Location {
 	pub async fn search(
 		location_filter: LocationFilter,
 		conn: &DbConn,
-	) -> Result<Vec<FullLocationData>, Error> {
+	) -> Result<Vec<PartialLocation>, Error> {
 		let mut filter: BoxedCondition =
-			Box::new(true.as_sql::<Bool>().eq(true).nullable());
+			Box::new(location::is_visible.eq(true).nullable());
 
 		if let Some(f) = location_filter.into_boxed_condition() {
 			filter = Box::new(filter.and(f));
 		}
+
+		info!("{}", diesel::debug_query::<Pg, _>(&filter));
 
 		let result = conn
 			.interact(move |conn| {
@@ -170,16 +215,12 @@ impl Location {
 					))
 					.left_outer_join(opening_time::table)
 					.filter(filter)
-					.select((
-						location::all_columns,
-						description.fields(translation::all_columns),
-						excerpt.fields(translation::all_columns),
-						opening_time::all_columns.nullable(),
-					))
+					.select(PartialLocation::as_select())
+					.distinct()
 					.get_results(conn)
 			})
 			.await??;
 
-		Ok(Self::group_by_id(result))
+		Ok(result)
 	}
 }

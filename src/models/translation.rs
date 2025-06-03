@@ -1,11 +1,8 @@
 use std::hash::Hash;
 
 use chrono::NaiveDateTime;
-use diesel::backend::Backend;
-use diesel::deserialize::FromSql;
 use diesel::pg::Pg;
 use diesel::prelude::*;
-use diesel::sql_types::Jsonb;
 use serde::{Deserialize, Serialize};
 
 use crate::schema::translation;
@@ -56,34 +53,14 @@ impl PartialEq for Translation {
 
 impl Eq for Translation {}
 
-impl<DB> Queryable<Jsonb, DB> for Translation
-where
-	DB: Backend,
-	Translation: FromSql<Jsonb, DB>,
-{
-	type Row = Translation;
-
-	fn build(row: Self::Row) -> diesel::deserialize::Result<Self> { Ok(row) }
-}
-
-impl<DB> FromSql<Jsonb, DB> for Translation
-where
-	DB: Backend,
-	serde_json::Value: FromSql<Jsonb, DB>,
-{
-	fn from_sql(bytes: DB::RawValue<'_>) -> diesel::deserialize::Result<Self> {
-		let value = <serde_json::Value as FromSql<Jsonb, DB>>::from_sql(bytes)?;
-		Ok(serde_json::from_value(value)?)
-	}
-}
-
 #[derive(Debug, Deserialize, Serialize, Clone, Insertable)]
 #[diesel(table_name = translation)]
 pub struct NewTranslation {
-	pub nl: Option<String>,
-	pub en: Option<String>,
-	pub fr: Option<String>,
-	pub de: Option<String>,
+	pub nl:         Option<String>,
+	pub en:         Option<String>,
+	pub fr:         Option<String>,
+	pub de:         Option<String>,
+	pub created_by: i32,
 }
 
 impl NewTranslation {
@@ -197,10 +174,11 @@ impl Translation {
 #[serde(default, rename_all = "camelCase")]
 #[diesel(table_name = translation)]
 pub struct UpdateTranslation {
-	pub nl: Option<String>,
-	pub en: Option<String>,
-	pub fr: Option<String>,
-	pub de: Option<String>,
+	pub nl:         Option<String>,
+	pub en:         Option<String>,
+	pub fr:         Option<String>,
+	pub de:         Option<String>,
+	pub updated_by: i32,
 }
 
 impl UpdateTranslation {

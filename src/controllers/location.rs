@@ -18,13 +18,7 @@ use uuid::Uuid;
 
 use crate::DbPool;
 use crate::error::Error;
-use crate::models::{
-	Location,
-	LocationFilter,
-	NewImage,
-	NewLocation,
-	ProfileId,
-};
+use crate::models::{Location, LocationFilter, NewImage, ProfileId};
 use crate::schemas::location::{
 	CreateLocationRequest,
 	LocationResponse,
@@ -40,29 +34,15 @@ pub(crate) async fn create_location(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let request = NewLocation {
-		name:                   request.name,
-		description_id:         request.description_id,
-		excerpt_id:             request.excerpt_id,
-		seat_count:             request.seat_count,
-		is_reservable:          request.is_reservable,
-		reservation_block_size: request.reservation_block_size,
-		is_visible:             request.is_visible,
-		street:                 request.street,
-		number:                 request.number,
-		zip:                    request.zip,
-		city:                   request.city,
-		province:               request.province,
-		country:                request.country,
-		latitude:               request.latitude,
-		longitude:              request.longitude,
-		created_by:             *profile_id,
-	};
+	let loc_data = request.location;
+	let desc_data = request.description.to_insertable(*profile_id);
+	let exc_data = request.excerpt.to_insertable(*profile_id);
 
-	let location = request.insert(&conn).await?;
-	let location = Location::get_by_id(location.id, &conn).await?;
+	let records =
+		Location::new(*profile_id, loc_data, desc_data, exc_data, &conn)
+			.await?;
 
-	let response = LocationResponse::from(location);
+	let response = LocationResponse::from(records);
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -191,12 +171,25 @@ pub(crate) async fn get_location_positions(
 	Ok((StatusCode::OK, Json(positions)))
 }
 
+#[instrument(skip(pool))]
+pub(crate) async fn get_locations(
+	State(pool): State<DbPool>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let locations = Location::get_all(&conn).await?;
+	let locations: Vec<LocationResponse> =
+		locations.into_iter().map(Into::into).collect();
+
+	Ok((StatusCode::OK, Json(locations)))
+}
+
 /// Search all locations from the database on given latlng bounds.
 /// The latlng bounds include the southwestern and northeastern corners.
 /// The southwestern corner is the minimum latitude and longitude, and the
 /// northeastern corner is the maximum latitude and longitude.
 #[instrument(skip(pool))]
-pub(crate) async fn get_locations(
+pub(crate) async fn search_locations(
 	State(pool): State<DbPool>,
 	Query(filter): Query<LocationFilter>,
 ) -> Result<impl IntoResponse, Error> {
@@ -235,8 +228,6 @@ pub(crate) async fn get_locations(
 	}
 
 	let locations = Location::search(filter, &conn).await?;
-	let locations: Vec<_> =
-		locations.into_iter().map(LocationResponse::from).collect();
 
 	Ok((StatusCode::OK, Json(locations)))
 }
@@ -253,7 +244,7 @@ pub(crate) async fn update_location(
 
 	let (location, ..) = Location::get_by_id(id, &conn).await?;
 
-	if *profile_id != location.created_by {
+	if Some(*profile_id) != location.created_by {
 		return Err(Error::Forbidden);
 	}
 

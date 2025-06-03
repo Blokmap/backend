@@ -3,12 +3,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::{Profile, UpdateProfile};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileResponse {
 	pub id:            i32,
 	pub username:      String,
 	pub email:         Option<String>,
+	pub first_name:    Option<String>,
+	pub last_name:     Option<String>,
 	pub is_admin:      bool,
 	pub created_at:    NaiveDateTime,
 	pub last_login_at: NaiveDateTime,
@@ -20,6 +22,8 @@ impl From<Profile> for ProfileResponse {
 			id:            profile.id,
 			username:      profile.username,
 			email:         profile.email,
+			first_name:    profile.first_name,
+			last_name:     profile.last_name,
 			is_admin:      profile.is_admin,
 			created_at:    profile.created_at,
 			last_login_at: profile.last_login_at,
