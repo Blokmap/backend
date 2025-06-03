@@ -88,7 +88,7 @@ diesel::table! {
 		rejected_by -> Nullable<Int4>,
 		rejected_reason -> Nullable<Text>,
 		created_at -> Timestamp,
-		created_by -> Int4,
+		created_by -> Nullable<Int4>,
 		updated_at -> Timestamp,
 		updated_by -> Nullable<Int4>,
 	}

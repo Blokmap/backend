@@ -1,3 +1,4 @@
+use std::hash::Hash;
 use std::ops::Deref;
 
 use argon2::password_hash::SaltString;
@@ -84,6 +85,16 @@ pub struct Profile {
 	pub updated_by:                      Option<i32>,
 	pub last_login_at:                   NaiveDateTime,
 }
+
+impl Hash for Profile {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.id.hash(state) }
+}
+
+impl PartialEq for Profile {
+	fn eq(&self, other: &Self) -> bool { self.id == other.id }
+}
+
+impl Eq for Profile {}
 
 impl TryFrom<&Profile> for Mailbox {
 	type Error = Error;

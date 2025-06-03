@@ -435,6 +435,7 @@ dependencies = [
  "deadpool-diesel",
  "diesel",
  "diesel-derive-enum",
+ "diesel-dynamic-schema",
  "diesel_migrations",
  "fast_image_resize",
  "futures",
@@ -880,6 +881,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "diesel-dynamic-schema"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "061bbe2d02508364c50153226524b7fc224f56031a5e927b0bc5f1f2b48de6a6"
+dependencies = [
+ "diesel",
 ]
 
 [[package]]

@@ -1,5 +1,4 @@
 use axum::http::StatusCode;
-use blokmap::models::{NewTranslation, UpdateTranslation};
 use blokmap::schemas::translation::{
 	CreateTranslationRequest,
 	TranslationResponse,
@@ -16,12 +15,10 @@ async fn create_translation_test() {
 
 	// Create a new translation.
 	let create_req = CreateTranslationRequest {
-		translation: NewTranslation {
-			nl: Some("hallo".to_string()),
-			en: Some("hello".to_string()),
-			fr: Some("bonjour".to_string()),
-			de: Some("hallo".to_string()),
-		},
+		nl: Some("hallo".to_string()),
+		en: Some("hello".to_string()),
+		fr: Some("bonjour".to_string()),
+		de: Some("hallo".to_string()),
 	};
 
 	let response = env.app.post("/translations").json(&create_req).await;
@@ -32,11 +29,11 @@ async fn create_translation_test() {
 	let body = response.json::<TranslationResponse>();
 
 	// Check that the returned translation has an id and expected field values.
-	assert!(body.translation.id > 0);
-	assert_eq!(body.translation.nl, Some("hallo".to_string()));
-	assert_eq!(body.translation.en, Some("hello".to_string()));
-	assert_eq!(body.translation.fr, Some("bonjour".to_string()));
-	assert_eq!(body.translation.de, Some("hallo".to_string()));
+	assert!(body.id > 0);
+	assert_eq!(body.nl, Some("hallo".to_string()));
+	assert_eq!(body.en, Some("hello".to_string()));
+	assert_eq!(body.fr, Some("bonjour".to_string()));
+	assert_eq!(body.de, Some("hallo".to_string()));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -45,12 +42,10 @@ async fn get_translation_test() {
 
 	// First, create a translation.
 	let create_req = CreateTranslationRequest {
-		translation: NewTranslation {
-			nl: Some("hallo".to_string()),
-			en: Some("hello".to_string()),
-			fr: Some("bonjour".to_string()),
-			de: Some("hallo".to_string()),
-		},
+		nl: Some("hallo".to_string()),
+		en: Some("hello".to_string()),
+		fr: Some("bonjour".to_string()),
+		de: Some("hallo".to_string()),
 	};
 
 	let create_response = env.app.post("/translations").json(&create_req).await;
@@ -60,17 +55,17 @@ async fn get_translation_test() {
 
 	// Now, retrieve the translation using its id.
 	let get_response =
-		env.app.get(&format!("/translations/{}", created.translation.id)).await;
+		env.app.get(&format!("/translations/{}", created.id)).await;
 
 	assert_eq!(get_response.status_code(), StatusCode::OK);
 	let fetched = get_response.json::<TranslationResponse>();
 
 	// Verify that the fetched translation matches the created one.
-	assert_eq!(fetched.translation.id, created.translation.id);
-	assert_eq!(fetched.translation.nl, created.translation.nl);
-	assert_eq!(fetched.translation.en, created.translation.en);
-	assert_eq!(fetched.translation.fr, created.translation.fr);
-	assert_eq!(fetched.translation.de, created.translation.de);
+	assert_eq!(fetched.id, created.id);
+	assert_eq!(fetched.nl, created.nl);
+	assert_eq!(fetched.en, created.en);
+	assert_eq!(fetched.fr, created.fr);
+	assert_eq!(fetched.de, created.de);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -79,12 +74,10 @@ async fn update_translation_test() {
 
 	// Create a translation.
 	let create_req = CreateTranslationRequest {
-		translation: NewTranslation {
-			nl: Some("hallo".to_string()),
-			en: Some("hello".to_string()),
-			fr: Some("bonjour".to_string()),
-			de: Some("hallo".to_string()),
-		},
+		nl: Some("hallo".to_string()),
+		en: Some("hello".to_string()),
+		fr: Some("bonjour".to_string()),
+		de: Some("hallo".to_string()),
 	};
 
 	let create_response = env.app.post("/translations").json(&create_req).await;
@@ -93,17 +86,15 @@ async fn update_translation_test() {
 
 	// Update the translation by changing some fields
 	let update_req = UpdateTranslationRequest {
-		translation: UpdateTranslation {
-			nl: Some("hallo_updated".to_string()),
-			en: Some("hi".to_string()),
-			fr: None,
-			de: Some("hallo_updated".to_string()),
-		},
+		nl: Some("hallo_updated".to_string()),
+		en: Some("hi".to_string()),
+		fr: None,
+		de: Some("hallo_updated".to_string()),
 	};
 
 	let update_response = env
 		.app
-		.post(&format!("/translations/{}", created.translation.id))
+		.post(&format!("/translations/{}", created.id))
 		.json(&update_req)
 		.await;
 
@@ -112,11 +103,11 @@ async fn update_translation_test() {
 	// Check that the updated translation reflects the changes.
 	let updated = update_response.json::<TranslationResponse>();
 
-	assert_eq!(updated.translation.id, created.translation.id);
-	assert_eq!(updated.translation.nl, Some("hallo_updated".to_string()));
-	assert_eq!(updated.translation.en, Some("hi".to_string()));
-	assert_eq!(updated.translation.fr, Some("bonjour".to_string()));
-	assert_eq!(updated.translation.de, Some("hallo_updated".to_string()));
+	assert_eq!(updated.id, created.id);
+	assert_eq!(updated.nl, Some("hallo_updated".to_string()));
+	assert_eq!(updated.en, Some("hi".to_string()));
+	assert_eq!(updated.fr, Some("bonjour".to_string()));
+	assert_eq!(updated.de, Some("hallo_updated".to_string()));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -125,12 +116,10 @@ async fn delete_translation_test() {
 
 	// Create a translation.
 	let create_req = CreateTranslationRequest {
-		translation: NewTranslation {
-			nl: Some("hallo".to_string()),
-			en: Some("hello".to_string()),
-			fr: Some("bonjour".to_string()),
-			de: Some("hallo".to_string()),
-		},
+		nl: Some("hallo".to_string()),
+		en: Some("hello".to_string()),
+		fr: Some("bonjour".to_string()),
+		de: Some("hallo".to_string()),
 	};
 
 	let create_response = env.app.post("/translations").json(&create_req).await;
@@ -138,16 +127,14 @@ async fn delete_translation_test() {
 	let created = create_response.json::<TranslationResponse>();
 
 	// Delete the translation.
-	let delete_response = env
-		.app
-		.delete(&format!("/translations/{}", created.translation.id))
-		.await;
+	let delete_response =
+		env.app.delete(&format!("/translations/{}", created.id)).await;
 
 	assert_eq!(delete_response.status_code(), StatusCode::NO_CONTENT);
 
 	// Ensure the translation was deleted by attempting to retrieve it.
 	let get_response =
-		env.app.get(&format!("/translations/{}", created.translation.id)).await;
+		env.app.get(&format!("/translations/{}", created.id)).await;
 
 	assert_eq!(get_response.status_code(), StatusCode::NOT_FOUND);
 }

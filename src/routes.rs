@@ -27,6 +27,7 @@ use crate::controllers::location::{
 	get_location,
 	get_location_positions,
 	get_locations,
+	search_locations,
 	update_location,
 	upload_location_image,
 };
@@ -117,6 +118,7 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 
 	Router::new()
 		.route("/", get(get_locations))
+		.route("/search", get(search_locations))
 		.route("/positions", get(get_location_positions))
 		.route("/{id}", get(get_location))
 		.merge(authenticated)
