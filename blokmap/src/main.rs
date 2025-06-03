@@ -19,8 +19,6 @@ async fn main() {
 		.with_max_level(Level::INFO)
 		.init();
 
-	println!("Blokmap server starting...");
-
 	// Load the configuration from the environment,
 	// and create a database pool.
 	let config = Config::from_env();

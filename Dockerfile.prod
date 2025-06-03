@@ -11,13 +11,7 @@ RUN cargo new --vcs none --bin --edition 2024 blokmap
 WORKDIR /blokmap
 
 COPY ./.cargo ./Cargo.toml ./Cargo.lock ./
-
-RUN cargo build --release --bin blokmap
-
-RUN rm -r ./blokmap
-RUN rm ./target/release/deps/blokmap*
-
-COPY ./blokmap/src ./src
+COPY ./blokmap ./blokmap
 
 RUN cargo build --release --bin blokmap
 
