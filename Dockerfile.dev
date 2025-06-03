@@ -1,15 +1,15 @@
 FROM rust:1.87.0-slim
 
-RUN cargo install cargo-watch
+RUN cargo install --locked cargo-watch
 
 WORKDIR /volume/blokmap-backend
 
 # Install dependency for postgres and healthcheck
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update \
-	&& apt install -y libpq5 libpq-dev curl pkg-config openssl libssl-dev \
-	&& rm -rf /var/lib/apt/lists/*
+    && apt install -y libpq5 libpq-dev curl pkg-config openssl libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY . .
 
-CMD ["cargo", "watch", "-x", "run"]
+CMD ["cargo", "watch", "-x", "run -p blokmap"]

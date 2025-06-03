@@ -1,0 +1,30 @@
+[package]
+name = "models"
+version = "0.1.0"
+authors = [
+    "Ewout Verlinde <ewout@gentsestudentenraad.be>",
+    "Tibo Ulens <tibo@gentsestudentenraad.be>",
+]
+edition = "2024"
+readme = "../README.md"
+license-file = "../LICENSE"
+publish = false
+
+[dependencies]
+common ={ path = "../common" }
+
+argon2 = { workspace = true }
+axum-extra = { workspace = true }
+chrono = { workspace = true }
+deadpool-diesel = { workspace = true }
+diesel = { workspace = true }
+diesel-derive-enum = { workspace = true }
+diesel-dynamic-schema = { workspace = true }
+lettre = { workspace = true }
+rayon = { workspace = true }
+redis = { workspace = true }
+serde = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
