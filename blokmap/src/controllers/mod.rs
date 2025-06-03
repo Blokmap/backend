@@ -2,10 +2,10 @@
 
 use axum::extract::State;
 use axum::response::NoContent;
+use common::Error;
 use diesel::{RunQueryDsl, sql_query};
 
 use crate::DbPool;
-use crate::error::Error;
 
 pub mod auth;
 pub mod location;

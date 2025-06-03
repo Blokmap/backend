@@ -1,16 +1,13 @@
 use std::hash::Hash;
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-use diesel::backend::Backend;
-use diesel::deserialize::FromSql;
+use common::{DbConn, Error};
 use diesel::pg::Pg;
 use diesel::prelude::*;
-use diesel::sql_types::Jsonb;
 use serde::{Deserialize, Serialize};
 
 use super::Location;
 use crate::schema::opening_time;
-use crate::{DbConn, Error};
 
 #[derive(
 	Associations,
@@ -49,27 +46,6 @@ impl PartialEq for OpeningTime {
 }
 
 impl Eq for OpeningTime {}
-
-impl<DB> Queryable<Jsonb, DB> for OpeningTime
-where
-	DB: Backend,
-	OpeningTime: FromSql<Jsonb, DB>,
-{
-	type Row = OpeningTime;
-
-	fn build(row: Self::Row) -> diesel::deserialize::Result<Self> { Ok(row) }
-}
-
-impl<DB> FromSql<Jsonb, DB> for OpeningTime
-where
-	DB: Backend,
-	serde_json::Value: FromSql<Jsonb, DB>,
-{
-	fn from_sql(bytes: DB::RawValue<'_>) -> diesel::deserialize::Result<Self> {
-		let value = <serde_json::Value as FromSql<Jsonb, DB>>::from_sql(bytes)?;
-		Ok(serde_json::from_value(value)?)
-	}
-}
 
 #[derive(Clone, Debug, Deserialize, Insertable, Serialize)]
 #[diesel(table_name = crate::schema::opening_time)]

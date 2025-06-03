@@ -1,6 +1,7 @@
 use std::f64;
 
 use chrono::{NaiveDate, NaiveTime};
+use common::{DbConn, Error};
 use diesel::dsl::{InnerJoinQuerySource, LeftJoinQuerySource, sql};
 use diesel::pg::Pg;
 use diesel::prelude::*;
@@ -9,9 +10,8 @@ use diesel::sql_types::{Bool, Date, Double, Nullable, Text, Time};
 use serde::{Deserialize, Serialize};
 
 use super::{DescriptionAlias, ExcerptAlias, description, excerpt};
-use crate::models::Location;
+use crate::Location;
 use crate::schema::{location, opening_time, translation};
-use crate::{DbConn, Error};
 
 #[derive(Clone, Debug, Deserialize, Queryable, Selectable, Serialize)]
 #[diesel(table_name = location)]

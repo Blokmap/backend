@@ -2,14 +2,8 @@ mod util;
 
 use std::env;
 
-use blokmap::DbConn;
-use blokmap::models::{
-	NewLocation,
-	NewProfileDirect,
-	NewTranslation,
-	ProfileState,
-};
 use clap::{Error, Parser};
+use common::DbConn;
 use deadpool_diesel::postgres::{Manager, Pool};
 use diesel::RunQueryDsl;
 use diesel::query_dsl::methods::SelectDsl;
@@ -19,6 +13,7 @@ use fake::faker::company::raw::CompanyName;
 use fake::faker::internet::raw::{FreeEmail, Password, Username};
 use fake::faker::lorem::raw::Sentence;
 use fake::locales::{DE_DE, EN, FR_FR};
+use models::{NewLocation, NewProfileDirect, NewTranslation, ProfileState};
 use rand::seq::IndexedRandom;
 use rand::{Rng, rng};
 
@@ -83,7 +78,7 @@ async fn seed_profiles(conn: &DbConn, count: usize) -> Result<usize, Error> {
 		.collect();
 
 	batch_insert(conn, profiles, 8192, |conn, chunk| {
-		use blokmap::schema::profile::dsl::*;
+		use models::schema::profile::dsl::*;
 		diesel::insert_into(profile).values(chunk).execute(conn)
 	})
 	.await
@@ -112,7 +107,7 @@ async fn seed_translations(
 
 	let inserted_ids = conn
 		.interact(move |c| {
-			use blokmap::schema::translation::dsl::*;
+			use models::schema::translation::dsl::*;
 
 			diesel::insert_into(translation)
 				.values(&entries)
@@ -130,7 +125,7 @@ async fn seed_translations(
 async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 	let profile_ids: Vec<i32> = conn
 		.interact(|c| {
-			use blokmap::schema::profile::dsl::*;
+			use models::schema::profile::dsl::*;
 			profile.select(id).load::<i32>(c)
 		})
 		.await
@@ -188,7 +183,7 @@ async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 		.collect();
 
 	batch_insert(conn, locations, 8192, |conn, chunk| {
-		use blokmap::schema::location::dsl::*;
+		use models::schema::location::dsl::*;
 		diesel::insert_into(location).values(chunk).execute(conn)
 	})
 	.await

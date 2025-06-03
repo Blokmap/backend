@@ -1,11 +1,12 @@
 //! User sessions and tokens
 
 use axum_extra::extract::cookie::{Cookie, SameSite};
+use common::{Error, RedisConn};
 use redis::AsyncCommands;
+use time::Duration;
 use uuid::Uuid;
 
-use crate::models::Profile;
-use crate::{Config, Error, RedisConn};
+use crate::Profile;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Session {
@@ -17,7 +18,7 @@ impl Session {
 	/// Create and store a new [`Session`] for a given [`Profile`]
 	#[instrument(skip_all)]
 	pub async fn create(
-		config: &Config,
+		lifetime: Duration,
 		profile: &Profile,
 		conn: &mut RedisConn,
 	) -> Result<Self, Error> {
@@ -28,7 +29,7 @@ impl Session {
 
 		// Add a buffer of 10 seconds to ensure the cached session doesn't
 		// expire before the session cookie does
-		let expiry = config.access_token_lifetime.whole_seconds() + 10;
+		let expiry = lifetime.whole_seconds() + 10;
 
 		let _: bool = conn.set(id, profile_id).await?;
 		let _: bool = conn.expire(id, expiry).await?;
@@ -56,12 +57,15 @@ impl Session {
 
 	/// Convert this [`Session`] into an access token cookie
 	#[must_use]
-	pub fn to_access_token_cookie(self, config: &Config) -> Cookie<'static> {
-		let secure = config.production;
-
-		Cookie::build((config.access_token_name.clone(), self.id.to_string()))
+	pub fn to_access_token_cookie(
+		self,
+		name: String,
+		lifetime: Duration,
+		secure: bool,
+	) -> Cookie<'static> {
+		Cookie::build((name, self.id.to_string()))
 			.http_only(true)
-			.max_age(config.access_token_lifetime)
+			.max_age(lifetime)
 			.path("/")
 			.same_site(SameSite::Lax)
 			.secure(secure)
@@ -70,18 +74,18 @@ impl Session {
 
 	/// Convert this [`Session`] into an refresh token cookie
 	#[must_use]
-	pub fn to_refresh_token_cookie(self, config: &Config) -> Cookie<'static> {
-		let secure = config.production;
-
-		Cookie::build((
-			config.refresh_token_name.clone(),
-			self.profile_id.to_string(),
-		))
-		.http_only(true)
-		.max_age(config.refresh_token_lifetime)
-		.path("/")
-		.same_site(SameSite::Lax)
-		.secure(secure)
-		.into()
+	pub fn to_refresh_token_cookie(
+		self,
+		name: String,
+		lifetime: Duration,
+		secure: bool,
+	) -> Cookie<'static> {
+		Cookie::build((name, self.profile_id.to_string()))
+			.http_only(true)
+			.max_age(lifetime)
+			.path("/")
+			.same_site(SameSite::Lax)
+			.secure(secure)
+			.into()
 	}
 }

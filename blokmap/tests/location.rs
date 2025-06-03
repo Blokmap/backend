@@ -1,8 +1,8 @@
 mod common;
 use axum::http::StatusCode;
-use blokmap::models::PartialLocation;
 use blokmap::schemas::location::LocationResponse;
 use common::TestEnv;
+use models::PartialLocation;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn create_location_test() {

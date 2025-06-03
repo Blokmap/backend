@@ -477,6 +477,7 @@ dependencies = [
  "axum-extra",
  "axum-test",
  "chrono",
+ "common",
  "deadpool-diesel",
  "diesel",
  "diesel-derive-enum",
@@ -488,6 +489,7 @@ dependencies = [
  "image",
  "lettre",
  "mime",
+ "models",
  "openidconnect",
  "parking_lot",
  "rayon",
@@ -702,6 +704,24 @@ dependencies = [
  "pin-project-lite",
  "tokio",
  "tokio-util",
+]
+
+[[package]]
+name = "common"
+version = "0.2.0"
+dependencies = [
+ "argon2",
+ "axum",
+ "deadpool-diesel",
+ "diesel",
+ "fast_image_resize",
+ "image",
+ "lettre",
+ "redis",
+ "thiserror 2.0.12",
+ "tokio",
+ "tracing",
+ "validator",
 ]
 
 [[package]]
@@ -2145,6 +2165,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "models"
+version = "0.1.0"
+dependencies = [
+ "argon2",
+ "axum-extra",
+ "chrono",
+ "common",
+ "deadpool-diesel",
+ "diesel",
+ "diesel-derive-enum",
+ "diesel-dynamic-schema",
+ "lettre",
+ "rayon",
+ "redis",
+ "serde",
+ "time",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "multer"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3241,12 +3283,13 @@ dependencies = [
 name = "seeder"
 version = "0.1.0"
 dependencies = [
- "blokmap",
  "chrono",
  "clap",
+ "common",
  "deadpool-diesel",
  "diesel",
  "fake",
+ "models",
  "rand 0.9.1",
  "tokio",
 ]

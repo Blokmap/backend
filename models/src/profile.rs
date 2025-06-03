@@ -1,10 +1,10 @@
 use std::hash::Hash;
-use std::ops::Deref;
 
 use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::{Argon2, PasswordHasher};
 use chrono::{NaiveDateTime, TimeDelta, Utc};
+use common::{DbConn, Error};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel_derive_enum::DbEnum;
@@ -12,26 +12,6 @@ use lettre::message::Mailbox;
 use serde::{Deserialize, Serialize};
 
 use crate::schema::profile;
-use crate::{DbConn, Error};
-
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct ProfileId(pub(crate) i32);
-
-impl Deref for ProfileId {
-	type Target = i32;
-
-	fn deref(&self) -> &Self::Target { &self.0 }
-}
-
-impl AsRef<i32> for ProfileId {
-	fn as_ref(&self) -> &i32 { &self.0 }
-}
-
-impl std::fmt::Display for ProfileId {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{}", self.0)
-	}
-}
 
 #[derive(Clone, DbEnum, Debug, Default, Deserialize, PartialEq, Eq)]
 #[ExistingTypePath = "crate::schema::sql_types::ProfileState"]
@@ -147,7 +127,7 @@ struct NewProfileHashed {
 impl NewProfile {
 	/// Insert this [`NewProfile`]
 	#[instrument(skip(conn))]
-	pub(crate) async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
+	pub async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
 		let hash = Profile::hash_password(&self.password)?;
 
 		let insertable = NewProfileHashed {
@@ -190,7 +170,7 @@ pub struct NewProfileDirect {
 impl NewProfileDirect {
 	/// Insert this [`NewProfileDirect`]
 	#[instrument(skip(conn))]
-	pub(crate) async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
+	pub async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
 		let profile = conn
 			.interact(|conn| {
 				use self::profile::dsl::*;
@@ -218,7 +198,7 @@ pub struct UpdateProfile {
 impl UpdateProfile {
 	/// Update a [`Profile`] with the given changes
 	#[instrument(skip(conn))]
-	pub(crate) async fn apply_to(
+	pub async fn apply_to(
 		self,
 		target_id: i32,
 		conn: &DbConn,

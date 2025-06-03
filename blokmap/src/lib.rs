@@ -3,36 +3,43 @@
 #[macro_use]
 extern crate tracing;
 
+use std::ops::Deref;
+
 use axum::extract::FromRef;
 use axum_extra::extract::cookie::Key;
-use deadpool_diesel::postgres::{Object, Pool};
+use common::{DbPool, RedisConn};
+use mailer::Mailer;
 
 mod config;
-mod error;
 mod seeder;
 
 pub mod controllers;
 pub mod mailer;
 pub mod middleware;
-pub mod models;
 pub mod routes;
-pub mod schema;
 pub mod schemas;
 
 pub use config::*;
-pub use error::*;
-use mailer::Mailer;
-use redis::aio::MultiplexedConnection;
 pub use seeder::*;
 
-/// An entire database pool
-pub type DbPool = Pool;
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ProfileId(pub(crate) i32);
 
-/// A single database connection
-pub type DbConn = Object;
+impl Deref for ProfileId {
+	type Target = i32;
 
-/// A redis cache connection
-pub type RedisConn = MultiplexedConnection;
+	fn deref(&self) -> &Self::Target { &self.0 }
+}
+
+impl AsRef<i32> for ProfileId {
+	fn as_ref(&self) -> &i32 { &self.0 }
+}
+
+impl std::fmt::Display for ProfileId {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{}", self.0)
+	}
+}
 
 /// Common state of the app
 #[derive(Clone)]

@@ -8,19 +8,20 @@ use axum::{Extension, Json};
 use axum_extra::extract::PrivateCookieJar;
 use axum_extra::extract::cookie::Cookie;
 use chrono::Utc;
+use common::{DbPool, Error, LoginError, RedisConn, TokenError};
+use models::ephemeral::Session;
+use models::{NewProfile, Profile, ProfileState};
 use uuid::Uuid;
 use validator::Validate;
 
 use crate::mailer::Mailer;
-use crate::models::ephemeral::Session;
-use crate::models::{NewProfile, Profile, ProfileId, ProfileState};
 use crate::schemas::auth::{
 	LoginUsernameRequest,
 	PasswordResetData,
 	PasswordResetRequest,
 	RegisterRequest,
 };
-use crate::{Config, DbPool, Error, LoginError, RedisConn, TokenError};
+use crate::{Config, ProfileId};
 
 pub mod sso;
 
@@ -53,10 +54,23 @@ pub(crate) async fn register_profile(
 	if !config.production && config.skip_verify {
 		new_profile.confirm_email(&conn).await?;
 
-		let session =
-			Session::create(&config, &new_profile, &mut r_conn).await?;
-		let access_token_cookie = session.to_access_token_cookie(&config);
-		let refresh_token_cookie = session.to_refresh_token_cookie(&config);
+		let session = Session::create(
+			config.access_token_lifetime,
+			&new_profile,
+			&mut r_conn,
+		)
+		.await?;
+
+		let access_token_cookie = session.to_access_token_cookie(
+			config.access_token_name,
+			config.access_token_lifetime,
+			config.production,
+		);
+		let refresh_token_cookie = session.to_refresh_token_cookie(
+			config.refresh_token_name,
+			config.refresh_token_lifetime,
+			config.production,
+		);
 
 		let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
 
@@ -141,9 +155,20 @@ pub(crate) async fn confirm_email(
 
 	profile.confirm_email(&conn).await?;
 
-	let session = Session::create(&config, &profile, &mut r_conn).await?;
-	let access_token_cookie = session.to_access_token_cookie(&config);
-	let refresh_token_cookie = session.to_refresh_token_cookie(&config);
+	let session =
+		Session::create(config.access_token_lifetime, &profile, &mut r_conn)
+			.await?;
+
+	let access_token_cookie = session.to_access_token_cookie(
+		config.access_token_name,
+		config.access_token_lifetime,
+		config.production,
+	);
+	let refresh_token_cookie = session.to_refresh_token_cookie(
+		config.refresh_token_name,
+		config.refresh_token_lifetime,
+		config.production,
+	);
 
 	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
 
@@ -208,9 +233,20 @@ pub(crate) async fn reset_password(
 
 	let profile = profile.change_password(&request.password, &conn).await?;
 
-	let session = Session::create(&config, &profile, &mut r_conn).await?;
-	let access_token_cookie = session.to_access_token_cookie(&config);
-	let refresh_token_cookie = session.to_refresh_token_cookie(&config);
+	let session =
+		Session::create(config.access_token_lifetime, &profile, &mut r_conn)
+			.await?;
+
+	let access_token_cookie = session.to_access_token_cookie(
+		config.access_token_name,
+		config.access_token_lifetime,
+		config.production,
+	);
+	let refresh_token_cookie = session.to_refresh_token_cookie(
+		config.refresh_token_name,
+		config.refresh_token_lifetime,
+		config.production,
+	);
 
 	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
 
@@ -246,9 +282,20 @@ pub(crate) async fn login_profile(
 	Argon2::default()
 		.verify_password(login_data.password.as_bytes(), &password_hash)?;
 
-	let session = Session::create(&config, &profile, &mut r_conn).await?;
-	let access_token_cookie = session.to_access_token_cookie(&config);
-	let refresh_token_cookie = session.to_refresh_token_cookie(&config);
+	let session =
+		Session::create(config.access_token_lifetime, &profile, &mut r_conn)
+			.await?;
+
+	let access_token_cookie = session.to_access_token_cookie(
+		config.access_token_name,
+		config.access_token_lifetime,
+		config.production,
+	);
+	let refresh_token_cookie = session.to_refresh_token_cookie(
+		config.refresh_token_name,
+		config.refresh_token_lifetime,
+		config.production,
+	);
 
 	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
 

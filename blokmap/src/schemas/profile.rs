@@ -1,7 +1,6 @@
 use chrono::NaiveDateTime;
+use models::{Profile, UpdateProfile};
 use serde::{Deserialize, Serialize};
-
-use crate::models::{Profile, UpdateProfile};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]

@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
+use common::Error;
 use lettre::message::Mailbox;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Address, Message, SmtpTransport, Transport};
+use models::Profile;
 use parking_lot::{Condvar, Mutex};
 use tokio::sync::mpsc;
 
-use crate::models::Profile;
-use crate::{Config, Error};
+use crate::Config;
 
 /// A basic interface to send email messages
 #[derive(Clone, Debug)]

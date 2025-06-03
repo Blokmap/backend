@@ -9,16 +9,16 @@ use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use axum::{Extension, Json};
+use common::{DbPool, Error};
 use fast_image_resize::images::Image;
 use fast_image_resize::{IntoImageView, Resizer};
 use image::codecs::webp::WebPEncoder;
 use image::{ColorType, ImageEncoder, ImageReader};
+use models::{Location, LocationFilter, NewImage};
 use rayon::prelude::*;
 use uuid::Uuid;
 
-use crate::DbPool;
-use crate::error::Error;
-use crate::models::{Location, LocationFilter, NewImage, ProfileId};
+use crate::ProfileId;
 use crate::schemas::location::{
 	CreateLocationRequest,
 	LocationResponse,
@@ -34,13 +34,11 @@ pub(crate) async fn create_location(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let loc_data = request.location;
+	let loc_data = request.location.to_insertable(*profile_id);
 	let desc_data = request.description.to_insertable(*profile_id);
 	let exc_data = request.excerpt.to_insertable(*profile_id);
 
-	let records =
-		Location::new(*profile_id, loc_data, desc_data, exc_data, &conn)
-			.await?;
+	let records = Location::new(loc_data, desc_data, exc_data, &conn).await?;
 
 	let response = LocationResponse::from(records);
 

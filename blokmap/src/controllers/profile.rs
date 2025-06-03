@@ -3,19 +3,14 @@
 use axum::extract::{Path, State};
 use axum::response::NoContent;
 use axum::{Extension, Json};
+use common::{DbPool, Error};
+use models::{Location, Profile, ProfileState, UpdateProfile};
 use uuid::Uuid;
 
 use crate::mailer::Mailer;
-use crate::models::{
-	Location,
-	Profile,
-	ProfileId,
-	ProfileState,
-	UpdateProfile,
-};
 use crate::schemas::location::LocationResponse;
 use crate::schemas::profile::{ProfileResponse, UpdateProfileRequest};
-use crate::{Config, DbPool, Error};
+use crate::{Config, ProfileId};
 
 /// Get all [`Profile`]s
 #[instrument(skip(pool))]

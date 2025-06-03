@@ -1,7 +1,6 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use models::OpeningTime;
 use serde::{Deserialize, Serialize};
-
-use crate::models::OpeningTime;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]

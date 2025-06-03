@@ -1,15 +1,16 @@
 use chrono::NaiveDateTime;
+use models::{
+	Location,
+	OpeningTime,
+	Profile,
+	StubNewLocation,
+	Translation,
+	UpdateLocation,
+};
 use serde::{Deserialize, Serialize};
 
 use super::opening_time::OpeningTimeResponse;
 use super::translation::TranslationResponse;
-use crate::models::{
-	Location,
-	OpeningTime,
-	Profile,
-	Translation,
-	UpdateLocation,
-};
 use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::image::ImageResponse;
 use crate::schemas::profile::ProfileResponse;
@@ -43,7 +44,31 @@ pub struct LocationData {
 	pub country:                String,
 	pub latitude:               f64,
 	pub longitude:              f64,
-	pub created_by:             Option<i32>,
+}
+
+impl LocationData {
+	#[must_use]
+	pub fn to_insertable(self, created_by: i32) -> StubNewLocation {
+		StubNewLocation {
+			name: self.name,
+			authority_id: self.authority_id,
+			seat_count: self.seat_count,
+			is_reservable: self.is_reservable,
+			reservation_block_size: self.reservation_block_size,
+			min_reservation_length: self.min_reservation_length,
+			max_reservation_length: self.max_reservation_length,
+			is_visible: self.is_visible,
+			street: self.street,
+			number: self.number,
+			zip: self.zip,
+			city: self.city,
+			province: self.province,
+			country: self.country,
+			latitude: self.latitude,
+			longitude: self.longitude,
+			created_by,
+		}
+	}
 }
 
 #[derive(Clone, Debug, Deserialize)]

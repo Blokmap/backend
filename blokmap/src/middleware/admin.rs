@@ -3,10 +3,11 @@ use std::pin::Pin;
 use axum::body::Body;
 use axum::extract::Request;
 use axum::response::{IntoResponse, Response};
+use common::Error;
+use models::Profile;
 use tower::{Layer, Service};
 
-use crate::models::{Profile, ProfileId};
-use crate::{AppState, Error};
+use crate::{AppState, ProfileId};
 
 #[derive(Clone)]
 pub struct AdminLayer {

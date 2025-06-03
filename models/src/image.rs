@@ -1,11 +1,10 @@
 use chrono::NaiveDateTime;
+use common::{DbConn, Error};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::{Identifiable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
 
-use crate::DbConn;
-use crate::error::Error;
 use crate::schema::{image, location_image};
 
 #[derive(

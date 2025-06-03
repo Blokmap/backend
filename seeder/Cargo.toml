@@ -1,14 +1,24 @@
 [package]
 name = "seeder"
 version = "0.1.0"
+authors = [
+    "Ewout Verlinde <ewout@gentsestudentenraad.be>",
+    "Tibo Ulens <tibo@gentsestudentenraad.be>",
+]
 edition = "2024"
+readme = "../README.md"
+license-file = "../LICENSE"
+publish = false
 
 [dependencies]
-blokmap = { path = "../blokmap" }
-fake = { version = "4", features = ["derive"] }
+common = { path = "../common" }
+models = { path = "../models" }
+
+chrono = { workspace = true }
 diesel = { workspace = true }
 deadpool-diesel = { workspace = true }
 tokio = { workspace = true }
+
 clap = { version = "4.5.39", features = ["derive"] }
+fake = { version = "4", features = ["derive"] }
 rand = "0.9.1"
-chrono = "0.4.41"

@@ -1,10 +1,15 @@
 //! Database model definitions
 
+#[macro_use]
+extern crate tracing;
+
 mod image;
 mod location;
 mod opening_time;
 mod profile;
 mod translation;
+
+pub mod schema;
 
 pub use location::*;
 pub mod ephemeral;

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 use chrono::{NaiveDateTime, Utc};
+use common::{DbConn, Error};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::{Identifiable, Queryable, Selectable};
@@ -9,17 +10,8 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use super::{OpeningTime, Translation};
-use crate::DbConn;
-use crate::error::Error;
-use crate::models::{
-	Image,
-	NewImage,
-	NewLocationImage,
-	NewTranslation,
-	Profile,
-};
 use crate::schema::{location, opening_time, profile, translation};
-use crate::schemas::location::LocationData;
+use crate::{Image, NewImage, NewLocationImage, NewTranslation, Profile};
 
 mod filter;
 
@@ -363,8 +355,7 @@ impl Location {
 	///
 	/// # Errors
 	pub async fn new(
-		creator: i32,
-		loc_data: LocationData,
+		loc_data: StubNewLocation,
 		desc_data: NewTranslation,
 		exc_data: NewTranslation,
 		conn: &DbConn,
@@ -401,7 +392,7 @@ impl Location {
 						province:               loc_data.province,
 						latitude:               loc_data.latitude,
 						longitude:              loc_data.longitude,
-						created_by:             creator,
+						created_by:             loc_data.created_by,
 					};
 
 					let loc = diesel::insert_into(location)
@@ -416,6 +407,26 @@ impl Location {
 
 		Ok(records)
 	}
+}
+#[derive(Clone, Debug, Deserialize)]
+pub struct StubNewLocation {
+	pub name:                   String,
+	pub authority_id:           Option<i32>,
+	pub seat_count:             i32,
+	pub is_reservable:          bool,
+	pub reservation_block_size: i32,
+	pub min_reservation_length: Option<i32>,
+	pub max_reservation_length: Option<i32>,
+	pub is_visible:             bool,
+	pub street:                 String,
+	pub number:                 String,
+	pub zip:                    String,
+	pub city:                   String,
+	pub country:                String,
+	pub province:               String,
+	pub latitude:               f64,
+	pub longitude:              f64,
+	pub created_by:             i32,
 }
 
 #[derive(Debug, Deserialize, Insertable)]
@@ -478,7 +489,10 @@ pub struct UpdateLocation {
 
 impl UpdateLocation {
 	/// Update this [`Location`] in the database.
-	pub(crate) async fn update(
+	///
+	/// # Errors
+	/// Fails if interacting with the database fails
+	pub async fn update(
 		self,
 		loc_id: i32,
 		conn: &DbConn,

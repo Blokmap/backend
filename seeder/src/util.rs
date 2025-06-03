@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
-use blokmap::DbConn;
 use clap::Error;
 use clap::error::ErrorKind;
+use common::DbConn;
 use diesel::PgConnection;
 use rand::distr::Alphanumeric;
 use rand::{Rng, rng};

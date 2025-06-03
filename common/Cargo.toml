@@ -1,0 +1,27 @@
+[package]
+name = "common"
+version = "0.2.0"
+authors = [
+    "Ewout Verlinde <ewout@gentsestudentenraad.be>",
+    "Tibo Ulens <tibo@gentsestudentenraad.be>",
+]
+edition = "2024"
+readme = "../README.md"
+license-file = "../LICENSE"
+publish = false
+
+[dependencies]
+axum = { workspace = true }
+deadpool-diesel = { workspace = true }
+diesel = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+
+argon2 = { workspace = true }
+image = { workspace = true }
+lettre = { workspace = true }
+redis = { workspace = true }
+tracing = { workspace = true }
+
+validator = { workspace = true }
+fast_image_resize = { workspace = true }

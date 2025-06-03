@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
-use blokmap::models::{Profile, ProfileState};
 use blokmap::schemas::auth::LoginUsernameRequest;
+use models::{Profile, ProfileState};
 
 mod common;
 
@@ -73,8 +73,8 @@ async fn update_current_profile_pending_email() {
 	let conn = env.db_guard.create_pool().get().await.unwrap();
 	let old_profile: Profile = conn
 		.interact(|conn| {
-			use blokmap::schema::profile::dsl::*;
 			use diesel::prelude::*;
+			use models::schema::profile::dsl::*;
 
 			profile.filter(username.eq("test")).get_result(conn)
 		})
@@ -97,8 +97,8 @@ async fn update_current_profile_pending_email() {
 
 	let new_profile: Profile = conn
 		.interact(|conn| {
-			use blokmap::schema::profile::dsl::*;
 			use diesel::prelude::*;
+			use models::schema::profile::dsl::*;
 
 			profile.filter(username.eq("test")).get_result(conn)
 		})

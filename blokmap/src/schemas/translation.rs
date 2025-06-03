@@ -1,7 +1,6 @@
 use chrono::NaiveDateTime;
+use models::{NewTranslation, Translation};
 use serde::{Deserialize, Serialize};
-
-use crate::models::{NewTranslation, Translation};
 
 /// The data needed to make a new [`Translation`].
 #[derive(Clone, Debug, Deserialize, Serialize)]

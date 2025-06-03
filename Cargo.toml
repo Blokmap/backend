@@ -1,8 +1,11 @@
 [workspace]
-members = ["blokmap", "seeder"]
+members = ["blokmap", "common", "models", "seeder"]
 resolver = "3"
 
 [workspace.dependencies]
+argon2 = "0.5.3"
+axum = { version = "0.8.1", features = ["macros", "multipart"] }
+axum-extra = { version = "0.10.0", features = ["cookie", "cookie-private"] }
 deadpool-diesel = { version = "0.6.1", features = ["postgres", "tracing"] }
 diesel = { version = "2.2.10", features = [
     "postgres",
@@ -12,7 +15,15 @@ diesel = { version = "2.2.10", features = [
 ] }
 diesel-derive-enum = { version = "2.1.0", features = ["postgres"] }
 diesel-dynamic-schema = "0.2.3"
-
+chrono = { version = "0.4.41", features = ["serde"] }
+fast_image_resize = { version = "5.1.4", features = ["image", "rayon"] }
+image = "0.25.6"
+lettre = { version = "0.11.16", features = ["tracing"] }
+rayon = "1.10.0"
+redis = { version = "0.31.0", features = ["tokio-comp", "uuid"] }
+serde = { version = "1.0.218", features = ["derive"] }
+thiserror = "2.0.12"
+time = "0.3.41"
 tokio = { version = "1.45.1", features = [
     "macros",
     "parking_lot",
@@ -20,8 +31,10 @@ tokio = { version = "1.45.1", features = [
     "rt-multi-thread",
     "signal",
     "tracing",
-] }
-
+]}
+tracing = "0.1.41"
+uuid = { version = "1.17.0", features = ["v4", "serde"] }
+validator = "0.20.0"
 
 [profile.release]
 opt-level = 3

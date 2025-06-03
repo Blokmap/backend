@@ -1,11 +1,10 @@
 use std::path::PathBuf;
 
+use common::{DbConn, Error};
 use diesel::prelude::*;
+use models::{Profile, ProfileState};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
-
-use crate::models::{Profile, ProfileState};
-use crate::{DbConn, Error};
 
 pub struct Seeder<'c> {
 	connection: &'c DbConn,
@@ -74,7 +73,7 @@ pub struct SeedProfile {
 }
 
 #[derive(Clone, Debug, Insertable, AsChangeset)]
-#[diesel(table_name = crate::schema::profile)]
+#[diesel(table_name = models::schema::profile)]
 struct InsertableSeedProfile {
 	username:      String,
 	password_hash: String,
@@ -100,7 +99,7 @@ impl SeedProfile {
 		};
 
 		conn.interact(|conn| {
-			use crate::schema::profile::dsl::*;
+			use models::schema::profile::dsl::*;
 
 			diesel::insert_into(profile)
 				.values(insertable)

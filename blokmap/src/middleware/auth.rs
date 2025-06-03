@@ -9,12 +9,13 @@ use axum::extract::Request;
 use axum::http::{Response, StatusCode};
 use axum::response::IntoResponse;
 use axum_extra::extract::PrivateCookieJar;
+use common::Error;
+use models::Profile;
+use models::ephemeral::Session;
 use tower::{Layer, Service};
 use uuid::Uuid;
 
-use crate::models::ephemeral::Session;
-use crate::models::{Profile, ProfileId};
-use crate::{AppState, Error};
+use crate::{AppState, ProfileId};
 
 #[derive(Clone)]
 pub struct AuthLayer {
@@ -85,8 +86,7 @@ where
 				let profile = conn
 					.interact(|conn| {
 						use diesel::prelude::*;
-
-						use crate::schema::profile::dsl::*;
+						use models::schema::profile::dsl::*;
 
 						profile.filter(is_admin.eq(true)).first::<Profile>(conn)
 					})
@@ -149,18 +149,27 @@ where
 					Err(e) => return Ok(e.into_response()),
 				};
 
-				let session =
-					match Session::create(&state.config, &profile, &mut r_conn)
-						.await
-					{
-						Ok(s) => s,
-						Err(e) => return Ok(e.into_response()),
-					};
+				let session = match Session::create(
+					state.config.access_token_lifetime,
+					&profile,
+					&mut r_conn,
+				)
+				.await
+				{
+					Ok(s) => s,
+					Err(e) => return Ok(e.into_response()),
+				};
 
-				let access_token_cookie =
-					session.to_access_token_cookie(&state.config);
-				let refresh_token_cookie =
-					session.to_refresh_token_cookie(&state.config);
+				let access_token_cookie = session.to_access_token_cookie(
+					state.config.access_token_name,
+					state.config.access_token_lifetime,
+					state.config.production,
+				);
+				let refresh_token_cookie = session.to_refresh_token_cookie(
+					state.config.refresh_token_name,
+					state.config.refresh_token_lifetime,
+					state.config.production,
+				);
 
 				let jar =
 					jar.add(access_token_cookie).add(refresh_token_cookie);

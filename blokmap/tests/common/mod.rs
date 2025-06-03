@@ -3,7 +3,11 @@ use std::sync::Arc;
 use axum_extra::extract::cookie::Key;
 use axum_test::TestServer;
 use blokmap::mailer::{Mailer, StubMailbox};
-use blokmap::models::{
+use blokmap::schemas::auth::LoginUsernameRequest;
+use blokmap::{AppState, Config, SeedProfile, Seeder, SsoConfig, routes};
+use common::Error;
+use mock_redis::{RedisUrlGuard, RedisUrlProvider};
+use models::{
 	Location,
 	NewLocation,
 	NewOpeningTime,
@@ -11,22 +15,10 @@ use blokmap::models::{
 	Profile,
 	Translation,
 };
-use blokmap::schemas::auth::LoginUsernameRequest;
-use blokmap::{
-	AppState,
-	Config,
-	Error,
-	SeedProfile,
-	Seeder,
-	SsoConfig,
-	routes,
-};
-use mock_redis::{RedisUrlGuard, RedisUrlProvider};
-
-mod wrap_mail;
 
 mod mock_db;
 mod mock_redis;
+mod wrap_mail;
 
 use mock_db::{DATABASE_PROVIDER, DatabaseGuard};
 

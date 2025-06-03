@@ -3,6 +3,9 @@ use axum::extract::{Path, Query, State};
 use axum::response::{IntoResponse, Redirect};
 use axum_extra::extract::PrivateCookieJar;
 use axum_extra::extract::cookie::{Cookie, SameSite};
+use common::{Error, OAuthError};
+use models::Profile;
+use models::ephemeral::Session;
 use openidconnect::core::{CoreClient, CoreProviderMetadata, CoreResponseType};
 use openidconnect::reqwest::blocking::ClientBuilder;
 use openidconnect::reqwest::redirect::Policy;
@@ -18,9 +21,7 @@ use openidconnect::{
 use serde::Deserialize;
 use time::Duration;
 
-use crate::models::Profile;
-use crate::models::ephemeral::Session;
-use crate::{Config, DbPool, Error, OAuthError, RedisConn, SsoConfig};
+use crate::{Config, DbPool, RedisConn, SsoConfig};
 
 #[must_use]
 pub fn make_cookie(
@@ -194,9 +195,20 @@ pub async fn sso_callback(
 	let username = id_token_claims.preferred_username().map(|n| n.to_string());
 	let profile = Profile::from_sso(email, username, &conn).await?;
 
-	let session = Session::create(&config, &profile, &mut r_conn).await?;
-	let access_token_cookie = session.to_access_token_cookie(&config);
-	let refresh_token_cookie = session.to_refresh_token_cookie(&config);
+	let session =
+		Session::create(config.access_token_lifetime, &profile, &mut r_conn)
+			.await?;
+
+	let access_token_cookie = session.to_access_token_cookie(
+		config.access_token_name,
+		config.access_token_lifetime,
+		config.production,
+	);
+	let refresh_token_cookie = session.to_refresh_token_cookie(
+		config.refresh_token_name,
+		config.refresh_token_lifetime,
+		config.production,
+	);
 
 	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
 

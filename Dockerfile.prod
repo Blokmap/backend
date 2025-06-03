@@ -6,12 +6,9 @@ RUN apt update \
     && apt install -y libpq5 libpq-dev curl pkg-config openssl libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN cargo new --vcs none --bin --edition 2024 blokmap
-
 WORKDIR /blokmap
 
-COPY ./.cargo ./Cargo.toml ./Cargo.lock ./
-COPY ./blokmap ./blokmap
+COPY . .
 
 RUN cargo build --release --bin blokmap
 

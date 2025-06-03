@@ -4,15 +4,10 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use axum::{Extension, Json};
+use common::{DbPool, Error};
+use models::{NewTranslation, Translation, UpdateTranslation};
 
-use crate::DbPool;
-use crate::error::Error;
-use crate::models::{
-	NewTranslation,
-	ProfileId,
-	Translation,
-	UpdateTranslation,
-};
+use crate::ProfileId;
 use crate::schemas::translation::{
 	CreateTranslationRequest,
 	TranslationResponse,

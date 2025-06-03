@@ -2,18 +2,22 @@
 .github/
 
 target/
-tests/
+**/tests/
 
 .dockerignore
 .editorconfig
+.env
+.env.example
 .gitignore
 
 diesel.toml
 Dockerfile.dev
 Dockerfile.migrations
 Dockerfile.prod
+endpoints.md
 LICENSE
 Makefile
+openapi.yaml
 README.md
 rust-toolchain.toml
 rustfmt.toml

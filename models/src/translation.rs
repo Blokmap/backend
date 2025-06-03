@@ -1,12 +1,12 @@
 use std::hash::Hash;
 
 use chrono::NaiveDateTime;
+use common::{DbConn, Error};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::schema::translation;
-use crate::{DbConn, Error};
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize, Hash)]
 pub enum Language {
