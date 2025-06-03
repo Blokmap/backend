@@ -1,0 +1,13 @@
+[package]
+name = "seeder"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# blokmap = { path = "../blokmap" }
+fake = { version = "4", features = ["derive"] }
+diesel = { workspace = true }
+deadpool-diesel = { workspace = true }
+tokio = { workspace = true }
+clap = { version = "4.5.39", features = ["derive"] }
+rand = "0.9.1"

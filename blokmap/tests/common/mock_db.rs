@@ -9,7 +9,7 @@ use diesel_migrations::{
 };
 use uuid::Uuid;
 
-const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
+const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations");
 
 /// Global test database provider
 pub static DATABASE_PROVIDER: LazyLock<DatabaseProvider> =
