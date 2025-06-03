@@ -215,6 +215,7 @@ impl Location {
 					))
 					.left_outer_join(opening_time::table)
 					.filter(filter)
+					.limit(50)
 					.select(PartialLocation::as_select())
 					.distinct()
 					.get_results(conn)
