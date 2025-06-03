@@ -91,7 +91,7 @@ async fn seed_translations(
 ) -> Result<Vec<i32>, Error> {
 	let mut rng = rng();
 
-	let entries: Vec<NewTranslation> = (0..count)
+	let entries = (0..count)
 		.map(|_| {
 			let created_by = *creator_ids.choose(&mut rng).unwrap();
 
@@ -105,14 +105,16 @@ async fn seed_translations(
 		})
 		.collect();
 
+	batch_insert(conn, entries, 2 << 10, |conn, chunk| {
+		use models::schema::translation::dsl::*;
+		diesel::insert_into(translation).values(chunk).execute(conn)
+	})
+	.await?;
+
 	let inserted_ids = conn
 		.interact(move |c| {
 			use models::schema::translation::dsl::*;
-
-			diesel::insert_into(translation)
-				.values(&entries)
-				.returning(id)
-				.load::<i32>(c)
+			translation.select(id).load::<i32>(c)
 		})
 		.await
 		.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?
@@ -182,7 +184,7 @@ async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 		})
 		.collect();
 
-	batch_insert(conn, locations, 8192, |conn, chunk| {
+	batch_insert(conn, locations, 2 << 10, |conn, chunk| {
 		use models::schema::location::dsl::*;
 		diesel::insert_into(location).values(chunk).execute(conn)
 	})
