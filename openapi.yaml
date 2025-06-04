@@ -1,0 +1,2537 @@
+openapi: "3.1.1"
+
+info:
+  title: Blokmap API
+  version: "0.2.0"
+  license:
+    name: MIT
+    identifier: MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Local API server
+  - url: https://staging.blokmap.ugent.be/api
+    description: Staging API server
+  - url: https://blokmap.ugent.be/api
+    description: Production API server
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - auth
+      description: Register a new, non-SSO profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: bobdebouwer123
+                password:
+                  type: string
+                  format: password
+                  example: appelappelappel
+                firstName:
+                  type: string
+                  example: Bob
+                lastName:
+                  type: string
+                  example: De Bouwer
+                email:
+                  type: string
+                  format: email
+                  example: bob@example.com
+      responses:
+        "201":
+          description: Created new profile
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/set-access-token'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/profile"
+
+  /auth/confirm_email/{token}:
+    post:
+      tags:
+        - auth
+      description: Confirm the email for a new, non-SSO profile
+      parameters:
+        - name: token
+          in: path
+          description: The email confirmation token for the profile
+          required: true
+          schema:
+            type: string
+            example: abc123
+      responses:
+        "204":
+          description: No Content
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/set-access-token'
+
+  /auth/resend_confirmation_email/{profile_id}:
+    post:
+      tags:
+        - auth
+      description: Resend a confirmation email in case of an expired token
+      parameters:
+        - name: profile_id
+          in: path
+          description: The ID of the profile to resend an email for
+          required: true
+          schema:
+            type: number
+            format: int32
+            example: 1
+      responses:
+        "204":
+          description: No Content
+
+  /auth/request_password_reset:
+    post:
+      tags:
+        - auth
+      description: Request a password reset email for the current, non-SSO user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  description: The username of the profile that wishes to reset their password
+                  example: bob
+      responses:
+        "204":
+          description: No Content
+
+  /auth/reset_password:
+    post:
+      tags:
+        - auth
+      description: Reset a users password
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: The password reset token
+                password:
+                  type: string
+                  format: password
+                  description: The new password for the profile
+                  minLength: 16
+                  example: appelappelbanaan
+
+  /auth/login:
+    post:
+      tags:
+        - auth
+      description: |
+        Log in with a username/email + password combo
+
+        **Only for non-SSO accounts**
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: bob
+                password:
+                  type: string
+                  format: password
+                  example: appelappelappel
+                  minLength: 16
+      responses:
+        "204":
+          description: No Content
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/set-access-token'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/profile"
+
+  /auth/sso/{provider}:
+    post:
+      tags:
+        - auth
+      description: Log in via an external ID provider
+      parameters:
+        - name: provider
+          in: path
+          description: The external ID provider to use
+          required: true
+          schema:
+            type: string
+            example: google
+      responses:
+        "204":
+          description: No Content
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/set-access-token'
+
+  /auth/sso/callback:
+    post:
+      tags:
+        - auth
+      description: Callback URL for OAuth/OIDC/SAML ID providers
+      parameters:
+        - name: code
+          in: query
+          description: The auth token provided by the ID provider
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          description: The CSRF token provided by the ID provider
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Log in succesfull
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/set-access-token'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/profile"
+
+  /auth/logout:
+    post:
+      tags:
+        - auth
+      description: Log out by removing the access token cookie
+      responses:
+        "204":
+          description: No Content
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/clear-access-token'
+
+  /institutions:
+    get:
+      tags:
+        - institutions
+      description: Get a list of all institutions
+      security:
+        - access-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/institution'
+
+  /profiles:
+    get:
+      tags:
+        - profiles
+      description: Get a list of all profiles
+      security:
+        - admin-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/paginated'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/profile'
+
+  /profiles/{id}:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the profile to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    get:
+      tags:
+        - profiles
+      description: Get a profile with a specific ID
+      security:
+        - admin-or-user-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/simpleProfile'
+                  - type: object
+                    properties:
+                      institutionName:
+                        type: [string, "null"]
+                        example: UGent
+                  - type: object
+                    properties:
+                      authorities:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/simpleAuthority'
+    patch:
+      tags:
+        - profiles
+      description: |
+        Update a profile
+
+        *Only for non-SSO profiles*
+      security:
+        - admin-or-user-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/patchProfile'
+                - $ref: '#/components/schemas/patchProfileAdmin'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/simpleProfile'
+                  - type: object
+                    properties:
+                      institutionName:
+                        type: [string, "null"]
+                        example: UGent
+                  - type: object
+                    properties:
+                      authorities:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/simpleAuthority'
+
+  /profiles/{id}/avatar:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the profile to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    post:
+      tags:
+        - profiles
+      description: Upload an avatar for this profile
+      security:
+        - access-token: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Uploaded avatar
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/image'
+    delete:
+      tags:
+        - profiles
+      description: Remove the avatar for this profile
+      security:
+        - admin-or-user-token: []
+      responses:
+        "204":
+          description: No content
+
+  /profiles/{id}/block:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the profile to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    post:
+      tags:
+        - profiles
+      description: Block this profile *admin only*
+      security:
+        - admin-token: []
+      responses:
+        "204":
+          description: No Content
+
+  /profiles/{id}/unblock:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the profile to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    post:
+      tags:
+        - profiles
+      description: Unblock this profile *admin only*
+      security:
+        - admin-token: []
+      responses:
+        "204":
+          description: No Content
+
+  /profiles/{id}/authorities:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the profile to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    get:
+      tags:
+        - profiles
+      description: Get a list of all authorities this profile is a member of
+      security:
+        - access-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/simpleAuthority'
+
+  /profiles/{id}/reservations:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the profile to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    get:
+      tags:
+        - profiles
+      description: Get a list of all reservations made by this profile
+      security:
+        - admin-or-user-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/reservation'
+
+  /profiles/{id}/reviews:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the profile to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    get:
+      tags:
+        - profiles
+      description: Get a list of all reviews made by this profile
+      security:
+        - admin-or-user-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/review'
+
+  /profiles/{id}/locations:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the profile to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    get:
+      tags:
+        - profiles
+      description: Get a list of all location this profile can manage
+      security:
+        - admin-or-user-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    location:
+                      $ref: '#/components/schemas/partialLocation'
+                    permissions:
+                      type: number
+                      format: int64
+                      example: 929839
+
+  /authorities:
+    get:
+      tags:
+        - authorities
+      description: Get a list of all authorities
+      security:
+        - access-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/paginated'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/simpleAuthority'
+    post:
+      tags:
+        - authorities
+      description: Create a new authority
+      security:
+        - access-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: KULeuven
+                description:
+                  type: [string, "null"]
+                  example: 2nd best university in Belgium
+      responses:
+        "201":
+          description: Created new authority
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/authority'
+
+  /authorities/permissions:
+    get:
+      tags:
+        - authorities
+      description: Get all available authority permissions
+      security:
+        - access-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: number
+                example:
+                    manage_members: 0
+                    manage_locations: 1
+                    manage_tags: 2
+                    manage_opening_times: 3
+                    manage_reservations: 4
+
+  /authorities/{id}:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the authority to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    get:
+      tags:
+        - authorities
+      description: Get a specific authority
+      security:
+        - access-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/authority'
+    patch:
+      tags:
+        - authorities
+      description: Update an authority
+      security:
+        - manager-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: [string, "null"]
+                  example: KULeuven
+                description:
+                  type: [string, "null"]
+                  example: 2nd best university in Belgium
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/authority'
+
+  /authorities/{id}/locations:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the authority to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    get:
+      tags:
+        - authorities
+      description: Get all locations belonging to this authority
+      security:
+        - access-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/manageableLocation'
+    post:
+      tags:
+        - authorities
+      description: Create a new location for this authority
+      security:
+        - manager-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  $ref: '#/components/schemas/translation'
+                excerpt:
+                  $ref: '#/components/schemas/translation'
+                seatCount:
+                  type: number
+                isReservable:
+                  type: boolean
+                reservationBlockSize:
+                  type: number
+                minReservationLength:
+                  type: [number, "null"]
+                maxReservationLength:
+                  type: [number, "null"]
+                isVisible:
+                  type: boolean
+                street:
+                  type: string
+                  example: Krijgslaan
+                number:
+                  type: string
+                  example: 281
+                zip:
+                  type: string
+                  example: 9000
+                city:
+                  type: string
+                  example: Gent
+                province:
+                  type: string
+                  example: Oost-Vlaanderen
+                country:
+                  type: string
+                  maxLength: 2
+                  minLength: 2
+                  example: BE
+                latitude:
+                  type: number
+                  format: double
+                  example: 51.0425
+                longitude:
+                  type: number
+                  format: double
+                  example: 3.7064
+      responses:
+        "201":
+          description: Created a new location
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/location'
+
+  /authorities/{id}/members:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the authority to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    get:
+      tags:
+        - authorities
+      description: Get all the members of this authority
+      security:
+        - access-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/profileWithPermissions'
+    post:
+      tags:
+        - authorities
+      description: Add a profile to this authority
+      security:
+        - manager-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profileId:
+                  type: number
+                  format: int32
+                  example: 0
+                permissions:
+                  type: number
+                  format: int64
+                  example: 9128398
+      responses:
+        "201":
+          description: Added profile to authority
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/profileWithPermissions'
+
+  /authorities/{id}/members/{profileId}:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the authority to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+      - name: profileId
+        in: path
+        description: The ID of the profile to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    delete:
+      tags:
+        - authorities
+      description: Remove a profile from this authority
+      security:
+        - manager-token: []
+      responses:
+        "204":
+          description: No content
+
+  /authorities/{id}/members/{profileId}/permissions:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the authority to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+      - name: profileId
+        in: path
+        description: The ID of the profile to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    post:
+      tags:
+        - authorities
+      description: Update permissions for a profile in this authority
+      security:
+        - manager-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                permissions:
+                  type: number
+                  format: int64
+                  example: 9128398
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/profileWithPermissions'
+
+  /locations/search:
+    get:
+      tags:
+        - locations
+      description: Search through all locations with a set of filters
+      security:
+        - access-token: []
+      parameters:
+        - name: language
+          in: query
+          description: The language to search in
+          schema:
+            type: string
+            enum: [en, nl, fr, de]
+            example: nl
+        - name: query
+          in: query
+          description: |
+            A text query to search for
+
+            Searches in name, description, and excerpt
+          schema:
+            type: string
+            example: "bibliotheek"
+        - name: open_on_day
+          in: query
+          description: A day on which the location should be open
+          schema:
+            type: string
+            format: date
+            example: "2025-01-01"
+        - name: open_on_time
+          in: query
+          description: A time on which the location should be open
+          schema:
+            type: string
+            format: time
+            example: "12:00:00"
+        - name: center_lat
+          in: query
+          description: Latitude of the center point for distance search
+          schema:
+            type: number
+            format: double
+            example: 51.0425
+        - name: center_lng
+          in: query
+          description: Longitude of the center point for distance search
+          schema:
+              type: number
+              format: double
+              example: 3.7064
+        - name: distance
+          in: query
+          description: |
+            Distance in meters from the center point
+
+            default: 1000
+          schema:
+            type: number
+            format: int32
+            example: 1500
+        - name: is_reservable
+          in: query
+          description: Whether or not the locatoin has reservations
+          schema:
+            type: boolean
+            example: true
+        - name: north_east_lat
+          in: query
+          description: Latitude of the northeast corner for bounding box search
+          schema:
+            type: number
+            format: double
+            example: 51.1
+        - name: north_east_lng
+          in: query
+          description: Longitude of the northeast corner for bounding box search
+          schema:
+            type: number
+            format: double
+            example: 3.8
+        - name: south_west_lat
+          in: query
+          description: Latitude of the southwest corner for bounding box search
+          schema:
+            type: number
+            format: double
+            example: 51.0
+        - name: south_west_lng
+          in: query
+          description: Longitude of the southwest corner for bounding box search
+          schema:
+            type: number
+            format: double
+            example: 3.7
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/miniLocation'
+
+  /locations:
+    get:
+      tags:
+        - locations
+      description: Get all locations
+      security:
+        - access-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - $ref: '#/components/schemas/paginated'
+                    - type: object
+                      properties:
+                        data:
+                          $ref: "#/components/schemas/location"
+    post:
+      tags:
+        - locations
+      description: Create a new location
+      security:
+        - access-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                location:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    authorityId:
+                      type: [number, "null"]
+                    seatCount:
+                      type: number
+                    isReservable:
+                      type: boolean
+                    reservationBlockSize:
+                      type: number
+                    minReservationLength:
+                      type: [number, "null"]
+                    maxReservationLength:
+                      type: [number, "null"]
+                    isVisible:
+                      type: boolean
+                    street:
+                      type: string
+                    number:
+                      type: string
+                    zip:
+                      type: string
+                    city:
+                      type: string
+                    province:
+                      type: string
+                    country:
+                      type: string
+                    latitude:
+                      type: number
+                    longitude:
+                      type: number
+                description:
+                  $ref: '#/components/schemas/translation'
+                excerpt:
+                  $ref: '#/components/schemas/translation'
+      responses:
+        "201":
+          description: Created new location
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/location"
+
+  /locations/permissions:
+    get:
+      tags:
+        - locations
+      description: Get all available location permissions
+      security:
+        - access-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: number
+                example:
+                    manage_members: 0
+                    manage_locations: 1
+                    manage_tags: 2
+                    manage_opening_times: 3
+                    manage_reservations: 4
+
+  /locations/{id}:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    get:
+      tags:
+        - locations
+      description: Get a specific location
+      security:
+        - access-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/location'
+    patch:
+      tags:
+        - locations
+      description: Update this location
+      security:
+        - manager-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: [string, "null"]
+                seatCount:
+                  type: [number, "null"]
+                isReservable:
+                  type: [boolean, "null"]
+                reservationBlockSize:
+                  type: [number, "null"]
+                description:
+                  oneOf:
+                    - $ref: '#/components/schemas/translation'
+                    - type: "null"
+                excerpt:
+                  oneOf:
+                    - $ref: '#/components/schemas/translation'
+                    - type: "null"
+                minReservationLength:
+                  type: [number, "null"]
+                maxReservationLength:
+                  type: [number, "null"]
+                isVisible:
+                  type: [boolean, "null"]
+                street:
+                  type: [string, "null"]
+                number:
+                  type: [string, "null"]
+                zip:
+                  type: [string, "null"]
+                city:
+                  type: [string, "null"]
+                province:
+                  type: [string, "null"]
+                latitude:
+                  type: [number, "null"]
+                longitude:
+                  type: [number, "null"]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/location'
+    delete:
+      tags:
+        - locations
+      description: Delete this location
+      security:
+        - manager-token: []
+      responses:
+        "204":
+          description: No content
+
+  /locations/{id}/images:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    post:
+      tags:
+        - locations
+      description: Upload one or more images for this location
+      security:
+        - manager-token: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Uploaded image(s)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/image'
+
+  /locations/{id}/images/{imageId}:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+      - name: imageId
+        in: path
+        description: The ID of the image to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    delete:
+      tags:
+        - locations
+      description: Delete an image for this location
+      security:
+        - manager-token: []
+      responses:
+        "204":
+          description: No content
+
+  /locations/{id}/approve:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    post:
+      tags:
+        - locations
+      description: |
+        Approve a location
+
+        Clears the `rejected_at`, `rejected_by`, and `rejected_reason` fields if they exist.
+      security:
+        - admin-token: []
+      responses:
+        "204":
+          description: No content
+
+  /locations/{id}/reject:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    post:
+      tags:
+        - locations
+      description: |
+        Reject a location
+
+        Clears the `approved_by` and `approved_at` fields if they exist.
+      security:
+        - admin-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: [string, "null"]
+                  example: In the middle of the ocean
+      responses:
+        "204":
+          description: No content
+
+  /locations/{id}/tags:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    post:
+      tags:
+        - locations
+      description: Replaces the list of tags for this location
+      security:
+        - manager-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Free WiFi", "Quiet"]
+      responses:
+        "204":
+          description: No content
+
+  /locations/{id}/members:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    get:
+      tags:
+        - locations
+      description: Get a list of profiles that can manage this location
+      security:
+        - manager-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/profileWithPermissions'
+    post:
+      tags:
+        - locations
+      description: Add a profile to this location
+      security:
+        - manager-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profileId:
+                  type: number
+                  format: int32
+                  example: 0
+                permissions:
+                  type: number
+                  format: int64
+                  example: 9128398
+      responses:
+        "201":
+          description: Added profile to location
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/profileWithPermissions'
+
+  /locations/{id}/members/{profileId}:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+      - name: profileId
+        in: path
+        description: The ID of the profile to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    delete:
+      tags:
+        - locations
+      description: Remove a profile from this location
+      security:
+        - manager-token: []
+      responses:
+        "204":
+          description: No content
+
+  /locations/{id}/members/{profileId}/permissions:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+      - name: profileId
+        in: path
+        description: The ID of the profile to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    post:
+      tags:
+        - locations
+      description: Update permissions for a profile in this location
+      security:
+        - manager-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                permissions:
+                  type: number
+                  format: int64
+                  example: 9128398
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/profileWithPermissions'
+
+  /locations/{id}/opening-times:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    get:
+      tags:
+        - openingTimes
+      description: Search opening times for a location with filters
+      security:
+        - access-token: []
+      parameters:
+        - name: start_date
+          in: query
+          description: |
+            Minimum date for opening times (format: `YYYY-MM-DD`).
+            Default: monday of the current week.
+            Maximum date is 6 months before the current date.
+            Admins can exceed this limit.
+          schema:
+            type: string
+            format: date
+            example: "2025-01-01"
+        - name: end_date
+          in: query
+          description: |
+            Maximum date for opening times (format: `YYYY-MM-DD`).
+            Default: sunday of the current week.
+            Maximum date is 6 months after the current date.
+            Admins can exceed this limit.
+          schema:
+            type: string
+            format: date
+            example: "2025-01-01"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/openingTime'
+    post:
+      tags:
+        - openingTimes
+      description: Add a new opening time to this location
+      security:
+        - manager-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                day:
+                  type: string
+                  format: date
+                  example: "2025-01-01"
+                startTime:
+                  type: string
+                  format: time
+                  example: "08:30:00"
+                endTime:
+                  type: string
+                  format: time
+                  example: "22:00:00"
+                seatCount:
+                  type: [number, "null"]
+                  example: 100
+                reservableFrom:
+                  oneOf:
+                    - type: string
+                      format: date-time
+                      example: "2024-12-01:08:30:00"
+                    - type: "null"
+                reservableUntil:
+                  oneOf:
+                    - type: string
+                      format: date-time
+                      example: "2026-01-01:22:00:00"
+                    - type: "null"
+      responses:
+        "201":
+          description: Created new opening time
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/openingTime'
+
+  /locations/{id}/opening-times/{openingTimeId}:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+      - name: openingTimeId
+        in: path
+        description: The ID of the opening time to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    patch:
+      tags:
+        - openingTimes
+      description: Update an opening time object for this location
+      security:
+        - manager-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                day:
+                  oneOf:
+                    - type: string
+                      format: date
+                      example: "2025-01-01"
+                    - type: "null"
+                startTime:
+                  oneOf:
+                    - type: string
+                      format: time
+                      example: "08:30:00"
+                    - type: "null"
+                endTime:
+                  oneOf:
+                    - type: string
+                      format: time
+                      example: "22:00:00"
+                    - type: "null"
+                seatCount:
+                  oneOf:
+                    - type: [number, "null"]
+                      example: 100
+                    - type: "null"
+                reservableFrom:
+                  oneOf:
+                    - type: string
+                      format: date-time
+                      example: "2024-12-01:08:30:00"
+                    - type: "null"
+                reservableUntil:
+                  oneOf:
+                    - type: string
+                      format: date-time
+                      example: "2026-01-01:22:00:00"
+                    - type: "null"
+      responses:
+        "200":
+          description: Updated opening time
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/openingTime'
+    delete:
+      tags:
+        - openingTimes
+      description: Delete this opening time object
+      security:
+        - manager-token: []
+      responses:
+        "204":
+          description: No content
+
+  /locations/{id}/reservations:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    get:
+      tags:
+        - reservations
+      description: Search all reservations for this location
+      security:
+        - manager-token: []
+      parameters:
+        - name: date
+          in: query
+          description: A specific date to filter on
+          schema:
+            type: string
+            format: date
+            example: "2025-01-01"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/profileReservation'
+
+  /locations/{id}/opening-times/{openingTimeId}/reservations:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+      - name: openingTimeId
+        in: path
+        description: The ID of the opening time to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    get:
+      tags:
+        - reservations
+      description: Get all reservations for an opening time
+      security:
+        - manager-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/profileReservation'
+    post:
+      tags:
+        - reservations
+      description: |
+        Create a new reservation on this opening time for the current user
+
+        This endpoint does the following:
+
+        1. Checks whether the start and end times are within the opening time.
+        1. Checks whether the current date is within `reservableFrom` and `reservableUntil`
+        1. Convert the start and end times to block indices based on the `reservationBlockSize` of the opening time's location.
+        1. Per block index, count the existing reservations and ensure the number of reservations does not exceed the `seatCount` of the opening time / location.
+      security:
+        - access-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                startTime:
+                  type: string
+                  format: time
+                endTime:
+                  type: string
+                  format: time
+      responses:
+        "201":
+          description: Created new reservation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/profileReservation'
+
+  /locations/{id}/opening-times/{openingTimeId}/reservations/{reservationId}:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+      - name: openingTimeId
+        in: path
+        description: The ID of the opening time to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+      - name: reservationId
+        in: path
+        description: The ID of the reservation to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    delete:
+      tags:
+        - reservations
+      description: Delete a reservation
+      security:
+        - manager-token: []
+      responses:
+        "204":
+          description: No content
+
+  /tags:
+    get:
+      tags:
+        - tags
+      description: Get a list of all tags
+      security:
+        - access-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/tag'
+    post:
+      tags:
+        - tags
+      description: Create a new tag
+      security:
+        - admin-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  $ref: '#/components/schemas/translation'
+      responses:
+        "201":
+          description: Created new tag
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/tag'
+
+  /tags/{id}:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the tag to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    patch:
+      tags:
+        - tags
+      description: Update a tag
+      security:
+        - admin-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  $ref: '#/components/schemas/translation'
+      responses:
+        "200":
+          description: Updated tag
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/tag'
+    delete:
+      tags:
+        - tags
+      description: Delete this tag
+      security:
+        - admin-token: []
+      responses:
+        "204":
+          description: No content
+
+  /translations:
+    post:
+      tags:
+        - translations
+      description: Create a new translation
+      security:
+        - access-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/translation'
+      responses:
+        "201":
+          description: Created new translation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/fullTranslation'
+
+  /translations/{id}:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the translation to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    patch:
+      tags:
+        - translations
+      description: Update a translation
+      security:
+        - manager-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/translation'
+      responses:
+        "200":
+          description: Updated translation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/fullTranslation'
+    delete:
+      tags:
+        - translations
+      description: Delete this translation
+      security:
+        - manager-token: []
+      responses:
+        "204":
+          description: No content
+
+  /locations/{id}/review:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    get:
+      tags:
+        - reviews
+      description: Get all the reviews for this location
+      security:
+        - access-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/paginated'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/partialReview'
+    post:
+      tags:
+        - reviews
+      description: Create a new review for this location
+      security:
+        - access-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rating:
+                  type: number
+                  format: int32
+                  minimum: 0
+                  maximum: 5
+                  example: 4
+                body:
+                  type: [string, "null"]
+                  example: Quiet and with fast wifi
+      responses:
+        "201":
+          description: Created new review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/partialReview'
+
+  /locations/{id}/review/{reviewId}:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the location to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+      - name: reviewId
+        in: path
+        description: The ID of the review to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    patch:
+      tags:
+        - reviews
+      description: Update a review
+      security:
+        - manager-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rating:
+                  oneOf:
+                    - type: number
+                      format: int32
+                      minimum: 0
+                      maximum: 5
+                      example: 4
+                    - type: "null"
+                body:
+                  type: [string, "null"]
+                  example: Quiet and with fast wifi
+      responses:
+        "200":
+          description: Updated review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/partialReview'
+
+components:
+  headers:
+    set-access-token:
+      description: Sets the access token cookie
+      schema:
+        type: string
+        example: blokmap_access_token=123abc; Path=/; HttpOnly
+
+    clear-access-token:
+      description: Clears the access token cookie
+      schema:
+        type: string
+        example: blokmap_access_token=; Path=/; HttpOnly
+
+  securitySchemes:
+    access-token:
+      type: apiKey
+      description: A cookie containing an access token
+      name: blokmap_access_token
+      in: cookie
+
+    admin-token:
+      type: apiKey
+      description: A cookie containing an access token for an admin account
+      name: blokmap_access_token
+      in: cookie
+
+    admin-or-user-token:
+      type: apiKey
+      description: |
+        A cookie containing an access token for an admin account
+        **OR** the account that is involved in this route
+      name: blokmap_access_token
+      in: cookie
+
+    manager-token:
+      type: apiKey
+      description: |
+        A cookie containing an access token for a user with permissions
+        to manage this item
+      name: blokmap_access_token
+      in: cookie
+
+  schemas:
+    patchProfile:
+      type: object
+      description: Regular users
+      properties:
+        email:
+          type: [string, "null"]
+        username:
+          type: [string, "null"]
+        firstName:
+          type: [string, "null"]
+        lastName:
+          type: [string, "null"]
+        password:
+          type: [string, "null"]
+
+    patchProfileAdmin:
+      description: Admin users
+      allOf:
+        - $ref: '#/components/schemas/patchProfile'
+        - type: object
+          properties:
+            insitutionName:
+              type: [string, "null"]
+            state:
+              oneOf:
+                - $ref: '#/components/schemas/profileState'
+                - type: "null"
+
+    paginated:
+      type: object
+      properties:
+        page:
+          type: number
+          format: int32
+        perPage:
+          type: number
+          format: int32
+        total:
+          type: number
+          format: in32
+
+    profileState:
+      type: string
+      enum:
+        - pending_email_verification
+        - active
+        - disabled
+      example: active
+
+    partialProfile:
+      type: object
+      properties:
+        id:
+          type: number
+          format: int32
+          example: 0
+        username:
+          type: string
+          example: bobdebouwer123
+        avatarUrl:
+          type: [string, "null"]
+
+    simpleProfile:
+      allOf:
+        - $ref: '#/components/schemas/partialProfile'
+        - type: object
+          properties:
+            email:
+              type: string
+              format: email
+              example: bob@example.com
+            firstName:
+              type: [string, "null"]
+              example: bob
+            lastName:
+              type: [string, "null"]
+              example: De Bouwer
+            state:
+              $ref: '#/components/schemas/profileState'
+
+    profile:
+      allOf:
+        - $ref: '#/components/schemas/simpleProfile'
+        - type: object
+          properties:
+            insitution:
+              oneOf:
+                - $ref: "#/components/schemas/institution"
+                - type: "null"
+
+    profileWithPermissions:
+      allOf:
+        - $ref: '#/components/schemas/profile'
+        - type: object
+          properties:
+            permissions:
+              type: number
+              format: int64
+              example: 9128398
+
+    simpleAuthority:
+      type: object
+      properties:
+        id:
+          type: number
+          example: 0
+        name:
+          type: string
+          example: UGent
+        description:
+          type: [string, "null"]
+          example: Ghent University
+        createdAt:
+            type: string
+            format: date-time
+            example: "2025-01-02T12:00:00"
+        createdBy:
+          oneOf:
+            - $ref: "#/components/schemas/partialProfile"
+            - type: "null"
+        updatedAt:
+          oneOf:
+            - type: string
+              format: date-time
+              example: "2025-01-02T12:00:00"
+            - type: "null"
+        updatedBy:
+          oneOf:
+            - $ref: "#/components/schemas/partialProfile"
+            - type: "null"
+
+    authority:
+      allOf:
+        - $ref: '#/components/schemas/simpleAuthority'
+        - type: object
+          properties:
+            members:
+              type: array
+              items:
+                $ref: "#/components/schemas/partialProfile"
+            locations:
+              type: array
+              items:
+                $ref: "#/components/schemas/partialLocation"
+
+    institution:
+      type: object
+      properties:
+        name:
+          type: string
+          example: UGent
+        email:
+          type: [string, "null"]
+          format: email
+          example: contact@example.com
+        phone:
+          type: [string, "null"]
+          example: "+32 123 45 67 89"
+        street:
+          type: string
+          example: Krijgslaan
+        number:
+          type: [string, "null"]
+          example: 281
+        zip:
+          type: [string, "null"]
+          example: 9000
+        city:
+          type: [string, "null"]
+          example: Gent
+        province:
+          type: [string, "null"]
+          example: Oost-Vlaanderen
+        country:
+          type: [string, "null"]
+          maxLength: 2
+          minLength: 2
+          example: BE
+
+    miniLocation:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          example: 0
+        name:
+          type: string
+          example: Bibliotheek S5 Sterre
+        latitude:
+          type: number
+          format: double
+          example: 51.0425
+        longitude:
+          type: number
+          format: double
+          example: 3.7064
+
+    partialLocation:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          example: 0
+        name:
+          type: string
+          example: Bibliotheek S5 Sterre
+        description:
+          $ref: "#/components/schemas/translation"
+        street:
+          type: string
+          example: Krijgslaan
+        number:
+          type: string
+          example: 281
+        zip:
+          type: string
+          example: 9000
+        city:
+          type: string
+          example: Gent
+        province:
+          type: string
+          example: Oost-Vlaanderen
+        country:
+          type: string
+          maxLength: 2
+          minLength: 2
+          example: BE
+        images:
+          type: [array, "null"]
+          items:
+            $ref: "#/components/schemas/image"
+        tags:
+          type: [array, "null"]
+          items:
+            $ref: "#/components/schemas/tag"
+
+    manageableLocation:
+      allOf:
+        - $ref: '#/components/schemas/partialLocation'
+        - type: object
+          properties:
+            excerpt:
+              $ref: "#/components/schemas/translation"
+            seatCount:
+              type: integer
+              format: int32
+              example: 50
+            isReservable:
+              type: boolean
+              example: true
+            reservationBlockSize:
+              type: integer
+              format: int32
+              example: 30
+            minReservationLength:
+              type: [integer, "null"]
+              format: int32
+              example: 2
+            maxReservationLength:
+              type: [integer, "null"]
+              format: int32
+              example: 12
+            isVisible:
+              type: boolean
+              example: true
+            latitude:
+              type: number
+              format: double
+              example: 51.0425
+            longitude:
+              type: number
+              format: double
+              example: 3.7064
+            approvedAt:
+              type: [string, "null"]
+              format: date-time
+              example: "2025-01-01T12:00:00"
+            approvedBy:
+              oneOf:
+                - $ref: "#/components/schemas/partialProfile"
+                - type: "null"
+            createdAt:
+              type: string
+              format: date-time
+              example: "2025-01-02T12:00:00"
+            createdBy:
+              oneOf:
+                - $ref: "#/components/schemas/partialProfile"
+                - type: "null"
+            updatedAt:
+              type: string
+              format: date-time
+              example: "2025-01-03T12:00:00"
+            updatedBy:
+              oneOf:
+                - $ref: "#/components/schemas/partialProfile"
+                - type: "null"
+
+    location:
+      allOf:
+        - $ref: '#/components/schemas/manageableLocation'
+        - type: object
+          properties:
+            openingTimes:
+              type: [array, "null"]
+              items:
+                $ref: "#/components/schemas/openingTime"
+            authority:
+              oneOf:
+                - $ref: "#/components/schemas/simpleAuthority"
+                - type: "null"
+
+    translation:
+      type: object
+      properties:
+        nl:
+          type: [string, "null"]
+          example: ​De Faculteitsbibliotheek
+        en:
+          type: [string, "null"]
+          example: The Faculty Library
+        fr:
+          type: [string, "null"]
+          example: La Bibliothèque de la Faculté
+        de:
+          type: [string, "null"]
+          example: Die Fakultätsbibliothek
+
+    fullTranslation:
+      allOf:
+        - $ref: '#/components/schemas/translation'
+        - type: object
+          properties:
+            id:
+              type: number
+              format: int32
+              example: 0
+
+    image:
+      type: object
+      properties:
+        id:
+          type: number
+          format: int32
+          example: 0
+        url:
+          type: string
+          format: uri-reference
+          example: 1/aaaa-bbbb-1234.webp
+
+    openingTime:
+      type: object
+      properties:
+        id:
+          type: number
+          format: int32
+          example: 0
+        day:
+          type: string
+          format: date
+          example: "2025-01-01"
+        startTime:
+          type: string
+          format: time
+          example: "08:30:00"
+        endTime:
+          type: string
+          format: time
+          example: "22:00:00"
+        seatCount:
+          type: [number, "null"]
+          example: 100
+        reservableFrom:
+          oneOf:
+            - type: string
+              format: date-time
+              example: "2024-12-01:08:30:00"
+            - type: "null"
+        reservableUntil:
+          oneOf:
+            - type: string
+              format: date-time
+              example: "2026-01-01:22:00:00"
+            - type: "null"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-03T12:00:00"
+        createdBy:
+          oneOf:
+            - $ref: "#/components/schemas/partialProfile"
+            - type: "null"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-01-04T12:00:00"
+        updatedBy:
+          oneOf:
+            - $ref: "#/components/schemas/partialProfile"
+            - type: "null"
+
+    partialReservation:
+      type: object
+      properties:
+        id:
+          type: number
+          format: int32
+          example: 0
+        baseBlockIndex:
+          type: number
+          format: int32
+          description: The block at which this reservation starts
+          example: 5
+        blockCount:
+          type: number
+          format: int32
+          description: The total number of blocks reserved
+          example: 4
+        startTime:
+          type: string
+          format: date-time
+          description: The computed start time of this reservation
+          example: "2025-01-01:08:30:00"
+        endTime:
+          type: string
+          format: date-time
+          description: The computed end time of this reservation
+          example: "2025-01-01:10:00:00"
+        confirmedAt:
+          oneOf:
+            - type: string
+              format: date-time
+              example: "2025-01-04T12:00:00"
+            - type: "null"
+        confirmedBy:
+          oneOf:
+            - $ref: '#/components/schemas/partialProfile'
+            - type: "null"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-01-04T12:00:00"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-04T12:00:00"
+
+    profileReservation:
+      allOf:
+        - $ref: '#/components/schemas/partialReservation'
+        - type: object
+          properties:
+            profile:
+              $ref: '#/components/schemas/simpleProfile'
+
+    reservation:
+      allOf:
+        - $ref: '#/components/schemas/profileReservation'
+        - type: object
+          properties:
+            openingTime:
+              $ref: '#/components/schemas/openingTime'
+
+    tag:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          example: 0
+        name:
+          $ref: "#/components/schemas/translation"
+
+    partialReview:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          example: 0
+        rating:
+          type: number
+          format: int32
+          minimum: 0
+          maximum: 5
+          example: 4
+        body:
+          type: [string, "null"]
+          example: Quiet and with fast wifi
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-04T12:00:00"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-01-04T12:00:00"
+
+    review:
+      allOf:
+        - $ref: '#/components/schemas/partialReview'
+        - type: object
+          properties:
+            location:
+              $ref: '#/components/schemas/partialLocation'

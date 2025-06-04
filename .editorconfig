@@ -9,3 +9,6 @@ indent_size = 4
 
 [*.{yaml,yml}]
 indent_style = space
+
+[openapi.yaml]
+indent_size = 2
