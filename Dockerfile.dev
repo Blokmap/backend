@@ -12,4 +12,4 @@ RUN apt update \
 
 COPY . .
 
-CMD ["cargo", "watch", "-x", "run -p blokmap"]
+CMD ["cargo", "watch", "-x", "run"]

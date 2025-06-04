@@ -6,10 +6,23 @@ RUN apt update \
     && apt install -y libpq5 libpq-dev curl pkg-config openssl libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
+RUN cargo new --vcs none --edition 2024 --bin blokmap
 WORKDIR /blokmap
 
-COPY . .
+COPY ./.cargo ./Cargo.toml ./Cargo.lock ./
+COPY ./common ./common
+COPY ./models ./models
+COPY ./seeder ./seeder
 
+# Cache dependencies
+RUN cargo build --release --bin blokmap
+
+# Remove stub source and its artifacts
+RUN rm -r ./src
+RUN rm ./target/release/deps/blokmap*
+
+# Copy and build the actual binary
+COPY ./src ./src
 RUN cargo build --release --bin blokmap
 
 # Run
