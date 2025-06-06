@@ -14,6 +14,7 @@ use crate::schema::{location, opening_time, profile, translation};
 use crate::{Image, NewImage, NewLocationImage, NewTranslation, Profile};
 
 mod filter;
+mod tag;
 
 pub use filter::*;
 
