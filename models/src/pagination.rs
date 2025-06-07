@@ -3,6 +3,16 @@ use std::fmt;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize};
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Paginated<T> {
+	pub page:     u32,
+	pub per_page: u32,
+	pub total:    i64,
+
+	pub data: T,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PaginationOptions {
@@ -54,19 +64,15 @@ fn per_page_bounds<'de, D: Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
 	d.deserialize_u32(BoundedU32Visitor { start: 1, end: 75 })
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Paginated<T> {
-	pub page:     u32,
-	pub per_page: u32,
-	pub data:     T,
+impl Default for PaginationOptions {
+	fn default() -> Self { Self { page: 1, per_page: 12 } }
 }
 
 impl PaginationOptions {
 	/// Create a new [`Paginated`] struct based on the current parameters with
 	/// the given data
-	pub fn paginate<T>(&self, data: T) -> Paginated<T> {
-		Paginated { page: self.page, per_page: self.per_page, data }
+	pub fn paginate<T>(&self, total: i64, data: T) -> Paginated<T> {
+		Paginated { page: self.page, per_page: self.per_page, total, data }
 	}
 
 	/// Calculate the SQL LIMIT value of these parameters

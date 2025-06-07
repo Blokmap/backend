@@ -176,11 +176,11 @@ pub(crate) async fn get_locations(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let locations = Location::get_all(p_opts, &conn).await?;
+	let (total, locations) = Location::get_all(p_opts, &conn).await?;
 	let locations: Vec<LocationResponse> =
 		locations.into_iter().map(Into::into).collect();
 
-	let paginated = p_opts.paginate(locations);
+	let paginated = p_opts.paginate(total, locations);
 
 	Ok((StatusCode::OK, Json(paginated)))
 }

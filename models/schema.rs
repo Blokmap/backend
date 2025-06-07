@@ -247,8 +247,3 @@ diesel::allow_tables_to_appear_in_same_query!(
 	tag,
 	translation,
 );
-
-diesel::alias!(
-	profile::table as creater: CreaterAlias,
-	profile::table as updater: UpdaterAlias,
-);

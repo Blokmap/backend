@@ -1,10 +1,17 @@
 //! Controllers for [`Profile`]s
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::response::NoContent;
 use axum::{Extension, Json};
 use common::{DbPool, Error};
-use models::{Location, Profile, ProfileState, UpdateProfile};
+use models::{
+	Location,
+	Paginated,
+	PaginationOptions,
+	Profile,
+	ProfileState,
+	UpdateProfile,
+};
 use uuid::Uuid;
 
 use crate::mailer::Mailer;
@@ -16,15 +23,18 @@ use crate::{Config, ProfileId};
 #[instrument(skip(pool))]
 pub(crate) async fn get_all_profiles(
 	State(pool): State<DbPool>,
-) -> Result<Json<Vec<ProfileResponse>>, Error> {
+	Query(p_opts): Query<PaginationOptions>,
+) -> Result<Json<Paginated<Vec<ProfileResponse>>>, Error> {
 	let conn = pool.get().await?;
 
-	let profiles = Profile::get_all(&conn).await?;
+	let (total, profiles) = Profile::get_all(p_opts, &conn).await?;
 
-	let response: Vec<ProfileResponse> =
+	let profiles: Vec<ProfileResponse> =
 		profiles.into_iter().map(ProfileResponse::from).collect();
 
-	Ok(Json(response))
+	let paginated = p_opts.paginate(total, profiles);
+
+	Ok(Json(paginated))
 }
 
 /// Get a [`Profile`] given its id

@@ -127,7 +127,17 @@ impl Location {
 	pub async fn get_all(
 		p_opts: PaginationOptions,
 		conn: &DbConn,
-	) -> Result<Vec<FullLocationData>, Error> {
+	) -> Result<(i64, Vec<FullLocationData>), Error> {
+		let total: i64 = conn
+			.interact(move |conn| {
+				use diesel::dsl::count;
+
+				use crate::schema::location::dsl::*;
+
+				location.select(count(id)).first(conn)
+			})
+			.await??;
+
 		let locations = conn
 			.interact(move |conn| {
 				location::table
@@ -167,7 +177,7 @@ impl Location {
 			})
 			.await??;
 
-		Ok(Self::group_by_id(locations))
+		Ok((total, Self::group_by_id(locations)))
 	}
 
 	/// Get a [`Location`] by its id and include its [`Translation`]s.

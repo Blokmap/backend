@@ -11,6 +11,7 @@ use diesel_derive_enum::DbEnum;
 use lettre::message::Mailbox;
 use serde::{Deserialize, Serialize};
 
+use crate::PaginationOptions;
 use crate::schema::profile;
 
 #[derive(Clone, DbEnum, Debug, Default, Deserialize, PartialEq, Eq)]
@@ -261,12 +262,31 @@ impl Profile {
 	/// # Errors
 	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
-	pub async fn get_all(conn: &DbConn) -> Result<Vec<Self>, Error> {
+	pub async fn get_all(
+		p_opts: PaginationOptions,
+		conn: &DbConn,
+	) -> Result<(i64, Vec<Self>), Error> {
 		use self::profile::dsl::*;
 
-		let profiles = conn.interact(|conn| profile.load(conn)).await??;
+		let total: i64 = conn
+			.interact(|conn| {
+				use diesel::dsl::count;
 
-		Ok(profiles)
+				profile.select(count(id)).first(conn)
+			})
+			.await??;
+
+		let profiles = conn
+			.interact(move |conn| {
+				profile
+					.order_by(id)
+					.limit(p_opts.limit())
+					.offset(p_opts.offset())
+					.get_results(conn)
+			})
+			.await??;
+
+		Ok((total, profiles))
 	}
 
 	/// Check if a [`Profile`] with a given id exists
