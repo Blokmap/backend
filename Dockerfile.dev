@@ -1,15 +1,17 @@
 FROM rust:1.87.0-slim
 
+RUN cargo install --locked cargo-watch
+
 # Install dependency for postgres and healthcheck
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update \
-    && apt install -y libpq5 libpq-dev curl pkg-config openssl libssl-dev \
+    && apt install -y libpq5 libpq-dev curl pkg-config openssl libssl-dev mold \
     && rm -rf /var/lib/apt/lists/*
-
-RUN cargo install --locked cargo-watch
 
 WORKDIR /blokmap-backend
 
 COPY . .
+
+RUN echo '[build]\nrustflags = ["-Ctarget-cpu=native", "-C", "link-arg=-fuse-ld=mold", "--cfg", "tokio_unstable"]' > .cargo/config.toml
 
 CMD ["cargo", "watch", "-x", "run"]
