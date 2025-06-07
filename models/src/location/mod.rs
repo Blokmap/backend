@@ -11,7 +11,14 @@ use serde::{Deserialize, Serialize};
 
 use super::{OpeningTime, Translation};
 use crate::schema::{location, opening_time, profile, translation};
-use crate::{Image, NewImage, NewLocationImage, NewTranslation, Profile};
+use crate::{
+	Image,
+	NewImage,
+	NewLocationImage,
+	NewTranslation,
+	PaginationOptions,
+	Profile,
+};
 
 mod filter;
 
@@ -118,6 +125,7 @@ impl Location {
 	///
 	/// # Errors
 	pub async fn get_all(
+		p_opts: PaginationOptions,
 		conn: &DbConn,
 	) -> Result<Vec<FullLocationData>, Error> {
 		let locations = conn
@@ -152,6 +160,9 @@ impl Location {
 						creater.fields(profile::all_columns).nullable(),
 						updater.fields(profile::all_columns).nullable(),
 					))
+					.order(location::id)
+					.limit(p_opts.limit())
+					.offset(p_opts.offset())
 					.load(conn)
 			})
 			.await??;
