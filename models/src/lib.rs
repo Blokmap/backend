@@ -7,13 +7,15 @@ mod image;
 mod location;
 mod opening_time;
 mod profile;
+mod tag;
 mod translation;
 
+pub mod ephemeral;
 pub mod schema;
 
-pub use location::*;
-pub mod ephemeral;
 pub use image::*;
+pub use location::*;
 pub use opening_time::*;
 pub use profile::*;
+pub use tag::*;
 pub use translation::*;

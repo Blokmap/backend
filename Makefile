@@ -1,6 +1,6 @@
 .PHONY: lint lint-fix fmt fmt-check build-migrations migrate migrate-full
 
-CLIPPY_ALLOW = -A clippy::wildcard-imports
+CLIPPY_ALLOW = -A clippy::wildcard-imports -A clippy::missing_errors_doc
 CLIPPY_FLAGS = -W clippy::pedantic $(CLIPPY_ALLOW) -D warnings
 
 lint:
