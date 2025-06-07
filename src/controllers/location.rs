@@ -14,7 +14,13 @@ use fast_image_resize::images::Image;
 use fast_image_resize::{IntoImageView, Resizer};
 use image::codecs::webp::WebPEncoder;
 use image::{ColorType, ImageEncoder, ImageReader};
-use models::{Location, LocationFilter, NewImage, PaginationOptions};
+use models::{
+	Image as DbImage,
+	Location,
+	LocationFilter,
+	NewImage,
+	PaginationOptions,
+};
 use rayon::prelude::*;
 use uuid::Uuid;
 
@@ -22,6 +28,7 @@ use crate::ProfileId;
 use crate::schemas::location::{
 	CreateLocationRequest,
 	LocationResponse,
+	RejectLocationRequest,
 	UpdateLocationRequest,
 };
 
@@ -81,7 +88,8 @@ fn generate_image_filepaths(id: i32) -> Result<(PathBuf, PathBuf), Error> {
 	let rel_filepath =
 		PathBuf::from(id.to_string()).join(image_uuid).with_extension("webp");
 
-	let abs_filepath = PathBuf::from("/mnt/files").join(&rel_filepath);
+	let abs_filepath =
+		PathBuf::from("/mnt/files/locations").join(&rel_filepath);
 
 	// Ensure all parent directories exist
 	let prefix = abs_filepath.parent().unwrap();
@@ -140,6 +148,25 @@ pub(crate) async fn upload_location_image(
 	let image_paths: Vec<_> = images.into_iter().map(|i| i.file_path).collect();
 
 	Ok((StatusCode::CREATED, Json(image_paths)))
+}
+
+#[instrument(skip(pool))]
+pub async fn delete_location_image(
+	State(pool): State<DbPool>,
+	Extension(profile_id): Extension<ProfileId>,
+	Path(id): Path<i32>,
+	Path(image_id): Path<i32>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	// Delete the image record before the file prevent dangling
+	let image = DbImage::get_by_id(id, &conn).await?;
+	DbImage::delete_by_id(id, &conn).await?;
+
+	let filepath = PathBuf::from("/mnt/files/locations").join(&image.file_path);
+	std::fs::remove_file(filepath)?;
+
+	Ok((StatusCode::NO_CONTENT, NoContent))
 }
 
 /// Get a location from the database.
@@ -266,6 +293,21 @@ pub(crate) async fn approve_location(
 	let conn = pool.get().await?;
 
 	Location::approve_by(id, *profile_id, &conn).await?;
+
+	Ok((StatusCode::NO_CONTENT, NoContent))
+}
+
+/// Reject a location in the database.
+#[instrument(skip(pool))]
+pub(crate) async fn reject_location(
+	State(pool): State<DbPool>,
+	Extension(profile_id): Extension<ProfileId>,
+	Path(id): Path<i32>,
+	Json(request): Json<RejectLocationRequest>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	Location::reject_by(id, *profile_id, request.reason, &conn).await?;
 
 	Ok((StatusCode::NO_CONTENT, NoContent))
 }

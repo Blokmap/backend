@@ -79,6 +79,11 @@ pub struct UpdateLocationRequest {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RejectLocationRequest {
+	pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LocationResponse {
 	pub id:                     i32,

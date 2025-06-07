@@ -19,6 +19,31 @@ pub struct Image {
 	pub uploaded_by: i32,
 }
 
+impl Image {
+	pub async fn get_by_id(img_id: i32, conn: &DbConn) -> Result<Self, Error> {
+		let img = conn
+			.interact(move |conn| {
+				use self::image::dsl::*;
+
+				image.find(img_id).first(conn)
+			})
+			.await??;
+
+		Ok(img)
+	}
+
+	pub async fn delete_by_id(img_id: i32, conn: &DbConn) -> Result<(), Error> {
+		conn.interact(move |conn| {
+			use self::image::dsl::*;
+
+			diesel::delete(image.find(img_id)).execute(conn)
+		})
+		.await??;
+
+		Ok(())
+	}
+}
+
 #[derive(Clone, Debug, Deserialize, Insertable, Serialize)]
 #[diesel(table_name = image)]
 pub struct NewImage {

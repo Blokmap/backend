@@ -322,6 +322,36 @@ impl Location {
 				.set((
 					approved_by.eq(profile_id),
 					approved_at.eq(Utc::now().naive_utc()),
+					rejected_at.eq(None::<NaiveDateTime>),
+					rejected_by.eq(None::<i32>),
+					rejected_reason.eq(None::<String>),
+				))
+				.execute(conn)
+		})
+		.await??;
+
+		Ok(())
+	}
+
+	/// Reject a [`Location`] by its id and profile id.
+	///
+	/// # Errors
+	pub async fn reject_by(
+		loc_id: i32,
+		profile_id: i32,
+		reason: Option<String>,
+		conn: &DbConn,
+	) -> Result<(), Error> {
+		conn.interact(move |conn| {
+			use self::location::dsl::*;
+
+			diesel::update(location.filter(id.eq(loc_id)))
+				.set((
+					approved_by.eq(None::<i32>),
+					approved_at.eq(None::<NaiveDateTime>),
+					rejected_at.eq(Utc::now().naive_utc()),
+					rejected_by.eq(profile_id),
+					rejected_reason.eq(reason),
 				))
 				.execute(conn)
 		})

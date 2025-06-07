@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use axum::Router;
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tower_http::timeout::TimeoutLayer;
@@ -23,9 +23,11 @@ use crate::controllers::location::{
 	approve_location,
 	create_location,
 	delete_location,
+	delete_location_image,
 	get_location,
 	get_location_positions,
 	get_locations,
+	reject_location,
 	search_locations,
 	update_location,
 	upload_location_image,
@@ -105,6 +107,7 @@ fn profile_routes(state: &AppState) -> Router<AppState> {
 fn location_routes(state: &AppState) -> Router<AppState> {
 	let protected = Router::new()
 		.route("/{id}/approve", post(approve_location))
+		.route("/{id}/reject", post(reject_location))
 		.route_layer(AdminLayer::new(state.clone()))
 		.route_layer(AuthLayer::new(state.clone()));
 
@@ -112,6 +115,7 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 		.route("/", post(create_location))
 		.route("/{id}", post(update_location).delete(delete_location))
 		.route("/{id}/image", post(upload_location_image))
+		.route("/{id}/image/{image_id}", delete(delete_location_image))
 		.route_layer(AuthLayer::new(state.clone()));
 
 	Router::new()
