@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
 use blokmap::schemas::auth::LoginUsernameRequest;
-use models::{Profile, ProfileState};
+use models::{Paginated, PaginationOptions, Profile, ProfileState};
 
 mod common;
 
@@ -23,7 +23,7 @@ async fn get_all_profiles() {
 
 	let _access_token = response.cookie("blokmap_access_token");
 
-	let response = env.app.get("/profile").await;
+	let response = env.app.get("/profiles").await;
 
 	assert_eq!(response.status_code(), StatusCode::OK);
 }
@@ -32,7 +32,7 @@ async fn get_all_profiles() {
 async fn get_current_profile() {
 	let env = TestEnv::new().await.login("test").await;
 
-	let response = env.app.get("/profile/me").await;
+	let response = env.app.get("/profiles/me").await;
 	let body = response.json::<ProfileResponse>();
 
 	assert_eq!(response.status_code(), StatusCode::OK);
@@ -43,13 +43,13 @@ async fn get_current_profile() {
 async fn update_current_profile_username() {
 	let env = TestEnv::new().await.login_admin().await;
 
-	let response = env.app.get("/profile/me").await;
+	let response = env.app.get("/profiles/me").await;
 	let old_profile = response.json::<ProfileResponse>();
 
 	let response = env
 		.expect_no_mail(async || {
 			env.app
-				.patch("/profile/me")
+				.patch("/profiles/me")
 				.json(&UpdateProfileRequest {
 					username:      Some("bobble".to_string()),
 					pending_email: None,
@@ -60,7 +60,7 @@ async fn update_current_profile_username() {
 
 	assert_eq!(response.status_code(), StatusCode::OK);
 
-	let response = env.app.get("/profile/me").await;
+	let response = env.app.get("/profiles/me").await;
 	let new_profile = response.json::<ProfileResponse>();
 
 	assert_ne!(old_profile.username, new_profile.username);
@@ -85,7 +85,7 @@ async fn update_current_profile_pending_email() {
 	let response = env
 		.expect_mail_to(&["bobble@example.com"], async || {
 			env.app
-				.patch("/profile/me")
+				.patch("/profiles/me")
 				.json(&UpdateProfileRequest {
 					username:      None,
 					pending_email: Some("bobble@example.com".to_string()),
@@ -115,12 +115,16 @@ async fn update_current_profile_pending_email() {
 async fn disable_profile() {
 	let env = TestEnv::new().await.login_admin().await;
 
-	let response = env.app.get("/profile").await;
-	let profiles: Vec<ProfileResponse> = response.json();
-	let test_id =
-		profiles.iter().find(|p| p.username == "test").map(|p| p.id).unwrap();
+	let response = env.app.get("/profiles").await;
+	let profiles: Paginated<Vec<ProfileResponse>> = response.json();
+	let test_id = profiles
+		.data
+		.iter()
+		.find(|p| p.username == "test")
+		.map(|p| p.id)
+		.unwrap();
 
-	let response = env.app.post(&format!("/profile/disable/{test_id}")).await;
+	let response = env.app.post(&format!("/profiles/disable/{test_id}")).await;
 
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
@@ -135,13 +139,17 @@ async fn disable_profile() {
 async fn disable_profile_not_admin() {
 	let env = TestEnv::new().await.login("test").await;
 
-	let response = env.app.get("/profile").await;
-	let profiles: Vec<ProfileResponse> = response.json();
+	let response = env.app.get("/profiles").await;
+	let profiles: Paginated<Vec<ProfileResponse>> = response.json();
 
-	let test_id =
-		profiles.iter().find(|p| p.username == "test").map(|p| p.id).unwrap();
+	let test_id = profiles
+		.data
+		.iter()
+		.find(|p| p.username == "test")
+		.map(|p| p.id)
+		.unwrap();
 
-	let response = env.app.post(&format!("/profile/disable/{test_id}")).await;
+	let response = env.app.post(&format!("/profiles/disable/{test_id}")).await;
 
 	assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 
@@ -158,16 +166,17 @@ async fn activate_profile() {
 
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
-	let test = Profile::get_all(&conn)
+	let test = Profile::get_all(PaginationOptions::default(), &conn)
 		.await
 		.unwrap()
+		.1
 		.into_iter()
 		.find(|p| p.username == "test-disabled")
 		.unwrap();
 
 	let test_id = test.id;
 
-	let response = env.app.post(&format!("/profile/activate/{test_id}")).await;
+	let response = env.app.post(&format!("/profiles/activate/{test_id}")).await;
 
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
@@ -182,16 +191,17 @@ async fn activate_profile_not_admin() {
 
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
-	let test = Profile::get_all(&conn)
+	let test = Profile::get_all(PaginationOptions::default(), &conn)
 		.await
 		.unwrap()
+		.1
 		.into_iter()
 		.find(|p| p.username == "test-disabled")
 		.unwrap();
 
 	let test_id = test.id;
 
-	let response = env.app.post(&format!("/profile/activate/{test_id}")).await;
+	let response = env.app.post(&format!("/profiles/activate/{test_id}")).await;
 
 	assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 
@@ -206,7 +216,7 @@ async fn activate_profile_not_admin() {
 async fn get_profile_locations() {
 	let env = TestEnv::new().await.login("test").await;
 
-	let response = env.app.get("/profile/1/locations").await;
+	let response = env.app.get("/profiles/1/locations").await;
 	let _ = response.json::<Vec<LocationResponse>>();
 
 	assert_eq!(response.status_code(), StatusCode::OK);

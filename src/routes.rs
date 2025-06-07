@@ -51,7 +51,7 @@ pub fn get_app_router(state: AppState) -> Router {
 	let api_routes = Router::new()
 		.route("/healthcheck", get(healthcheck))
 		.nest("/auth", auth_routes(&state))
-		.nest("/profile", profile_routes(&state))
+		.nest("/profiles", profile_routes(&state))
 		.nest("/locations", location_routes(&state))
 		.nest("/translations", translation_routes(&state));
 

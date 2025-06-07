@@ -14,7 +14,7 @@ use fast_image_resize::images::Image;
 use fast_image_resize::{IntoImageView, Resizer};
 use image::codecs::webp::WebPEncoder;
 use image::{ColorType, ImageEncoder, ImageReader};
-use models::{Location, LocationFilter, NewImage};
+use models::{Location, LocationFilter, NewImage, PaginationOptions};
 use rayon::prelude::*;
 use uuid::Uuid;
 
@@ -172,14 +172,17 @@ pub(crate) async fn get_location_positions(
 #[instrument(skip(pool))]
 pub(crate) async fn get_locations(
 	State(pool): State<DbPool>,
+	Query(p_opts): Query<PaginationOptions>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let locations = Location::get_all(&conn).await?;
+	let (total, locations) = Location::get_all(p_opts, &conn).await?;
 	let locations: Vec<LocationResponse> =
 		locations.into_iter().map(Into::into).collect();
 
-	Ok((StatusCode::OK, Json(locations)))
+	let paginated = p_opts.paginate(total, locations);
+
+	Ok((StatusCode::OK, Json(paginated)))
 }
 
 /// Search all locations from the database on given latlng bounds.

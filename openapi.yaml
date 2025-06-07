@@ -987,7 +987,9 @@ paths:
                     - type: object
                       properties:
                         data:
-                          $ref: "#/components/schemas/location"
+                          type: array
+                          items:
+                            $ref: "#/components/schemas/location"
     post:
       tags:
         - locations

@@ -1,8 +1,8 @@
 FROM rust:1.87.0-slim
 
-RUN cargo install --locked cargo-watch
+RUN cargo install --locked bacon
 
-WORKDIR /volume/blokmap-backend
+WORKDIR /blokmap-backend
 
 # Install dependency for postgres and healthcheck
 ENV DEBIAN_FRONTEND=noninteractive
@@ -12,4 +12,4 @@ RUN apt update \
 
 COPY . .
 
-CMD ["cargo", "watch", "-x", "run"]
+CMD ["bacon", "--headless", "run"]
