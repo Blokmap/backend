@@ -347,17 +347,18 @@ CREATE TABLE location_tag (
 
 
 CREATE TABLE opening_time (
-    id              SERIAL    PRIMARY KEY,
-    location_id     INTEGER   NOT NULL,
-	day             DATE      NOT NULL,
-    start_time      TIME      NOT NULL,
-    end_time        TIME      NOT NULL,
-    seat_count      INTEGER,
-    reservable_from TIMESTAMP,
-    created_at      TIMESTAMP NOT NULL    DEFAULT now(),
-	created_by      INTEGER,
-    updated_at      TIMESTAMP NOT NULL    DEFAULT now(),
-	updated_by      INTEGER,
+    id               SERIAL    PRIMARY KEY,
+    location_id      INTEGER   NOT NULL,
+	day              DATE      NOT NULL,
+    start_time       TIME      NOT NULL,
+    end_time         TIME      NOT NULL,
+    seat_count       INTEGER,
+    reservable_from  TIMESTAMP,
+    reservable_until TIMESTAMP,
+    created_at       TIMESTAMP NOT NULL    DEFAULT now(),
+	created_by       INTEGER,
+    updated_at       TIMESTAMP NOT NULL    DEFAULT now(),
+	updated_by       INTEGER,
 
     CONSTRAINT fk_location_id
     FOREIGN KEY (location_id)
@@ -428,6 +429,19 @@ CREATE TABLE image (
 ALTER TABLE profile
 ADD CONSTRAINT fk__profile__avatar_image_id FOREIGN KEY (avatar_image_id)
 REFERENCES image(id) ON DELETE SET NULL;
+
+
+
+CREATE VIEW simple_profile AS
+	SELECT
+		p.id, p.username,
+		img.file_path AS avatar_url,
+		p.email, p.first_name, p.last_name,
+		p.state
+	FROM profile p
+	LEFT OUTER JOIN image img
+	ON p.avatar_image_id = img.id;
+
 
 
 

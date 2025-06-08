@@ -1,5 +1,7 @@
 DROP TABLE location_image;
 
+DROP VIEW simple_profile;
+
 ALTER TABLE PROFILE DROP CONSTRAINT fk__profile__avatar_image_id;
 DROP TABLE IMAGE;
 

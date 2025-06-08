@@ -1,0 +1,22 @@
+[
+	{
+		"name": {
+			"nl": "Gratis WiFi",
+			"en": "Free WiFi",
+			"fr": "WiFi Gratuit",
+			"de": "Freies WLAN",
+			"created_by": 1
+		},
+		"created_by": 1
+	},
+	{
+		"name": {
+			"nl": "Stil",
+			"en": "Quiet",
+			"fr": "Calme",
+			"de": "Ruhig",
+			"created_by": 1
+		},
+		"created_by": 1
+	}
+]

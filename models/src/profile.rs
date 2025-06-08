@@ -12,9 +12,13 @@ use lettre::message::Mailbox;
 use serde::{Deserialize, Serialize};
 
 use crate::PaginationOptions;
-use crate::schema::profile;
+use crate::schema::{image, profile, simple_profile};
 
-#[derive(Clone, DbEnum, Debug, Default, Deserialize, PartialEq, Eq)]
+diesel::joinable!(profile -> image (avatar_image_id));
+
+#[derive(
+	Clone, DbEnum, Debug, Default, Deserialize, PartialEq, Eq, Serialize,
+)]
 #[ExistingTypePath = "crate::schema::sql_types::ProfileState"]
 pub enum ProfileState {
 	#[default]
@@ -99,6 +103,38 @@ impl TryFrom<&Profile> for Mailbox {
 			);
 			Err(Error::InternalServerError)
 		}
+	}
+}
+
+#[derive(
+	Clone, Debug, Deserialize, Identifiable, Queryable, Serialize, Selectable,
+)]
+#[diesel(table_name = simple_profile)]
+#[diesel(check_for_backend(Pg))]
+pub struct SimpleProfile {
+	id:         i32,
+	username:   String,
+	avatar_url: Option<String>,
+	email:      Option<String>,
+	first_name: Option<String>,
+	last_name:  Option<String>,
+	state:      ProfileState,
+}
+
+impl SimpleProfile {
+	pub async fn get_by_ids(
+		ids: Vec<i32>,
+		conn: &DbConn,
+	) -> Result<Vec<Self>, Error> {
+		let profiles = conn
+			.interact(move |conn| {
+				use self::simple_profile::dsl::*;
+
+				simple_profile.filter(id.eq_any(ids)).get_results(conn)
+			})
+			.await??;
+
+		Ok(profiles)
 	}
 }
 

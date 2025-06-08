@@ -1,5 +1,5 @@
 use chrono::NaiveDateTime;
-use models::{NewTranslation, Translation};
+use models::{NewTranslation, Translation, UpdateTranslation};
 use serde::{Deserialize, Serialize};
 
 /// The data needed to make a new [`Translation`].
@@ -33,6 +33,19 @@ pub struct UpdateTranslationRequest {
 	pub en: Option<String>,
 	pub fr: Option<String>,
 	pub de: Option<String>,
+}
+
+impl UpdateTranslationRequest {
+	#[must_use]
+	pub fn to_insertable(self, updated_by: i32) -> UpdateTranslation {
+		UpdateTranslation {
+			nl: self.nl,
+			en: self.en,
+			fr: self.fr,
+			de: self.de,
+			updated_by,
+		}
+	}
 }
 
 /// The data returned when making a new [`Translation`]

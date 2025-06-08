@@ -11,8 +11,10 @@ use models::{
 	Location,
 	NewLocation,
 	NewOpeningTime,
+	NewTag,
 	NewTranslation,
 	Profile,
+	TagIncludes,
 	Translation,
 };
 
@@ -98,6 +100,20 @@ impl TestEnv {
 					async |conn, times: Vec<NewOpeningTime>| {
 						for time in times {
 							time.insert(conn).await?;
+						}
+
+						Ok(())
+					},
+				)
+				.await;
+
+			// Seed tags
+			seeder
+				.populate(
+					"tests/seed/tags.json",
+					async |conn, tags: Vec<NewTag>| {
+						for tag in tags {
+							tag.insert(TagIncludes::default(), conn).await?;
 						}
 
 						Ok(())

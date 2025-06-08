@@ -53,6 +53,18 @@ impl PartialEq for Translation {
 
 impl Eq for Translation {}
 
+#[derive(Clone, Debug, Deserialize, Serialize, Queryable, Selectable)]
+#[serde(rename_all = "camelCase")]
+#[diesel(table_name = translation)]
+#[diesel(check_for_backend(Pg))]
+pub struct SimpleTranslation {
+	pub id: i32,
+	pub nl: Option<String>,
+	pub en: Option<String>,
+	pub fr: Option<String>,
+	pub de: Option<String>,
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone, Insertable)]
 #[diesel(table_name = translation)]
 pub struct NewTranslation {
