@@ -5,19 +5,20 @@ use chrono::{NaiveDateTime, Utc};
 use common::{DbConn, Error};
 use diesel::pg::Pg;
 use diesel::prelude::*;
+use diesel::sql_types::Bool;
 use diesel::{Identifiable, Queryable, Selectable};
-use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::{OpeningTime, Translation};
-use crate::schema::{location, opening_time, profile, translation};
+use crate::schema::{location, opening_time, simple_profile, translation};
 use crate::{
 	Image,
 	NewImage,
 	NewLocationImage,
 	NewTranslation,
+	OpeningTime,
 	PaginationOptions,
-	Profile,
+	PrimitiveTranslation,
+	SimpleProfile,
 };
 
 mod filter;
@@ -27,43 +28,64 @@ pub use filter::*;
 diesel::alias!(
 	translation as description: DescriptionAlias,
 	translation as excerpt: ExcerptAlias,
-	profile as approver: ApproverAlias,
-	profile as creater: CreaterAlias,
-	profile as updater: UpdaterAlias,
+	simple_profile as approver: ApproverAlias,
+	simple_profile as rejecter: RejecterAlias,
+	simple_profile as creater: CreaterAlias,
+	simple_profile as updater: UpdaterAlias,
 );
 
-pub type LocationBackfill = (
-	Location,
-	Translation,
-	Translation,
-	Option<OpeningTime>,
-	Option<Profile>,
-	Option<Profile>,
-	Option<Profile>,
-);
+pub type LocationBackfill = (Location, Option<OpeningTime>);
 
-pub type FullLocationData = (
-	Location,
-	Translation,
-	Translation,
-	Vec<OpeningTime>,
-	Option<Profile>,
-	Option<Profile>,
-	Option<Profile>,
-);
+pub type FullLocationData = (Location, Vec<OpeningTime>);
 
-#[derive(
-	Clone, Debug, Deserialize, Serialize, Identifiable, Queryable, Selectable,
-)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct LocationIncludes {
+	#[serde(default)]
+	pub approved_by: bool,
+	#[serde(default)]
+	pub rejected_by: bool,
+	#[serde(default)]
+	pub created_by:  bool,
+	#[serde(default)]
+	pub updated_by:  bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Queryable, Serialize)]
 #[diesel(table_name = location)]
 #[diesel(check_for_backend(Pg))]
 pub struct Location {
+	pub location:    PrimitiveLocation,
+	// TODO: authorities
+	// pub authority:              Option<i32>,
+	pub description: PrimitiveTranslation,
+	pub excerpt:     PrimitiveTranslation,
+	pub approved_by: Option<Option<SimpleProfile>>,
+	pub rejected_by: Option<Option<SimpleProfile>>,
+	pub created_by:  Option<Option<SimpleProfile>>,
+	pub updated_by:  Option<Option<SimpleProfile>>,
+}
+
+impl Hash for Location {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		self.location.id.hash(state);
+	}
+}
+
+impl PartialEq for Location {
+	fn eq(&self, other: &Self) -> bool { self.location.id == other.location.id }
+}
+
+impl Eq for Location {}
+
+#[derive(
+	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
+)]
+#[diesel(table_name = location)]
+#[diesel(check_for_backend(Pg))]
+pub struct PrimitiveLocation {
 	pub id:                     i32,
 	pub name:                   String,
-	pub authority_id:           Option<i32>,
-	pub description_id:         i32,
-	pub excerpt_id:             i32,
 	pub seat_count:             i32,
 	pub is_reservable:          bool,
 	pub reservation_block_size: i32,
@@ -79,52 +101,31 @@ pub struct Location {
 	pub latitude:               f64,
 	pub longitude:              f64,
 	pub approved_at:            Option<NaiveDateTime>,
-	pub approved_by:            Option<i32>,
 	pub rejected_at:            Option<NaiveDateTime>,
-	pub rejected_by:            Option<i32>,
 	pub rejected_reason:        Option<String>,
 	pub created_at:             NaiveDateTime,
-	pub created_by:             Option<i32>,
 	pub updated_at:             NaiveDateTime,
-	pub updated_by:             Option<i32>,
 }
-
-impl Hash for Location {
-	fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.id.hash(state) }
-}
-
-impl PartialEq for Location {
-	fn eq(&self, other: &Self) -> bool { self.id == other.id }
-}
-
-impl Eq for Location {}
 
 impl Location {
 	fn group_by_id(data: Vec<LocationBackfill>) -> Vec<FullLocationData> {
 		let mut id_map = HashMap::new();
 
-		for (loc, desc, exc, times, aprv, crt, updt) in data {
-			let entry = id_map
-				.entry((loc, desc, exc, aprv, crt, updt))
-				.or_insert(vec![]);
+		for (loc, times) in data {
+			let entry = id_map.entry(loc).or_insert(vec![]);
 
 			if let Some(times) = times {
 				entry.push(times);
 			}
 		}
 
-		id_map
-			.into_par_iter()
-			.map(|((loc, desc, exc, aprv, crt, updt), times)| {
-				(loc, desc, exc, times, aprv, crt, updt)
-			})
-			.collect()
+		id_map.into_iter().collect()
 	}
 
 	/// Get all [`Location`]s
-	///
-	/// # Errors
+	#[allow(clippy::too_many_lines)]
 	pub async fn get_all(
+		includes: LocationIncludes,
 		p_opts: PaginationOptions,
 		conn: &DbConn,
 	) -> Result<(i64, Vec<FullLocationData>), Error> {
@@ -138,93 +139,209 @@ impl Location {
 			})
 			.await??;
 
-		let locations = conn
+		let locations: Vec<LocationBackfill> = conn
 			.interact(move |conn| {
-				location::table
+				use crate::schema::location::dsl::*;
+
+				location
 					.inner_join(
-						description.on(location::description_id
+						description.on(description_id
 							.eq(description.field(translation::id))),
 					)
-					.inner_join(excerpt.on(
-						location::excerpt_id.eq(excerpt.field(translation::id)),
+					.inner_join(
+						excerpt.on(excerpt_id
+							.eq(excerpt.field(translation::id))),
+					)
+					.left_outer_join(approver.on(
+						includes.approved_by.into_sql::<Bool>().and(
+							approved_by
+								.eq(approver.field(simple_profile::id)
+								.nullable())
+						)
+					))
+					.left_outer_join(rejecter.on(
+						includes.rejected_by.into_sql::<Bool>().and(
+							rejected_by
+								.eq(rejecter.field(simple_profile::id)
+								.nullable())
+						)
+					))
+					.left_outer_join(creater.on(
+						includes.created_by.into_sql::<Bool>().and(
+							created_by
+								.eq(creater.field(simple_profile::id)
+								.nullable())
+						)
+					))
+					.left_outer_join(updater.on(
+						includes.updated_by.into_sql::<Bool>().and(
+							updated_by
+								.eq(updater.field(simple_profile::id)
+								.nullable())
+						)
 					))
 					.left_outer_join(opening_time::table)
-					.left_outer_join(
-						approver.on(location::approved_by
-							.eq(approver.field(profile::id).nullable())),
-					)
-					.left_outer_join(
-						creater.on(location::created_by
-							.eq(creater.field(profile::id).nullable())),
-					)
-					.left_outer_join(
-						updater.on(location::updated_by
-							.eq(updater.field(profile::id).nullable())),
-					)
 					.select((
-						location::all_columns,
-						description.fields(translation::all_columns),
-						excerpt.fields(translation::all_columns),
+						PrimitiveLocation::as_select(),
+						description.fields(
+							<
+								PrimitiveTranslation as Selectable<Pg>
+							>::construct_selection()
+						),
+						excerpt.fields(
+							<
+								PrimitiveTranslation as Selectable<Pg>
+							>::construct_selection()
+						),
+						approver.fields(simple_profile::all_columns).nullable(),
+						rejecter.fields(simple_profile::all_columns).nullable(),
+						creater.fields(simple_profile::all_columns).nullable(),
+						updater.fields(simple_profile::all_columns).nullable(),
 						opening_time::all_columns.nullable(),
-						approver.fields(profile::all_columns).nullable(),
-						creater.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
 					))
-					.order(location::id)
+					.order(id)
 					.limit(p_opts.limit())
 					.offset(p_opts.offset())
 					.load(conn)
 			})
-			.await??;
+			.await??
+			.into_iter()
+			.map(|(loc, desc, exc, a, r, c, u, t)| {
+				let loc = Location {
+					location:    loc,
+					description: desc,
+					excerpt:     exc,
+					approved_by: if includes.approved_by {
+						Some(a)
+					} else {
+						None
+					},
+					rejected_by: if includes.rejected_by {
+						Some(r)
+					} else {
+						None
+					},
+					created_by:  if includes.created_by {
+						Some(c)
+					} else {
+						None
+					},
+					updated_by:  if includes.updated_by {
+						Some(u)
+					} else {
+						None
+					},
+				};
+
+				(loc, t)
+			})
+			.collect();
 
 		Ok((total, Self::group_by_id(locations)))
 	}
 
-	/// Get a [`Location`] by its id and include its [`Translation`]s.
-	///
-	/// # Errors
+	/// Get a [`Location`] by its id
 	pub async fn get_by_id(
 		loc_id: i32,
+		includes: LocationIncludes,
 		conn: &DbConn,
 	) -> Result<FullLocationData, Error> {
-		let result = conn
+		let locations: Vec<LocationBackfill> = conn
 			.interact(move |conn| {
-				location::table
-					.filter(location::id.eq(loc_id))
+				use crate::schema::location::dsl::*;
+
+				location
+					.filter(id.eq(loc_id))
 					.inner_join(
-						description.on(location::description_id
+						description.on(description_id
 							.eq(description.field(translation::id))),
 					)
 					.inner_join(excerpt.on(
-						location::excerpt_id.eq(excerpt.field(translation::id)),
+						excerpt_id.eq(excerpt.field(translation::id)),
+					))
+					.left_outer_join(approver.on(
+						includes.approved_by.into_sql::<Bool>().and(
+							approved_by
+								.eq(approver.field(simple_profile::id)
+								.nullable())
+						)
+					))
+					.left_outer_join(rejecter.on(
+						includes.rejected_by.into_sql::<Bool>().and(
+							rejected_by
+								.eq(rejecter.field(simple_profile::id)
+								.nullable())
+						)
+					))
+					.left_outer_join(creater.on(
+						includes.created_by.into_sql::<Bool>().and(
+							created_by
+								.eq(creater.field(simple_profile::id)
+								.nullable())
+						)
+					))
+					.left_outer_join(updater.on(
+						includes.updated_by.into_sql::<Bool>().and(
+							updated_by
+								.eq(updater.field(simple_profile::id)
+								.nullable())
+						)
 					))
 					.left_outer_join(opening_time::table)
-					.left_outer_join(
-						approver.on(location::approved_by
-							.eq(approver.field(profile::id).nullable())),
-					)
-					.left_outer_join(
-						creater.on(location::created_by
-							.eq(creater.field(profile::id).nullable())),
-					)
-					.left_outer_join(
-						updater.on(location::updated_by
-							.eq(updater.field(profile::id).nullable())),
-					)
 					.select((
-						location::all_columns,
-						description.fields(translation::all_columns),
-						excerpt.fields(translation::all_columns),
+						PrimitiveLocation::as_select(),
+						description.fields(
+							<
+								PrimitiveTranslation as Selectable<Pg>
+							>::construct_selection()
+						),
+						excerpt.fields(
+							<
+								PrimitiveTranslation as Selectable<Pg>
+							>::construct_selection()
+						),
+						approver.fields(simple_profile::all_columns).nullable(),
+						rejecter.fields(simple_profile::all_columns).nullable(),
+						creater.fields(simple_profile::all_columns).nullable(),
+						updater.fields(simple_profile::all_columns).nullable(),
 						opening_time::all_columns.nullable(),
-						approver.fields(profile::all_columns).nullable(),
-						creater.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
 					))
 					.get_results(conn)
 			})
-			.await??;
+			.await??
+			.into_iter()
+			.map(|(loc, desc, exc, a, r, c, u, t)| {
+				let loc = Location {
+					location:    loc,
+					description: desc,
+					excerpt:     exc,
+					approved_by: if includes.approved_by {
+						Some(a)
+					} else {
+						None
+					},
+					rejected_by: if includes.rejected_by {
+						Some(r)
+					} else {
+						None
+					},
+					created_by:  if includes.created_by {
+						Some(c)
+					} else {
+						None
+					},
+					updated_by:  if includes.updated_by {
+						Some(u)
+					} else {
+						None
+					},
+				};
 
-		match Self::group_by_id(result).first() {
+				(loc, t)
+			})
+			.collect();
+
+		match Self::group_by_id(locations).first() {
 			Some(r) => Ok(r.clone()),
 			None => Err(Error::NotFound(String::new())),
 		}
@@ -235,6 +352,7 @@ impl Location {
 	/// # Errors
 	pub async fn get_by_profile_id(
 		profile_id: i32,
+		includes: LocationIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<FullLocationData>, Error> {
 		let locations = conn
@@ -250,28 +368,87 @@ impl Location {
 						excerpt
 							.on(excerpt_id.eq(excerpt.field(translation::id))),
 					)
-					.left_outer_join(opening_time::table)
 					.left_outer_join(approver.on(
-						approved_by.eq(approver.field(profile::id).nullable()),
+						includes.approved_by.into_sql::<Bool>().and(
+							approved_by
+								.eq(approver.field(simple_profile::id)
+								.nullable())
+						)
+					))
+					.left_outer_join(rejecter.on(
+						includes.rejected_by.into_sql::<Bool>().and(
+							rejected_by
+								.eq(rejecter.field(simple_profile::id)
+								.nullable())
+						)
 					))
 					.left_outer_join(creater.on(
-						created_by.eq(creater.field(profile::id).nullable()),
+						includes.created_by.into_sql::<Bool>().and(
+							created_by
+								.eq(creater.field(simple_profile::id)
+								.nullable())
+						)
 					))
 					.left_outer_join(updater.on(
-						updated_by.eq(updater.field(profile::id).nullable()),
+						includes.updated_by.into_sql::<Bool>().and(
+							updated_by
+								.eq(updater.field(simple_profile::id)
+								.nullable())
+						)
 					))
+					.left_outer_join(opening_time::table)
 					.select((
-						Location::as_select(),
-						description.fields(translation::all_columns),
-						excerpt.fields(translation::all_columns),
+						PrimitiveLocation::as_select(),
+						description.fields(
+							<
+								PrimitiveTranslation as Selectable<Pg>
+							>::construct_selection()
+						),
+						excerpt.fields(
+							<
+								PrimitiveTranslation as Selectable<Pg>
+							>::construct_selection()
+						),
+						approver.fields(simple_profile::all_columns).nullable(),
+						rejecter.fields(simple_profile::all_columns).nullable(),
+						creater.fields(simple_profile::all_columns).nullable(),
+						updater.fields(simple_profile::all_columns).nullable(),
 						opening_time::all_columns.nullable(),
-						approver.fields(profile::all_columns).nullable(),
-						creater.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
 					))
 					.load(conn)
 			})
-			.await??;
+			.await??
+			.into_iter()
+			.map(|(loc, desc, exc, a, r, c, u, t)| {
+				let loc = Location {
+					location:    loc,
+					description: desc,
+					excerpt:     exc,
+					approved_by: if includes.approved_by {
+						Some(a)
+					} else {
+						None
+					},
+					rejected_by: if includes.rejected_by {
+						Some(r)
+					} else {
+						None
+					},
+					created_by:  if includes.created_by {
+						Some(c)
+					} else {
+						None
+					},
+					updated_by:  if includes.updated_by {
+						Some(u)
+					} else {
+						None
+					},
+				};
+
+				(loc, t)
+			})
+			.collect();
 
 		Ok(Self::group_by_id(locations))
 	}
@@ -400,75 +577,19 @@ impl Location {
 
 		Ok(inserted_images)
 	}
-
-	/// Create a new [`Location`] with its corresponding [`Translation`]s given
-	/// a compound data struct
-	///
-	/// # Errors
-	pub async fn new(
-		loc_data: StubNewLocation,
-		desc_data: NewTranslation,
-		exc_data: NewTranslation,
-		conn: &DbConn,
-	) -> Result<(Self, Translation, Translation), Error> {
-		let records = conn
-			.interact(move |conn| {
-				conn.transaction::<_, Error, _>(|conn| {
-					use crate::schema::location::dsl::location;
-					use crate::schema::translation::dsl::translation;
-
-					let desc = diesel::insert_into(translation)
-						.values(desc_data)
-						.returning(Translation::as_returning())
-						.get_result(conn)?;
-
-					let exc = diesel::insert_into(translation)
-						.values(exc_data)
-						.returning(Translation::as_returning())
-						.get_result(conn)?;
-
-					let new_location = NewLocation {
-						name:                   loc_data.name,
-						description_id:         desc.id,
-						excerpt_id:             exc.id,
-						seat_count:             loc_data.seat_count,
-						is_reservable:          loc_data.is_reservable,
-						reservation_block_size: loc_data.reservation_block_size,
-						is_visible:             loc_data.is_visible,
-						street:                 loc_data.street,
-						number:                 loc_data.number,
-						zip:                    loc_data.zip,
-						city:                   loc_data.city,
-						country:                loc_data.country,
-						province:               loc_data.province,
-						latitude:               loc_data.latitude,
-						longitude:              loc_data.longitude,
-						created_by:             loc_data.created_by,
-					};
-
-					let loc = diesel::insert_into(location)
-						.values(new_location)
-						.returning(Location::as_returning())
-						.get_result(conn)?;
-
-					Ok((loc, desc, exc))
-				})
-			})
-			.await??;
-
-		Ok(records)
-	}
 }
+
 #[derive(Clone, Debug, Deserialize)]
-pub struct StubNewLocation {
+pub struct NewLocation {
 	pub name:                   String,
 	pub authority_id:           Option<i32>,
+	pub description:            NewTranslation,
+	pub excerpt:                NewTranslation,
 	pub seat_count:             i32,
 	pub is_reservable:          bool,
 	pub reservation_block_size: i32,
 	pub min_reservation_length: Option<i32>,
 	pub max_reservation_length: Option<i32>,
-	pub is_visible:             bool,
 	pub street:                 String,
 	pub number:                 String,
 	pub zip:                    String,
@@ -482,14 +603,16 @@ pub struct StubNewLocation {
 
 #[derive(Debug, Deserialize, Insertable)]
 #[diesel(table_name = crate::schema::location)]
-pub struct NewLocation {
+pub struct InsertableNewLocation {
 	pub name:                   String,
+	pub authority_id:           Option<i32>,
 	pub description_id:         i32,
 	pub excerpt_id:             i32,
 	pub seat_count:             i32,
 	pub is_reservable:          bool,
 	pub reservation_block_size: i32,
-	pub is_visible:             bool,
+	pub min_reservation_length: Option<i32>,
+	pub max_reservation_length: Option<i32>,
 	pub street:                 String,
 	pub number:                 String,
 	pub zip:                    String,
@@ -502,20 +625,62 @@ pub struct NewLocation {
 }
 
 impl NewLocation {
-	/// Insert this [`NewLocation`] into the database.
-	///
-	/// # Errors
-	pub async fn insert(self, conn: &DbConn) -> Result<Location, Error> {
+	/// Create a new [`Location`]
+	pub async fn insert(
+		self,
+		includes: LocationIncludes,
+		conn: &DbConn,
+	) -> Result<FullLocationData, Error> {
 		let location = conn
-			.interact(|conn| {
-				use self::location::dsl::*;
+			.interact(move |conn| {
+				conn.transaction::<_, Error, _>(|conn| {
+					use crate::schema::location::dsl::location;
+					use crate::schema::translation::dsl::translation;
 
-				diesel::insert_into(location)
-					.values(self)
-					.returning(Location::as_returning())
-					.get_result(conn)
+					let desc = diesel::insert_into(translation)
+						.values(self.description)
+						.returning(PrimitiveTranslation::as_returning())
+						.get_result(conn)?;
+
+					let exc = diesel::insert_into(translation)
+						.values(self.excerpt)
+						.returning(PrimitiveTranslation::as_returning())
+						.get_result(conn)?;
+
+					let new_location = InsertableNewLocation {
+						name:                   self.name,
+						authority_id:           self.authority_id,
+						description_id:         desc.id,
+						excerpt_id:             exc.id,
+						seat_count:             self.seat_count,
+						is_reservable:          self.is_reservable,
+						reservation_block_size: self.reservation_block_size,
+						max_reservation_length: self.max_reservation_length,
+						min_reservation_length: self.min_reservation_length,
+						street:                 self.street,
+						number:                 self.number,
+						zip:                    self.zip,
+						city:                   self.city,
+						country:                self.country,
+						province:               self.province,
+						latitude:               self.latitude,
+						longitude:              self.longitude,
+						created_by:             self.created_by,
+					};
+
+					let loc = diesel::insert_into(location)
+						.values(new_location)
+						.returning(PrimitiveLocation::as_returning())
+						.get_result(conn)?;
+
+					Ok(loc)
+				})
 			})
 			.await??;
+
+		let location = Location::get_by_id(location.id, includes, conn).await?;
+
+		info!("inserted new location {location:?}");
 
 		Ok(location)
 	}
@@ -523,8 +688,7 @@ impl NewLocation {
 
 #[derive(AsChangeset, Clone, Debug, Deserialize)]
 #[diesel(table_name = crate::schema::location)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateLocation {
+pub struct LocationUpdate {
 	pub name:          Option<String>,
 	pub seat_count:    Option<i32>,
 	pub is_reservable: Option<bool>,
@@ -536,28 +700,31 @@ pub struct UpdateLocation {
 	pub province:      Option<String>,
 	pub latitude:      Option<f64>,
 	pub longitude:     Option<f64>,
+	pub updated_by:    i32,
 }
 
-impl UpdateLocation {
+impl LocationUpdate {
 	/// Update this [`Location`] in the database.
-	///
-	/// # Errors
-	/// Fails if interacting with the database fails
-	pub async fn update(
+	pub async fn apply_to(
 		self,
 		loc_id: i32,
+		includes: LocationIncludes,
 		conn: &DbConn,
-	) -> Result<Location, Error> {
+	) -> Result<FullLocationData, Error> {
 		let location = conn
 			.interact(move |conn| {
 				use self::location::dsl::*;
 
 				diesel::update(location.filter(id.eq(loc_id)))
 					.set(self)
-					.returning(Location::as_returning())
+					.returning(PrimitiveLocation::as_returning())
 					.get_result(conn)
 			})
 			.await??;
+
+		let location = Location::get_by_id(location.id, includes, conn).await?;
+
+		info!("updated location {location:?}");
 
 		Ok(location)
 	}

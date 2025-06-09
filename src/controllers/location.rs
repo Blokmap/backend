@@ -18,6 +18,7 @@ use models::{
 	Image as DbImage,
 	Location,
 	LocationFilter,
+	LocationIncludes,
 	NewImage,
 	NewOpeningTime,
 	OpeningTime,
@@ -43,16 +44,13 @@ use crate::schemas::opening_time::{
 pub(crate) async fn create_location(
 	State(pool): State<DbPool>,
 	Extension(profile_id): Extension<ProfileId>,
+	Query(includes): Query<LocationIncludes>,
 	Json(request): Json<CreateLocationRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let loc_data = request.location.to_insertable(*profile_id);
-	let desc_data = request.description.to_insertable(*profile_id);
-	let exc_data = request.excerpt.to_insertable(*profile_id);
-
-	let records = Location::new(loc_data, desc_data, exc_data, &conn).await?;
-
+	let new_location = request.to_insertable(*profile_id);
+	let records = new_location.insert(includes, &conn).await?;
 	let response = LocationResponse::from(records);
 
 	Ok((StatusCode::CREATED, Json(response)))
@@ -180,11 +178,11 @@ pub async fn delete_location_image(
 pub(crate) async fn get_location(
 	State(pool): State<DbPool>,
 	Path(id): Path<i32>,
+	Query(includes): Query<LocationIncludes>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let result = Location::get_by_id(id, &conn).await?;
-
+	let result = Location::get_by_id(id, includes, &conn).await?;
 	let response = LocationResponse::from(result);
 
 	Ok((StatusCode::OK, Json(response)))
@@ -205,11 +203,12 @@ pub(crate) async fn get_location_positions(
 #[instrument(skip(pool))]
 pub(crate) async fn get_locations(
 	State(pool): State<DbPool>,
+	Query(includes): Query<LocationIncludes>,
 	Query(p_opts): Query<PaginationOptions>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let (total, locations) = Location::get_all(p_opts, &conn).await?;
+	let (total, locations) = Location::get_all(includes, p_opts, &conn).await?;
 	let locations: Vec<LocationResponse> =
 		locations.into_iter().map(Into::into).collect();
 
@@ -272,19 +271,27 @@ pub(crate) async fn update_location(
 	State(pool): State<DbPool>,
 	Extension(profile_id): Extension<ProfileId>,
 	Path(id): Path<i32>,
+	Query(includes): Query<LocationIncludes>,
 	Json(request): Json<UpdateLocationRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let (location, ..) = Location::get_by_id(id, &conn).await?;
+	let perm_includes =
+		LocationIncludes { created_by: true, ..Default::default() };
+	let (location, ..) = Location::get_by_id(id, perm_includes, &conn).await?;
 
-	if Some(*profile_id) != location.created_by {
-		return Err(Error::Forbidden);
+	// TODO: check permissions properly
+
+	#[allow(clippy::collapsible_if)]
+	if let Some(Some(creator)) = location.created_by {
+		if creator.id != *profile_id {
+			return Err(Error::Forbidden);
+		}
 	}
 
-	let location = request.location.update(id, &conn).await?;
-
-	let response = LocationResponse::from(location);
+	let loc_update = request.to_insertable(*profile_id);
+	let updated_loc = loc_update.apply_to(id, includes, &conn).await?;
+	let response = LocationResponse::from(updated_loc);
 
 	Ok((StatusCode::OK, Json(response)))
 }

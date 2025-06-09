@@ -9,6 +9,7 @@ use common::Error;
 use mock_redis::{RedisUrlGuard, RedisUrlProvider};
 use models::{
 	Location,
+	LocationIncludes,
 	NewLocation,
 	NewOpeningTime,
 	NewTag,
@@ -16,6 +17,7 @@ use models::{
 	Profile,
 	TagIncludes,
 	Translation,
+	TranslationIncludes,
 };
 
 mod mock_db;
@@ -71,7 +73,9 @@ impl TestEnv {
 					"tests/seed/translations.json",
 					async |conn, translations: Vec<NewTranslation>| {
 						for translation in translations {
-							translation.insert(conn).await?;
+							translation
+								.insert(TranslationIncludes::default(), conn)
+								.await?;
 						}
 
 						Ok(())
@@ -85,7 +89,9 @@ impl TestEnv {
 					"tests/seed/locations.json",
 					async |conn, locations: Vec<NewLocation>| {
 						for location in locations {
-							location.insert(conn).await?;
+							location
+								.insert(LocationIncludes::default(), conn)
+								.await?;
 						}
 
 						Ok(())
@@ -200,14 +206,15 @@ impl TestEnv {
 	#[allow(dead_code)]
 	pub async fn get_translation(&self) -> Result<Translation, Error> {
 		let conn = self.db_guard.create_pool().get().await.unwrap();
-		Translation::get_by_id(1, &conn).await
+		Translation::get_by_id(1, TranslationIncludes::default(), &conn).await
 	}
 
 	/// Get a location from the test database
 	#[allow(dead_code)]
 	pub async fn get_location(&self) -> Result<Location, Error> {
 		let conn = self.db_guard.create_pool().get().await.unwrap();
-		let (location, ..) = Location::get_by_id(1, &conn).await?;
+		let (location, ..) =
+			Location::get_by_id(1, LocationIncludes::default(), &conn).await?;
 		Ok(location)
 	}
 }

@@ -178,7 +178,7 @@ CREATE TABLE location (
     reservation_block_size INTEGER NOT NULL,
 	min_reservation_length INTEGER,
 	max_reservation_length INTEGER,
-    is_visible             BOOLEAN NOT NULL,
+    is_visible             BOOLEAN NOT NULL DEFAULT TRUE,
     street                 TEXT       COLLATE "case_insensitive" NOT NULL,
     number                 TEXT       COLLATE "case_insensitive" NOT NULL,
     zip                    TEXT       COLLATE "case_insensitive" NOT NULL,

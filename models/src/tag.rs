@@ -8,9 +8,8 @@ use serde::{Deserialize, Serialize};
 use crate::schema::{simple_profile, tag, translation};
 use crate::{
 	NewTranslation,
+	PrimitiveTranslation,
 	SimpleProfile,
-	SimpleTranslation,
-	Translation,
 	TranslationUpdate,
 };
 
@@ -27,7 +26,7 @@ pub struct TagIncludes {
 #[diesel(check_for_backend(Pg))]
 pub struct Tag {
 	pub tag:        PrimitiveTag,
-	pub name:       SimpleTranslation,
+	pub name:       PrimitiveTranslation,
 	pub created_by: Option<Option<SimpleProfile>>,
 	pub updated_by: Option<Option<SimpleProfile>>,
 }
@@ -58,38 +57,37 @@ impl Tag {
 
 		let tag: (
 			PrimitiveTag,
-			SimpleTranslation,
+			PrimitiveTranslation,
 			Option<SimpleProfile>,
 			Option<SimpleProfile>,
 		) = conn
-			.interact(move |c| {
-				tag::table
-					.inner_join(
-						translation::table
-							.on(tag::name_translation_id.eq(translation::id)),
-					)
-					.left_outer_join(creater.on(
-						includes.created_by.into_sql::<Bool>().and(
-							tag::created_by.eq(
-								creater.field(simple_profile::id).nullable(),
-							),
-						),
-					))
-					.left_outer_join(updater.on(
-						includes.updated_by.into_sql::<Bool>().and(
-							tag::updated_by.eq(
-								updater.field(simple_profile::id).nullable(),
-							),
-						),
-					))
-					.filter(tag::id.eq(tag_id))
-					.select((
-						PrimitiveTag::as_select(),
-						SimpleTranslation::as_select(),
-						creater.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
-					))
-					.get_result(c)
+			.interact(move |conn| {
+				use crate::schema::tag::dsl::*;
+
+				tag.inner_join(
+					translation::table
+						.on(name_translation_id.eq(translation::id)),
+				)
+				.left_outer_join(
+					creater.on(includes.created_by.into_sql::<Bool>().and(
+						created_by
+							.eq(creater.field(simple_profile::id).nullable()),
+					)),
+				)
+				.left_outer_join(
+					updater.on(includes.updated_by.into_sql::<Bool>().and(
+						updated_by
+							.eq(updater.field(simple_profile::id).nullable()),
+					)),
+				)
+				.filter(id.eq(tag_id))
+				.select((
+					PrimitiveTag::as_select(),
+					PrimitiveTranslation::as_select(),
+					creater.fields(simple_profile::all_columns).nullable(),
+					updater.fields(simple_profile::all_columns).nullable(),
+				))
+				.get_result(conn)
 			})
 			.await??;
 
@@ -138,7 +136,7 @@ impl Tag {
 					))
 					.select((
 						PrimitiveTag::as_select(),
-						SimpleTranslation::as_select(),
+						PrimitiveTranslation::as_select(),
 						creater.fields(simple_profile::all_columns).nullable(),
 						updater.fields(simple_profile::all_columns).nullable(),
 					))
@@ -198,7 +196,7 @@ struct InsertableNewTag {
 }
 
 impl NewTag {
-	/// Insert a new [`Tag`]
+	/// Insert this [`NewTag`]
 	#[instrument(skip(conn))]
 	pub async fn insert(
 		self,
@@ -213,7 +211,7 @@ impl NewTag {
 
 					let name_translation = diesel::insert_into(translation)
 						.values(self.name)
-						.returning(Translation::as_returning())
+						.returning(PrimitiveTranslation::as_returning())
 						.get_result(conn)?;
 
 					let new_tag = InsertableNewTag {

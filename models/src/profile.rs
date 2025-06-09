@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::{Argon2, PasswordHasher};
@@ -71,16 +69,6 @@ pub struct Profile {
 	pub last_login_at:                   NaiveDateTime,
 }
 
-impl Hash for Profile {
-	fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.id.hash(state) }
-}
-
-impl PartialEq for Profile {
-	fn eq(&self, other: &Self) -> bool { self.id == other.id }
-}
-
-impl Eq for Profile {}
-
 impl TryFrom<&Profile> for Mailbox {
 	type Error = Error;
 
@@ -112,13 +100,13 @@ impl TryFrom<&Profile> for Mailbox {
 #[diesel(table_name = simple_profile)]
 #[diesel(check_for_backend(Pg))]
 pub struct SimpleProfile {
-	id:         i32,
-	username:   String,
-	avatar_url: Option<String>,
-	email:      Option<String>,
-	first_name: Option<String>,
-	last_name:  Option<String>,
-	state:      ProfileState,
+	pub id:         i32,
+	pub username:   String,
+	pub avatar_url: Option<String>,
+	pub email:      Option<String>,
+	pub first_name: Option<String>,
+	pub last_name:  Option<String>,
+	pub state:      ProfileState,
 }
 
 impl SimpleProfile {

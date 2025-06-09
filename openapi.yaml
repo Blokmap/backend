@@ -2349,6 +2349,10 @@ components:
     translation:
       type: object
       properties:
+        id:
+          type: number
+          format: int32
+          example: 0
         nl:
           type: [string, "null"]
           example: ​De Faculteitsbibliotheek

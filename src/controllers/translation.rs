@@ -1,11 +1,11 @@
 //! Controllers for [`Translation`]s
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use axum::{Extension, Json};
 use common::{DbPool, Error};
-use models::Translation;
+use models::{Translation, TranslationIncludes};
 
 use crate::ProfileId;
 use crate::schemas::translation::{
@@ -19,12 +19,13 @@ use crate::schemas::translation::{
 pub(crate) async fn create_translation(
 	State(pool): State<DbPool>,
 	Extension(profile_id): Extension<ProfileId>,
+	Query(includes): Query<TranslationIncludes>,
 	Json(request): Json<CreateTranslationRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
 	let new_tr = request.to_insertable(*profile_id);
-	let translation = new_tr.insert(&conn).await?;
+	let translation = new_tr.insert(includes, &conn).await?;
 	let response = TranslationResponse::from(translation);
 
 	Ok((StatusCode::CREATED, Json(response)))
@@ -35,11 +36,31 @@ pub(crate) async fn create_translation(
 pub(crate) async fn get_translation(
 	State(pool): State<DbPool>,
 	Path(id): Path<i32>,
+	Query(includes): Query<TranslationIncludes>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let translation = Translation::get_by_id(id, &conn).await?;
+	let translation = Translation::get_by_id(id, includes, &conn).await?;
 	let response = TranslationResponse::from(translation);
+
+	Ok((StatusCode::OK, Json(response)))
+}
+
+/// Update the translation with the given id.
+#[instrument(skip(pool))]
+pub(crate) async fn update_translation(
+	State(pool): State<DbPool>,
+	Extension(profile_id): Extension<ProfileId>,
+	Path(id): Path<i32>,
+	Query(includes): Query<TranslationIncludes>,
+	Json(request): Json<UpdateTranslationRequest>,
+) -> Result<impl IntoResponse, Error> {
+	// Get a connection from the pool.
+	let conn = pool.get().await?;
+
+	let tr_update = request.to_insertable(*profile_id);
+	let updated_tr = tr_update.apply_to(id, includes, &conn).await?;
+	let response = TranslationResponse::from(updated_tr);
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -55,22 +76,4 @@ pub(crate) async fn delete_translation(
 	Translation::delete_by_id(id, &conn).await?;
 
 	Ok((StatusCode::NO_CONTENT, NoContent))
-}
-
-/// Update the translation with the given id.
-#[instrument(skip(pool))]
-pub(crate) async fn update_translation(
-	State(pool): State<DbPool>,
-	Extension(profile_id): Extension<ProfileId>,
-	Path(id): Path<i32>,
-	Json(request): Json<UpdateTranslationRequest>,
-) -> Result<impl IntoResponse, Error> {
-	// Get a connection from the pool.
-	let conn = pool.get().await?;
-
-	let tr_update = request.to_insertable(*profile_id);
-	let updated_tr = tr_update.apply_to(id, &conn).await?;
-	let response = TranslationResponse::from(updated_tr);
-
-	Ok((StatusCode::OK, Json(response)))
 }
