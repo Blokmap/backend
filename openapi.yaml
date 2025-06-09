@@ -1002,45 +1002,42 @@ paths:
             schema:
               type: object
               properties:
-                location:
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                    authorityId:
-                      type: [number, "null"]
-                    seatCount:
-                      type: number
-                    isReservable:
-                      type: boolean
-                    reservationBlockSize:
-                      type: number
-                    minReservationLength:
-                      type: [number, "null"]
-                    maxReservationLength:
-                      type: [number, "null"]
-                    isVisible:
-                      type: boolean
-                    street:
-                      type: string
-                    number:
-                      type: string
-                    zip:
-                      type: string
-                    city:
-                      type: string
-                    province:
-                      type: string
-                    country:
-                      type: string
-                    latitude:
-                      type: number
-                    longitude:
-                      type: number
+                name:
+                  type: string
+                authorityId:
+                  type: [number, "null"]
                 description:
                   $ref: '#/components/schemas/translation'
                 excerpt:
                   $ref: '#/components/schemas/translation'
+                seatCount:
+                  type: number
+                isReservable:
+                  type: boolean
+                reservationBlockSize:
+                  type: number
+                minReservationLength:
+                  type: [number, "null"]
+                maxReservationLength:
+                  type: [number, "null"]
+                isVisible:
+                  type: boolean
+                street:
+                  type: string
+                number:
+                  type: string
+                zip:
+                  type: string
+                city:
+                  type: string
+                province:
+                  type: string
+                country:
+                  type: string
+                latitude:
+                  type: number
+                longitude:
+                  type: number
       responses:
         "201":
           description: Created new location
