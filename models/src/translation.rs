@@ -8,25 +8,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::schema::translation;
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize, Hash)]
-pub enum Language {
-	Nl,
-	En,
-	Fr,
-	De,
-}
-
-impl From<Language> for String {
-	fn from(language: Language) -> Self {
-		match language {
-			Language::Nl => "nl".to_string(),
-			Language::En => "en".to_string(),
-			Language::Fr => "fr".to_string(),
-			Language::De => "de".to_string(),
-		}
-	}
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize, Queryable, Selectable)]
 #[serde(rename_all = "camelCase")]
 #[diesel(table_name = translation)]
@@ -63,61 +44,6 @@ pub struct SimpleTranslation {
 	pub en: Option<String>,
 	pub fr: Option<String>,
 	pub de: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone, Insertable)]
-#[diesel(table_name = translation)]
-pub struct NewTranslation {
-	pub nl:         Option<String>,
-	pub en:         Option<String>,
-	pub fr:         Option<String>,
-	pub de:         Option<String>,
-	pub created_by: i32,
-}
-
-impl NewTranslation {
-	/// Insert this [`NewTranslation`]
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
-	pub async fn insert(self, conn: &DbConn) -> Result<Translation, Error> {
-		let new_translation = conn
-			.interact(|conn| {
-				use self::translation::dsl::*;
-
-				diesel::insert_into(translation)
-					.values(self)
-					.returning(Translation::as_returning())
-					.get_result(conn)
-			})
-			.await??;
-
-		Ok(new_translation)
-	}
-
-	/// Insert a list of [`InsertableTranslation`]s in a single transaction
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
-	pub async fn bulk_insert(
-		translations: Vec<Self>,
-		conn: DbConn,
-	) -> Result<Vec<Translation>, Error> {
-		let translations = conn
-			.interact(|conn| {
-				conn.transaction(|conn| {
-					use self::translation::dsl::*;
-
-					diesel::insert_into(translation)
-						.values(translations)
-						.returning(Translation::as_returning())
-						.get_results(conn)
-				})
-			})
-			.await??;
-
-		Ok(translations)
-	}
 }
 
 impl Translation {
@@ -182,10 +108,64 @@ impl Translation {
 	}
 }
 
-#[derive(Clone, Debug, Deserialize, Default, Serialize, AsChangeset)]
-#[serde(default, rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Insertable, Serialize)]
 #[diesel(table_name = translation)]
-pub struct UpdateTranslation {
+pub struct NewTranslation {
+	pub nl:         Option<String>,
+	pub en:         Option<String>,
+	pub fr:         Option<String>,
+	pub de:         Option<String>,
+	pub created_by: i32,
+}
+
+impl NewTranslation {
+	/// Insert this [`NewTranslation`]
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn insert(self, conn: &DbConn) -> Result<Translation, Error> {
+		let new_translation = conn
+			.interact(|conn| {
+				use self::translation::dsl::*;
+
+				diesel::insert_into(translation)
+					.values(self)
+					.returning(Translation::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(new_translation)
+	}
+
+	/// Insert a list of [`InsertableTranslation`]s in a single transaction
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	pub async fn bulk_insert(
+		translations: Vec<Self>,
+		conn: DbConn,
+	) -> Result<Vec<Translation>, Error> {
+		let translations = conn
+			.interact(|conn| {
+				conn.transaction(|conn| {
+					use self::translation::dsl::*;
+
+					diesel::insert_into(translation)
+						.values(translations)
+						.returning(Translation::as_returning())
+						.get_results(conn)
+				})
+			})
+			.await??;
+
+		Ok(translations)
+	}
+}
+
+#[derive(AsChangeset, Clone, Debug, Deserialize, Serialize)]
+#[diesel(table_name = translation)]
+pub struct TranslationUpdate {
 	pub nl:         Option<String>,
 	pub en:         Option<String>,
 	pub fr:         Option<String>,
@@ -193,12 +173,12 @@ pub struct UpdateTranslation {
 	pub updated_by: i32,
 }
 
-impl UpdateTranslation {
-	/// Update this [`UpdateTranslation`].
+impl TranslationUpdate {
+	/// Update this [`TranslationUpdate`].
 	///
 	/// # Errors
 	/// Errors if interacting with the database fails
-	/// Errors if the [`UpdateTranslation`] does not exist
+	/// Errors if the [`TranslationUpdate`] does not exist
 	pub async fn apply_to(
 		self,
 		query_id: i32,

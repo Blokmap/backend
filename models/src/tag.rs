@@ -11,7 +11,7 @@ use crate::{
 	SimpleProfile,
 	SimpleTranslation,
 	Translation,
-	UpdateTranslation,
+	TranslationUpdate,
 };
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
@@ -241,7 +241,7 @@ impl NewTag {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct TagUpdate {
-	pub name:       UpdateTranslation,
+	pub name:       TranslationUpdate,
 	pub updated_by: i32,
 }
 
