@@ -199,7 +199,7 @@ impl UpdateTranslation {
 	/// # Errors
 	/// Errors if interacting with the database fails
 	/// Errors if the [`UpdateTranslation`] does not exist
-	pub async fn update(
+	pub async fn apply_to(
 		self,
 		query_id: i32,
 		conn: &DbConn,

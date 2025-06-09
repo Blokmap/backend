@@ -5,7 +5,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use axum::{Extension, Json};
 use common::{DbPool, Error};
-use models::{NewTranslation, Translation, UpdateTranslation};
+use models::Translation;
 
 use crate::ProfileId;
 use crate::schemas::translation::{
@@ -21,21 +21,10 @@ pub(crate) async fn create_translation(
 	Extension(profile_id): Extension<ProfileId>,
 	Json(request): Json<CreateTranslationRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	// Get a connection from the pool.
 	let conn = pool.get().await?;
 
-	let translation = NewTranslation {
-		nl:         request.nl,
-		en:         request.en,
-		fr:         request.fr,
-		de:         request.de,
-		created_by: *profile_id,
-	};
-
-	// Insert the translation into the database.
+	let translation = request.to_insertable(*profile_id);
 	let translation = translation.insert(&conn).await?;
-
-	// Return a response with the created translation.
 	let response = TranslationResponse::from(translation);
 
 	Ok((StatusCode::CREATED, Json(response)))
@@ -47,13 +36,9 @@ pub(crate) async fn get_translation(
 	State(pool): State<DbPool>,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
-	// Get a connection from the pool.
 	let conn = pool.get().await?;
 
-	// Get the translation from the database.
 	let translation = Translation::get_by_id(id, &conn).await?;
-
-	// Return a response with the translation.
 	let response = TranslationResponse::from(translation);
 
 	Ok((StatusCode::OK, Json(response)))
@@ -65,13 +50,10 @@ pub(crate) async fn delete_translation(
 	State(pool): State<DbPool>,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
-	// Get a connection from the pool.
 	let conn = pool.get().await?;
 
-	// Delete the translation from the database.
 	Translation::delete_by_id(id, &conn).await?;
 
-	// Return a response with no content.
 	Ok((StatusCode::NO_CONTENT, NoContent))
 }
 
@@ -86,19 +68,9 @@ pub(crate) async fn update_translation(
 	// Get a connection from the pool.
 	let conn = pool.get().await?;
 
-	let translation = UpdateTranslation {
-		nl:         request.nl,
-		en:         request.en,
-		fr:         request.fr,
-		de:         request.de,
-		updated_by: *profile_id,
-	};
-
-	// Update the translation in the database.
-	let translation = translation.update(id, &conn).await?;
-
-	// Return a response with the updated translation.
-	let response = TranslationResponse::from(translation);
+	let tr_update = request.to_insertable(*profile_id);
+	let updated_tr = tr_update.apply_to(id, &conn).await?;
+	let response = TranslationResponse::from(updated_tr);
 
 	Ok((StatusCode::OK, Json(response)))
 }
