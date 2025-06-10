@@ -34,6 +34,7 @@ use crate::controllers::location::{
 };
 use crate::controllers::opening_time::{
 	create_location_time,
+	delete_location_time,
 	get_location_times,
 	update_location_time,
 };
@@ -134,7 +135,7 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 		)
 		.route(
 			"/{id}/opening-times/{time_id}",
-			patch(update_location_time).delete(delete_location_image),
+			patch(update_location_time).delete(delete_location_time),
 		)
 		.route_layer(AuthLayer::new(state.clone()));
 

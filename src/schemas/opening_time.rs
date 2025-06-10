@@ -37,6 +37,7 @@ impl From<OpeningTime> for OpeningTimeResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateOpeningTimeRequest {
 	pub day:              NaiveDate,
 	pub start_time:       NaiveTime,

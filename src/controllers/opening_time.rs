@@ -50,8 +50,7 @@ pub async fn create_location_time(
 pub async fn update_location_time(
 	State(pool): State<DbPool>,
 	Extension(profile_id): Extension<ProfileId>,
-	Path(id): Path<i32>,
-	Path(time_id): Path<i32>,
+	Path((id, time_id)): Path<(i32, i32)>,
 	Query(includes): Query<OpeningTimeIncludes>,
 	Json(request): Json<UpdateOpeningTimeRequest>,
 ) -> Result<impl IntoResponse, Error> {
@@ -67,8 +66,7 @@ pub async fn update_location_time(
 #[instrument(skip(pool))]
 pub async fn delete_location_time(
 	State(pool): State<DbPool>,
-	Path(id): Path<i32>,
-	Path(time_id): Path<i32>,
+	Path((id, time_id)): Path<(i32, i32)>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
