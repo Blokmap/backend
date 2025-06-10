@@ -31,7 +31,7 @@ pub(crate) async fn get_all_profiles(
 	let (total, profiles) = Profile::get_all(p_opts, &conn).await?;
 
 	let profiles: Vec<ProfileResponse> =
-		profiles.into_iter().map(ProfileResponse::from).collect();
+		profiles.into_iter().map(Into::into).collect();
 
 	let paginated = p_opts.paginate(total, profiles);
 

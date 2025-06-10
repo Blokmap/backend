@@ -16,7 +16,7 @@ servers:
     description: Production API server
 
 paths:
-  /auth/register:
+  /auth/register ✅:
     post:
       tags:
         - auth
@@ -55,7 +55,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/profile"
 
-  /auth/confirm_email/{token}:
+  /auth/confirm_email/{token} ✅:
     post:
       tags:
         - auth
@@ -75,7 +75,7 @@ paths:
             Set-Cookie:
               $ref: '#/components/headers/set-access-token'
 
-  /auth/resend_confirmation_email/{profile_id}:
+  /auth/resend_confirmation_email/{profile_id} ✅:
     post:
       tags:
         - auth
@@ -93,7 +93,7 @@ paths:
         "204":
           description: No Content
 
-  /auth/request_password_reset:
+  /auth/request_password_reset ✅:
     post:
       tags:
         - auth
@@ -112,7 +112,7 @@ paths:
         "204":
           description: No Content
 
-  /auth/reset_password:
+  /auth/reset_password ✅:
     post:
       tags:
         - auth
@@ -133,7 +133,7 @@ paths:
                   minLength: 16
                   example: appelappelbanaan
 
-  /auth/login:
+  /auth/login ✅:
     post:
       tags:
         - auth
@@ -244,7 +244,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/institution'
 
-  /profiles:
+  /profiles ✅:
     get:
       tags:
         - profiles
@@ -379,7 +379,7 @@ paths:
         "204":
           description: No content
 
-  /profiles/{id}/block:
+  /profiles/{id}/block ✅:
     parameters:
       - name: id
         in: path
@@ -399,7 +399,7 @@ paths:
         "204":
           description: No Content
 
-  /profiles/{id}/unblock:
+  /profiles/{id}/unblock ✅:
     parameters:
       - name: id
         in: path
@@ -497,7 +497,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/review'
 
-  /profiles/{id}/locations:
+  /profiles/{id}/locations ✅:
     parameters:
       - name: id
         in: path
@@ -861,7 +861,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/profileWithPermissions'
 
-  /locations/search:
+  /locations/search ✅:
     get:
       tags:
         - locations
@@ -967,7 +967,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/miniLocation'
 
-  /locations:
+  /locations ✅:
     get:
       tags:
         - locations
@@ -1069,7 +1069,7 @@ paths:
                     manage_opening_times: 3
                     manage_reservations: 4
 
-  /locations/{id}:
+  /locations/{id} ✅:
     parameters:
       - name: id
         in: path
@@ -1157,7 +1157,7 @@ paths:
         "204":
           description: No content
 
-  /locations/{id}/images:
+  /locations/{id}/images ✅:
     parameters:
       - name: id
         in: path
@@ -1192,7 +1192,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/image'
 
-  /locations/{id}/images/{imageId}:
+  /locations/{id}/images/{imageId} ✅:
     parameters:
       - name: id
         in: path
@@ -1220,7 +1220,7 @@ paths:
         "204":
           description: No content
 
-  /locations/{id}/approve:
+  /locations/{id}/approve ✅:
     parameters:
       - name: id
         in: path
@@ -1243,7 +1243,7 @@ paths:
         "204":
           description: No content
 
-  /locations/{id}/reject:
+  /locations/{id}/reject ✅:
     parameters:
       - name: id
         in: path
@@ -1739,7 +1739,7 @@ paths:
         "204":
           description: No content
 
-  /tags:
+  /tags ✅:
     get:
       tags:
         - tags
@@ -1777,7 +1777,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/tag'
 
-  /tags/{id}:
+  /tags/{id} ✅:
     parameters:
       - name: id
         in: path
@@ -1818,7 +1818,7 @@ paths:
         "204":
           description: No content
 
-  /translations:
+  /translations ✅:
     post:
       tags:
         - translations
@@ -1838,7 +1838,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/fullTranslation'
 
-  /translations/{id}:
+  /translations/{id} ✅:
     parameters:
       - name: id
         in: path

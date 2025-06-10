@@ -100,8 +100,8 @@ fn auth_routes(state: &AppState) -> Router<AppState> {
 /// Profile routes
 fn profile_routes(state: &AppState) -> Router<AppState> {
 	let protected = Router::new()
-		.route("/disable/{profile_id}", post(disable_profile))
-		.route("/activate/{profile_id}", post(activate_profile))
+		.route("/{profile_id}/block", post(disable_profile))
+		.route("/{profile_id}/unblock", post(activate_profile))
 		.route_layer(AdminLayer::new(state.clone()));
 
 	Router::new()
@@ -122,9 +122,9 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 
 	let authenticated = Router::new()
 		.route("/", post(create_location))
-		.route("/{id}", post(update_location).delete(delete_location))
-		.route("/{id}/image", post(upload_location_image))
-		.route("/{id}/image/{image_id}", delete(delete_location_image))
+		.route("/{id}", patch(update_location).delete(delete_location))
+		.route("/{id}/images", post(upload_location_image))
+		.route("/{id}/images/{image_id}", delete(delete_location_image))
 		.route(
 			"/{id}/opening-times",
 			get(get_location_times).post(create_location_time),
@@ -148,7 +148,7 @@ fn translation_routes(state: &AppState) -> Router<AppState> {
 			"/{id}",
 			get(get_translation)
 				.delete(delete_translation)
-				.post(update_translation),
+				.patch(update_translation),
 		)
 		.route_layer(AuthLayer::new(state.clone()))
 }
