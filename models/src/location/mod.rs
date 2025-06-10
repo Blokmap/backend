@@ -9,14 +9,27 @@ use diesel::sql_types::Bool;
 use diesel::{Identifiable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{location, opening_time, simple_profile, translation};
+use crate::schema::{
+	DescriptionAlias,
+	ExcerptAlias,
+	approver,
+	creator,
+	description,
+	excerpt,
+	location,
+	opening_time,
+	rejecter,
+	simple_profile,
+	translation,
+	updater,
+};
 use crate::{
 	Image,
 	NewImage,
 	NewLocationImage,
 	NewTranslation,
-	OpeningTime,
 	PaginationOptions,
+	PrimitiveOpeningTime,
 	PrimitiveTranslation,
 	SimpleProfile,
 };
@@ -25,18 +38,9 @@ mod filter;
 
 pub use filter::*;
 
-diesel::alias!(
-	translation as description: DescriptionAlias,
-	translation as excerpt: ExcerptAlias,
-	simple_profile as approver: ApproverAlias,
-	simple_profile as rejecter: RejecterAlias,
-	simple_profile as creater: CreaterAlias,
-	simple_profile as updater: UpdaterAlias,
-);
+pub type LocationBackfill = (Location, Option<PrimitiveOpeningTime>);
 
-pub type LocationBackfill = (Location, Option<OpeningTime>);
-
-pub type FullLocationData = (Location, Vec<OpeningTime>);
+pub type FullLocationData = (Location, Vec<PrimitiveOpeningTime>);
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[allow(clippy::struct_excessive_bools)]
@@ -166,10 +170,10 @@ impl Location {
 								.nullable())
 						)
 					))
-					.left_outer_join(creater.on(
+					.left_outer_join(creator.on(
 						includes.created_by.into_sql::<Bool>().and(
 							created_by
-								.eq(creater.field(simple_profile::id)
+								.eq(creator.field(simple_profile::id)
 								.nullable())
 						)
 					))
@@ -195,9 +199,12 @@ impl Location {
 						),
 						approver.fields(simple_profile::all_columns).nullable(),
 						rejecter.fields(simple_profile::all_columns).nullable(),
-						creater.fields(simple_profile::all_columns).nullable(),
+						creator.fields(simple_profile::all_columns).nullable(),
 						updater.fields(simple_profile::all_columns).nullable(),
-						opening_time::all_columns.nullable(),
+						<
+							PrimitiveOpeningTime as Selectable<Pg>
+						>
+						::construct_selection().nullable(),
 					))
 					.order(id)
 					.limit(p_opts.limit())
@@ -241,6 +248,7 @@ impl Location {
 	}
 
 	/// Get a [`Location`] by its id
+	#[allow(clippy::too_many_lines)]
 	pub async fn get_by_id(
 		loc_id: i32,
 		includes: LocationIncludes,
@@ -273,10 +281,10 @@ impl Location {
 								.nullable())
 						)
 					))
-					.left_outer_join(creater.on(
+					.left_outer_join(creator.on(
 						includes.created_by.into_sql::<Bool>().and(
 							created_by
-								.eq(creater.field(simple_profile::id)
+								.eq(creator.field(simple_profile::id)
 								.nullable())
 						)
 					))
@@ -302,9 +310,12 @@ impl Location {
 						),
 						approver.fields(simple_profile::all_columns).nullable(),
 						rejecter.fields(simple_profile::all_columns).nullable(),
-						creater.fields(simple_profile::all_columns).nullable(),
+						creator.fields(simple_profile::all_columns).nullable(),
 						updater.fields(simple_profile::all_columns).nullable(),
-						opening_time::all_columns.nullable(),
+						<
+							PrimitiveOpeningTime as Selectable<Pg>
+						>
+						::construct_selection().nullable(),
 					))
 					.get_results(conn)
 			})
@@ -348,8 +359,6 @@ impl Location {
 	}
 
 	/// Get all locations created by a given profile
-	///
-	/// # Errors
 	pub async fn get_by_profile_id(
 		profile_id: i32,
 		includes: LocationIncludes,
@@ -382,10 +391,10 @@ impl Location {
 								.nullable())
 						)
 					))
-					.left_outer_join(creater.on(
+					.left_outer_join(creator.on(
 						includes.created_by.into_sql::<Bool>().and(
 							created_by
-								.eq(creater.field(simple_profile::id)
+								.eq(creator.field(simple_profile::id)
 								.nullable())
 						)
 					))
@@ -411,9 +420,12 @@ impl Location {
 						),
 						approver.fields(simple_profile::all_columns).nullable(),
 						rejecter.fields(simple_profile::all_columns).nullable(),
-						creater.fields(simple_profile::all_columns).nullable(),
+						creator.fields(simple_profile::all_columns).nullable(),
 						updater.fields(simple_profile::all_columns).nullable(),
-						opening_time::all_columns.nullable(),
+						<
+							PrimitiveOpeningTime as Selectable<Pg>
+						>
+						::construct_selection().nullable(),
 					))
 					.load(conn)
 			})

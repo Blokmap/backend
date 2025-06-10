@@ -3,13 +3,12 @@ use models::{
 	Location,
 	LocationUpdate,
 	NewLocation,
-	OpeningTime,
+	PrimitiveOpeningTime,
 	PrimitiveTranslation,
 	SimpleProfile,
 };
 use serde::{Deserialize, Serialize};
 
-use super::opening_time::OpeningTimeResponse;
 use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::image::ImageResponse;
 use crate::schemas::tag::TagResponse;
@@ -48,7 +47,7 @@ pub struct LocationResponse {
 	pub updated_by:             Option<Option<SimpleProfile>>,
 
 	pub images:        Vec<ImageResponse>,
-	pub opening_times: Vec<OpeningTimeResponse>,
+	pub opening_times: Vec<PrimitiveOpeningTime>,
 	pub tags:          Vec<TagResponse>,
 }
 
@@ -91,10 +90,10 @@ impl From<Location> for LocationResponse {
 	}
 }
 
-impl From<(Location, Vec<OpeningTime>)> for LocationResponse {
-	fn from((location, opening_times): (Location, Vec<OpeningTime>)) -> Self {
-		let opening_times = opening_times.into_iter().map(Into::into).collect();
-
+impl From<(Location, Vec<PrimitiveOpeningTime>)> for LocationResponse {
+	fn from(
+		(location, opening_times): (Location, Vec<PrimitiveOpeningTime>),
+	) -> Self {
 		Self {
 			id: location.location.id,
 			name: location.location.name,

@@ -6,7 +6,7 @@ use diesel::sql_types::Bool;
 use serde::{Deserialize, Serialize};
 
 use crate::SimpleProfile;
-use crate::schema::{simple_profile, translation};
+use crate::schema::{creator, simple_profile, translation, updater};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct TranslationIncludes {
@@ -48,11 +48,6 @@ impl Translation {
 		includes: TranslationIncludes,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		diesel::alias!(
-			simple_profile as creater: CreaterAlias,
-			simple_profile as updater: UpdaterAlias,
-		);
-
 		let translation: (
 			PrimitiveTranslation,
 			Option<SimpleProfile>,
@@ -62,10 +57,10 @@ impl Translation {
 				use crate::schema::translation::dsl::*;
 
 				translation
-					.left_outer_join(creater.on(
+					.left_outer_join(creator.on(
 						includes.created_by.into_sql::<Bool>().and(
 							created_by.eq(
-								creater.field(simple_profile::id).nullable(),
+								creator.field(simple_profile::id).nullable(),
 							),
 						),
 					))
@@ -79,7 +74,7 @@ impl Translation {
 					.filter(id.eq(tr_id))
 					.select((
 						PrimitiveTranslation::as_select(),
-						creater.fields(simple_profile::all_columns).nullable(),
+						creator.fields(simple_profile::all_columns).nullable(),
 						updater.fields(simple_profile::all_columns).nullable(),
 					))
 					.get_result(conn)
@@ -168,7 +163,7 @@ pub struct TranslationUpdate {
 }
 
 impl TranslationUpdate {
-	/// Update this [`TranslationUpdate`].
+	/// Apply this update to the [`Translation`] with the given id
 	pub async fn apply_to(
 		self,
 		tr_id: i32,

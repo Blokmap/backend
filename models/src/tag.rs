@@ -5,7 +5,7 @@ use diesel::prelude::*;
 use diesel::sql_types::Bool;
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{simple_profile, tag, translation};
+use crate::schema::{creator, simple_profile, tag, translation, updater};
 use crate::{
 	NewTranslation,
 	PrimitiveTranslation,
@@ -50,11 +50,6 @@ impl Tag {
 		includes: TagIncludes,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		diesel::alias!(
-			simple_profile as creater: CreaterAlias,
-			simple_profile as updater: UpdaterAlias,
-		);
-
 		let tag: (
 			PrimitiveTag,
 			PrimitiveTranslation,
@@ -69,9 +64,9 @@ impl Tag {
 						.on(name_translation_id.eq(translation::id)),
 				)
 				.left_outer_join(
-					creater.on(includes.created_by.into_sql::<Bool>().and(
+					creator.on(includes.created_by.into_sql::<Bool>().and(
 						created_by
-							.eq(creater.field(simple_profile::id).nullable()),
+							.eq(creator.field(simple_profile::id).nullable()),
 					)),
 				)
 				.left_outer_join(
@@ -84,7 +79,7 @@ impl Tag {
 				.select((
 					PrimitiveTag::as_select(),
 					PrimitiveTranslation::as_select(),
-					creater.fields(simple_profile::all_columns).nullable(),
+					creator.fields(simple_profile::all_columns).nullable(),
 					updater.fields(simple_profile::all_columns).nullable(),
 				))
 				.get_result(conn)
@@ -108,11 +103,6 @@ impl Tag {
 		includes: TagIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
-		diesel::alias!(
-			simple_profile as creater: CreaterAlias,
-			simple_profile as updater: UpdaterAlias,
-		);
-
 		let tags = conn
 			.interact(move |c| {
 				tag::table
@@ -120,10 +110,10 @@ impl Tag {
 						translation::table
 							.on(tag::name_translation_id.eq(translation::id)),
 					)
-					.left_outer_join(creater.on(
+					.left_outer_join(creator.on(
 						includes.created_by.into_sql::<Bool>().and(
 							tag::created_by.eq(
-								creater.field(simple_profile::id).nullable(),
+								creator.field(simple_profile::id).nullable(),
 							),
 						),
 					))
@@ -137,7 +127,7 @@ impl Tag {
 					.select((
 						PrimitiveTag::as_select(),
 						PrimitiveTranslation::as_select(),
-						creater.fields(simple_profile::all_columns).nullable(),
+						creator.fields(simple_profile::all_columns).nullable(),
 						updater.fields(simple_profile::all_columns).nullable(),
 					))
 					.load(c)
@@ -251,6 +241,7 @@ struct InsertableTagUpdate {
 }
 
 impl TagUpdate {
+	/// Apply this update to the [`Tag`] with the given id
 	pub async fn apply_to(
 		self,
 		tag_id: i32,

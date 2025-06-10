@@ -20,8 +20,6 @@ use models::{
 	LocationFilter,
 	LocationIncludes,
 	NewImage,
-	NewOpeningTime,
-	OpeningTime,
 	PaginationOptions,
 };
 use rayon::prelude::*;
@@ -33,10 +31,6 @@ use crate::schemas::location::{
 	LocationResponse,
 	RejectLocationRequest,
 	UpdateLocationRequest,
-};
-use crate::schemas::opening_time::{
-	CreateOpeningTimeRequest,
-	OpeningTimeResponse,
 };
 
 /// Create a new location in the database.
@@ -336,41 +330,4 @@ pub(crate) async fn delete_location(
 	Location::delete_by_id(id, &conn).await?;
 
 	Ok((StatusCode::NO_CONTENT, NoContent))
-}
-
-#[instrument(skip(pool))]
-pub async fn get_location_times(
-	State(pool): State<DbPool>,
-	Path(id): Path<i32>,
-) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let times = OpeningTime::for_location(id, &conn).await?;
-	let times: Vec<OpeningTimeResponse> =
-		times.into_iter().map(Into::into).collect();
-
-	Ok(Json(times))
-}
-
-#[instrument(skip(pool))]
-pub async fn create_location_time(
-	State(pool): State<DbPool>,
-	Path(id): Path<i32>,
-	Json(request): Json<CreateOpeningTimeRequest>,
-) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let new_time = NewOpeningTime {
-		location_id:      id,
-		day:              request.day,
-		start_time:       request.start_time,
-		end_time:         request.end_time,
-		seat_count:       request.seat_count,
-		reservable_from:  request.reservable_from,
-		reservable_until: request.reservable_until,
-	};
-
-	let new_time = new_time.insert(&conn).await?;
-
-	Ok(Json(new_time))
 }

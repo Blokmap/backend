@@ -1427,7 +1427,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/profileWithPermissions'
 
-  /locations/{id}/opening-times:
+  /locations/{id}/opening-times ✅:
     parameters:
       - name: id
         in: path
@@ -1522,7 +1522,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/openingTime'
 
-  /locations/{id}/opening-times/{openingTimeId}:
+  /locations/{id}/opening-times/{openingTimeId} ✅:
     parameters:
       - name: id
         in: path

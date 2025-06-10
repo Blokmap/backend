@@ -233,6 +233,15 @@ diesel::table! {
 	}
 }
 
+diesel::alias!(
+	translation as description: DescriptionAlias,
+	translation as excerpt: ExcerptAlias,
+	simple_profile as approver: ApproverAlias,
+	simple_profile as rejecter: RejecterAlias,
+	simple_profile as creator: CreatorAlias,
+	simple_profile as updater: UpdaterAlias,
+);
+
 diesel::joinable!(authority_profile -> authority (authority_id));
 diesel::joinable!(location -> authority (authority_id));
 diesel::joinable!(location_image -> image (image_id));

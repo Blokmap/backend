@@ -22,17 +22,20 @@ use crate::controllers::healthcheck;
 use crate::controllers::location::{
 	approve_location,
 	create_location,
-	create_location_time,
 	delete_location,
 	delete_location_image,
 	get_location,
 	get_location_positions,
-	get_location_times,
 	get_locations,
 	reject_location,
 	search_locations,
 	update_location,
 	upload_location_image,
+};
+use crate::controllers::opening_time::{
+	create_location_time,
+	get_location_times,
+	update_location_time,
 };
 use crate::controllers::profile::{
 	activate_profile,
@@ -128,6 +131,10 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 		.route(
 			"/{id}/opening-times",
 			get(get_location_times).post(create_location_time),
+		)
+		.route(
+			"/{id}/opening-times/{time_id}",
+			patch(update_location_time).delete(delete_location_image),
 		)
 		.route_layer(AuthLayer::new(state.clone()));
 

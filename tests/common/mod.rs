@@ -14,6 +14,7 @@ use models::{
 	NewOpeningTime,
 	NewTag,
 	NewTranslation,
+	OpeningTimeIncludes,
 	Profile,
 	TagIncludes,
 	Translation,
@@ -105,7 +106,8 @@ impl TestEnv {
 					"tests/seed/opening-times.json",
 					async |conn, times: Vec<NewOpeningTime>| {
 						for time in times {
-							time.insert(conn).await?;
+							time.insert(OpeningTimeIncludes::default(), conn)
+								.await?;
 						}
 
 						Ok(())
