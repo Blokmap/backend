@@ -143,7 +143,7 @@ async fn update_location_test() {
 	// Update the location with a new name
 	let response = env
 		.app
-		.post(format!("/locations/{}", location.location.id).as_str())
+		.patch(format!("/locations/{}", location.location.id).as_str())
 		.json(&serde_json::json!({
 			"name": "Updated Location",
 			"isVisible": !location.location.is_visible,
@@ -174,7 +174,7 @@ async fn update_location_unauthorized_test() {
 	// Attempt to update the location without admin privileges
 	let response = env
 		.app
-		.post(format!("/locations/{}", location.location.id).as_str())
+		.patch(format!("/locations/{}", location.location.id).as_str())
 		.json(&serde_json::json!({
 			"name": "Updated Location",
 			"isVisible": !location.location.is_visible,
