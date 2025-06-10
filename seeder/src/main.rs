@@ -13,7 +13,12 @@ use fake::faker::company::raw::CompanyName;
 use fake::faker::internet::raw::{FreeEmail, Password, Username};
 use fake::faker::lorem::raw::Sentence;
 use fake::locales::{DE_DE, EN, FR_FR};
-use models::{NewLocation, NewProfileDirect, NewTranslation, ProfileState};
+use models::{
+	InsertableNewLocation,
+	NewProfileDirect,
+	NewTranslation,
+	ProfileState,
+};
 use rand::seq::IndexedRandom;
 use rand::{Rng, rng};
 
@@ -144,7 +149,7 @@ async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 
 	let mut rng = rng();
 
-	let locations: Vec<NewLocation> = (0..count)
+	let locations: Vec<InsertableNewLocation> = (0..count)
 		.map(|i| {
 			let name = CompanyName(EN).fake::<String>();
 			let description_id = descriptions[i % descriptions.len()];
@@ -152,7 +157,8 @@ async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 			let seat_count = (10..100).fake_with_rng(&mut rng);
 			let is_reservable = rng.random_bool(0.4);
 			let reservation_block_size = (15..120).fake_with_rng(&mut rng);
-			let is_visible = rng.random_bool(0.95);
+			let min_reservation_length = (1..4).fake_with_rng(&mut rng);
+			let max_reservation_length = (2..24).fake_with_rng(&mut rng);
 			let street = StreetName(EN).fake::<String>();
 			let number = (1..200).fake_with_rng::<u32, _>(&mut rng).to_string();
 			let zip = ZipCode(EN).fake::<String>();
@@ -163,14 +169,16 @@ async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 			let longitude = rng.random_range(2.5..=6.4);
 			let created_by = *profile_ids.choose(&mut rng).unwrap();
 
-			NewLocation {
+			InsertableNewLocation {
 				name,
+				authority_id: None,
 				description_id,
 				excerpt_id,
 				seat_count,
 				is_reservable,
 				reservation_block_size,
-				is_visible,
+				min_reservation_length,
+				max_reservation_length,
 				street,
 				number,
 				zip,

@@ -1,12 +1,17 @@
 [
 	{
 		"name": "Bibliotheek S5 Sterre",
-		"description_id": 1,
-		"excerpt_id": 1,
+		"description": {
+			"nl" : "test",
+			"created_by": 1
+		},
+		"excerpt": {
+			"nl" : "test",
+			"created_by": 1
+		},
 		"seat_count": 100,
 		"is_reservable": true,
 		"reservation_block_size": 30,
-		"is_visible": true,
 		"street": "Krijgslaan",
 		"number": "281",
 		"zip": "9000",
@@ -21,12 +26,17 @@
 	},
 	{
 		"name": "KCGG UZ Gent",
-		"description_id": 1,
-		"excerpt_id": 1,
+		"description": {
+			"nl" : "test",
+			"created_by": 1
+		},
+		"excerpt": {
+			"nl" : "test",
+			"created_by": 1
+		},
 		"seat_count": 100,
 		"is_reservable": true,
 		"reservation_block_size": 30,
-		"is_visible": true,
 		"street": "Corneel Heymanslaan",
 		"number": "10",
 		"zip": "9000",

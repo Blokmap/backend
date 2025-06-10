@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use axum::Router;
-use axum::routing::{get, post};
+use axum::routing::{delete, get, patch, post};
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tower_http::timeout::TimeoutLayer;
@@ -23,12 +23,20 @@ use crate::controllers::location::{
 	approve_location,
 	create_location,
 	delete_location,
+	delete_location_image,
 	get_location,
 	get_location_positions,
 	get_locations,
+	reject_location,
 	search_locations,
 	update_location,
 	upload_location_image,
+};
+use crate::controllers::opening_time::{
+	create_location_time,
+	delete_location_time,
+	get_location_times,
+	update_location_time,
 };
 use crate::controllers::profile::{
 	activate_profile,
@@ -37,6 +45,12 @@ use crate::controllers::profile::{
 	get_current_profile,
 	get_profile_locations,
 	update_current_profile,
+};
+use crate::controllers::tag::{
+	create_tag,
+	delete_tag,
+	get_all_tags,
+	update_tag,
 };
 use crate::controllers::translation::{
 	create_translation,
@@ -53,7 +67,8 @@ pub fn get_app_router(state: AppState) -> Router {
 		.nest("/auth", auth_routes(&state))
 		.nest("/profiles", profile_routes(&state))
 		.nest("/locations", location_routes(&state))
-		.nest("/translations", translation_routes(&state));
+		.nest("/translations", translation_routes(&state))
+		.nest("/tags", tag_routes(&state));
 
 	Router::new()
 		.merge(api_routes)
@@ -89,8 +104,8 @@ fn auth_routes(state: &AppState) -> Router<AppState> {
 /// Profile routes
 fn profile_routes(state: &AppState) -> Router<AppState> {
 	let protected = Router::new()
-		.route("/disable/{profile_id}", post(disable_profile))
-		.route("/activate/{profile_id}", post(activate_profile))
+		.route("/{profile_id}/block", post(disable_profile))
+		.route("/{profile_id}/unblock", post(activate_profile))
 		.route_layer(AdminLayer::new(state.clone()));
 
 	Router::new()
@@ -105,13 +120,23 @@ fn profile_routes(state: &AppState) -> Router<AppState> {
 fn location_routes(state: &AppState) -> Router<AppState> {
 	let protected = Router::new()
 		.route("/{id}/approve", post(approve_location))
+		.route("/{id}/reject", post(reject_location))
 		.route_layer(AdminLayer::new(state.clone()))
 		.route_layer(AuthLayer::new(state.clone()));
 
 	let authenticated = Router::new()
 		.route("/", post(create_location))
-		.route("/{id}", post(update_location).delete(delete_location))
-		.route("/{id}/image", post(upload_location_image))
+		.route("/{id}", patch(update_location).delete(delete_location))
+		.route("/{id}/images", post(upload_location_image))
+		.route("/{id}/images/{image_id}", delete(delete_location_image))
+		.route(
+			"/{id}/opening-times",
+			get(get_location_times).post(create_location_time),
+		)
+		.route(
+			"/{id}/opening-times/{time_id}",
+			patch(update_location_time).delete(delete_location_time),
+		)
 		.route_layer(AuthLayer::new(state.clone()));
 
 	Router::new()
@@ -131,7 +156,19 @@ fn translation_routes(state: &AppState) -> Router<AppState> {
 			"/{id}",
 			get(get_translation)
 				.delete(delete_translation)
-				.post(update_translation),
+				.patch(update_translation),
 		)
+		.route_layer(AuthLayer::new(state.clone()))
+}
+
+fn tag_routes(state: &AppState) -> Router<AppState> {
+	let protected = Router::new()
+		.route("/", post(create_tag))
+		.route("/{id}", patch(update_tag).delete(delete_tag))
+		.route_layer(AdminLayer::new(state.clone()));
+
+	Router::new()
+		.route("/", get(get_all_tags))
+		.merge(protected)
 		.route_layer(AuthLayer::new(state.clone()))
 }

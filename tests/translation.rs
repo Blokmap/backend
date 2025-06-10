@@ -94,7 +94,7 @@ async fn update_translation_test() {
 
 	let update_response = env
 		.app
-		.post(&format!("/translations/{}", created.id))
+		.patch(&format!("/translations/{}", created.id))
 		.json(&update_req)
 		.await;
 

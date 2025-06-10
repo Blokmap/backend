@@ -12,27 +12,26 @@ async fn create_location_test() {
 		.app
 		.post("/locations")
 		.json(&serde_json::json!({
-			"location": {
-				"name": "Test Location",
-				"seatCount": 10,
-				"isReservable": true,
-				"reservationBlockSize": 20,
-				"isVisible": true,
-				"street": "Test Street",
-				"number": "123",
-				"zip": "1234AB",
-				"city": "Test City",
-				"province": "Test Province",
-				"country": "BE",
-				"latitude": 52.0,
-				"longitude": 4.0
-			},
+			"name": "Test Location",
 			"description": {
-				"nl": "test-description"
+				"nl": "test description",
 			},
 			"excerpt": {
-				"nl": "test-excerpt"
+				"nl": "test excerpt",
 			},
+			"seatCount": 10,
+			"isReservable": true,
+			"reservationBlockSize": 20,
+			"minReservationLength": 1,
+			"maxReservationLength": 12,
+			"street": "Test Street",
+			"number": "123",
+			"zip": "1234AB",
+			"city": "Test City",
+			"province": "Test Province",
+			"country": "BE",
+			"latitude": 52.0,
+			"longitude": 4.0
 		}))
 		.await;
 
@@ -49,35 +48,6 @@ async fn create_location_test() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_create_location_invalid_translation() {
-	let env = TestEnv::new().await.login("test").await;
-
-	// Attempt to create a location with wrong name and description
-	// translation FKs.
-	let response = env
-		.app
-		.post("/locations")
-		.json(&serde_json::json!({
-			"name": "Test Location",
-			"descriptionId": 69,
-			"excerptId": 420,
-			"seatCount": 10,
-			"isReservable": true,
-			"isVisible": true,
-			"street": "Test Street",
-			"number": "123",
-			"zip": "1234AB",
-			"city": "Test City",
-			"province": "Test Province",
-			"latitude": 52.0,
-			"longitude": 4.0
-		}))
-		.await;
-
-	assert_eq!(response.status_code(), StatusCode::UNPROCESSABLE_ENTITY);
-}
-
-#[tokio::test(flavor = "multi_thread")]
 async fn get_location_test() {
 	let env = TestEnv::new().await;
 
@@ -85,14 +55,16 @@ async fn get_location_test() {
 	let location = env.get_location().await.unwrap();
 
 	// Get the location by ID from the app router
-	let response =
-		env.app.get(format!("/locations/{}", location.id).as_str()).await;
+	let response = env
+		.app
+		.get(format!("/locations/{}", location.location.id).as_str())
+		.await;
 
 	assert_eq!(response.status_code(), StatusCode::OK);
 	let location_response = response.json::<LocationResponse>();
 
-	assert_eq!(location_response.id, location.id);
-	assert_eq!(location_response.name, location.name);
+	assert_eq!(location_response.id, location.location.id);
+	assert_eq!(location_response.name, location.location.name);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -108,8 +80,8 @@ async fn get_locations_test() {
 
 	// Check if the location is in the response
 	let locations = response.json::<Paginated<Vec<LocationResponse>>>();
-	assert!(locations.data.iter().any(|l| l.id == location.id));
-	assert!(locations.data.iter().any(|l| l.name == location.name));
+	assert!(locations.data.iter().any(|l| l.id == location.location.id));
+	assert!(locations.data.iter().any(|l| l.name == location.location.name));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -125,10 +97,10 @@ async fn search_locations_test() {
 		.app
 		.get("/locations/search")
 		.add_query_params([
-			("northEastLat", location.latitude + 1.0),
-			("northEastLng", location.longitude + 1.0),
-			("southWestLat", location.latitude - 1.0),
-			("southWestLng", location.longitude - 1.0),
+			("northEastLat", location.location.latitude + 1.0),
+			("northEastLng", location.location.longitude + 1.0),
+			("southWestLat", location.location.latitude - 1.0),
+			("southWestLng", location.location.longitude - 1.0),
 		])
 		.await;
 
@@ -136,8 +108,8 @@ async fn search_locations_test() {
 
 	// Check if the location is in the response
 	let locations = response.json::<Vec<PartialLocation>>();
-	assert!(locations.iter().any(|l| l.id == location.id));
-	assert!(locations.iter().any(|l| l.name == location.name));
+	assert!(locations.iter().any(|l| l.id == location.location.id));
+	assert!(locations.iter().any(|l| l.name == location.location.name));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -156,8 +128,8 @@ async fn get_location_positions_test() {
 	let locations = response.json::<Vec<(f64, f64)>>();
 
 	assert!(locations.iter().any(|l| {
-		(l.0 - location.latitude).abs() <= f64::EPSILON
-			&& (l.1 - location.longitude).abs() <= f64::EPSILON
+		(l.0 - location.location.latitude).abs() <= f64::EPSILON
+			&& (l.1 - location.location.longitude).abs() <= f64::EPSILON
 	}));
 }
 
@@ -171,11 +143,11 @@ async fn update_location_test() {
 	// Update the location with a new name
 	let response = env
 		.app
-		.post(format!("/locations/{}", location.id).as_str())
+		.patch(format!("/locations/{}", location.location.id).as_str())
 		.json(&serde_json::json!({
 			"name": "Updated Location",
-			"isVisible": !location.is_visible,
-			"isReservable": !location.is_reservable,
+			"isVisible": !location.location.is_visible,
+			"isReservable": !location.location.is_reservable,
 		}))
 		.await;
 
@@ -183,10 +155,13 @@ async fn update_location_test() {
 
 	// Check if the location is updated
 	let updated_location = response.json::<LocationResponse>();
-	assert_eq!(updated_location.id, location.id);
+	assert_eq!(updated_location.id, location.location.id);
 	assert_eq!(updated_location.name, "Updated Location");
-	assert_eq!(updated_location.is_visible, !location.is_visible);
-	assert_eq!(updated_location.is_reservable, !location.is_reservable);
+	assert_eq!(updated_location.is_visible, !location.location.is_visible);
+	assert_eq!(
+		updated_location.is_reservable,
+		!location.location.is_reservable
+	);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -199,11 +174,11 @@ async fn update_location_unauthorized_test() {
 	// Attempt to update the location without admin privileges
 	let response = env
 		.app
-		.post(format!("/locations/{}", location.id).as_str())
+		.patch(format!("/locations/{}", location.location.id).as_str())
 		.json(&serde_json::json!({
 			"name": "Updated Location",
-			"isVisible": !location.is_visible,
-			"isReservable": !location.is_reservable,
+			"isVisible": !location.location.is_visible,
+			"isReservable": !location.location.is_reservable,
 		}))
 		.await;
 
@@ -221,14 +196,19 @@ async fn approve_location_test() {
 	// Approve the location
 	let response = env
 		.app
-		.post(format!("/locations/{}/approve", location.id).as_str())
+		.post(format!("/locations/{}/approve", location.location.id).as_str())
 		.await;
 
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
 	// Check if the location is approved
-	let updated_location = env.get_location().await.unwrap();
-	assert_eq!(updated_location.approved_by, Some(profile.id));
+	let updated_location = env
+		.app
+		.get(&format!("/locations/{}?approved_by=true", location.location.id))
+		.await
+		.json::<LocationResponse>();
+
+	assert_eq!(updated_location.approved_by.unwrap().unwrap().id, profile.id);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -241,7 +221,7 @@ async fn approve_location_unauthorized_test() {
 	// Attempt to approve the location without admin privileges
 	let response = env
 		.app
-		.post(format!("/locations/{}/approve", location.id).as_str())
+		.post(format!("/locations/{}/approve", location.location.id).as_str())
 		.await;
 
 	assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
@@ -255,13 +235,17 @@ async fn delete_location_test() {
 	let location = env.get_location().await.unwrap();
 
 	// Delete the location
-	let response =
-		env.app.delete(format!("/locations/{}", location.id).as_str()).await;
+	let response = env
+		.app
+		.delete(format!("/locations/{}", location.location.id).as_str())
+		.await;
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
 	// Check if the location is deleted
-	let response =
-		env.app.get(format!("/locations/{}", location.id).as_str()).await;
+	let response = env
+		.app
+		.get(format!("/locations/{}", location.location.id).as_str())
+		.await;
 
 	assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
 }

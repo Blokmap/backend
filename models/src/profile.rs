@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::{Argon2, PasswordHasher};
@@ -12,9 +10,13 @@ use lettre::message::Mailbox;
 use serde::{Deserialize, Serialize};
 
 use crate::PaginationOptions;
-use crate::schema::profile;
+use crate::schema::{image, profile, simple_profile};
 
-#[derive(Clone, DbEnum, Debug, Default, Deserialize, PartialEq, Eq)]
+diesel::joinable!(profile -> image (avatar_image_id));
+
+#[derive(
+	Clone, DbEnum, Debug, Default, Deserialize, PartialEq, Eq, Serialize,
+)]
 #[ExistingTypePath = "crate::schema::sql_types::ProfileState"]
 pub enum ProfileState {
 	#[default]
@@ -67,16 +69,6 @@ pub struct Profile {
 	pub last_login_at:                   NaiveDateTime,
 }
 
-impl Hash for Profile {
-	fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.id.hash(state) }
-}
-
-impl PartialEq for Profile {
-	fn eq(&self, other: &Self) -> bool { self.id == other.id }
-}
-
-impl Eq for Profile {}
-
 impl TryFrom<&Profile> for Mailbox {
 	type Error = Error;
 
@@ -99,6 +91,38 @@ impl TryFrom<&Profile> for Mailbox {
 			);
 			Err(Error::InternalServerError)
 		}
+	}
+}
+
+#[derive(
+	Clone, Debug, Deserialize, Identifiable, Queryable, Serialize, Selectable,
+)]
+#[diesel(table_name = simple_profile)]
+#[diesel(check_for_backend(Pg))]
+pub struct SimpleProfile {
+	pub id:         i32,
+	pub username:   String,
+	pub avatar_url: Option<String>,
+	pub email:      Option<String>,
+	pub first_name: Option<String>,
+	pub last_name:  Option<String>,
+	pub state:      ProfileState,
+}
+
+impl SimpleProfile {
+	pub async fn get_by_ids(
+		ids: Vec<i32>,
+		conn: &DbConn,
+	) -> Result<Vec<Self>, Error> {
+		let profiles = conn
+			.interact(move |conn| {
+				use self::simple_profile::dsl::*;
+
+				simple_profile.filter(id.eq_any(ids)).get_results(conn)
+			})
+			.await??;
+
+		Ok(profiles)
 	}
 }
 

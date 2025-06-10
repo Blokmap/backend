@@ -201,8 +201,6 @@ impl Location {
 			filter = Box::new(filter.and(f));
 		}
 
-		info!("{}", diesel::debug_query::<Pg, _>(&filter));
-
 		let result = conn
 			.interact(move |conn| {
 				location::table

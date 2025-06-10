@@ -6,6 +6,7 @@ use axum::{Extension, Json};
 use common::{DbPool, Error};
 use models::{
 	Location,
+	LocationIncludes,
 	Paginated,
 	PaginationOptions,
 	Profile,
@@ -30,7 +31,7 @@ pub(crate) async fn get_all_profiles(
 	let (total, profiles) = Profile::get_all(p_opts, &conn).await?;
 
 	let profiles: Vec<ProfileResponse> =
-		profiles.into_iter().map(ProfileResponse::from).collect();
+		profiles.into_iter().map(Into::into).collect();
 
 	let paginated = p_opts.paginate(total, profiles);
 
@@ -125,10 +126,12 @@ pub(crate) async fn activate_profile(
 #[instrument(skip(pool))]
 pub(crate) async fn get_profile_locations(
 	State(pool): State<DbPool>,
+	Query(includes): Query<LocationIncludes>,
 	Path(profile_id): Path<i32>,
 ) -> Result<Json<Vec<LocationResponse>>, Error> {
 	let conn = pool.get().await?;
-	let locations = Location::get_by_profile_id(profile_id, &conn).await?;
+	let locations =
+		Location::get_by_profile_id(profile_id, includes, &conn).await?;
 	let locations = locations.into_iter().map(LocationResponse::from).collect();
 
 	Ok(Json(locations))

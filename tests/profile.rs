@@ -124,7 +124,7 @@ async fn disable_profile() {
 		.map(|p| p.id)
 		.unwrap();
 
-	let response = env.app.post(&format!("/profiles/disable/{test_id}")).await;
+	let response = env.app.post(&format!("/profiles/{test_id}/block")).await;
 
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
@@ -149,7 +149,7 @@ async fn disable_profile_not_admin() {
 		.map(|p| p.id)
 		.unwrap();
 
-	let response = env.app.post(&format!("/profiles/disable/{test_id}")).await;
+	let response = env.app.post(&format!("/profiles/{test_id}/block")).await;
 
 	assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 
@@ -176,7 +176,7 @@ async fn activate_profile() {
 
 	let test_id = test.id;
 
-	let response = env.app.post(&format!("/profiles/activate/{test_id}")).await;
+	let response = env.app.post(&format!("/profiles/{test_id}/unblock")).await;
 
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
@@ -201,7 +201,7 @@ async fn activate_profile_not_admin() {
 
 	let test_id = test.id;
 
-	let response = env.app.post(&format!("/profiles/activate/{test_id}")).await;
+	let response = env.app.post(&format!("/profiles/{test_id}/unblock")).await;
 
 	assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 

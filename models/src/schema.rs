@@ -131,6 +131,7 @@ diesel::table! {
 		end_time -> Time,
 		seat_count -> Nullable<Int4>,
 		reservable_from -> Nullable<Timestamp>,
+		reservable_until -> Nullable<Timestamp>,
 		created_at -> Timestamp,
 		created_by -> Nullable<Int4>,
 		updated_at -> Timestamp,
@@ -217,6 +218,30 @@ diesel::table! {
 	}
 }
 
+diesel::table! {
+	use diesel::sql_types::*;
+	use super::sql_types::ProfileState;
+
+	simple_profile (id) {
+		id -> Int4,
+		username -> Text,
+		avatar_url -> Nullable<Text>,
+		email -> Nullable<Text>,
+		first_name -> Nullable<Text>,
+		last_name -> Nullable<Text>,
+		state -> ProfileState,
+	}
+}
+
+diesel::alias!(
+	translation as description: DescriptionAlias,
+	translation as excerpt: ExcerptAlias,
+	simple_profile as approver: ApproverAlias,
+	simple_profile as rejecter: RejecterAlias,
+	simple_profile as creator: CreatorAlias,
+	simple_profile as updater: UpdaterAlias,
+);
+
 diesel::joinable!(authority_profile -> authority (authority_id));
 diesel::joinable!(location -> authority (authority_id));
 diesel::joinable!(location_image -> image (image_id));
@@ -246,4 +271,5 @@ diesel::allow_tables_to_appear_in_same_query!(
 	review,
 	tag,
 	translation,
+	simple_profile,
 );
