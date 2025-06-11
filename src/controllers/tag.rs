@@ -1,11 +1,11 @@
+use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::{Extension, Json};
 use common::{DbPool, Error};
 use models::{Tag, TagIncludes};
 
-use crate::ProfileId;
+use crate::AdminSession;
 use crate::schemas::tag::{CreateTagRequest, TagResponse, UpdateTagRequest};
 
 #[instrument(skip(pool))]
@@ -24,13 +24,13 @@ pub async fn get_all_tags(
 #[instrument(skip(pool))]
 pub async fn create_tag(
 	State(pool): State<DbPool>,
-	Extension(profile_id): Extension<ProfileId>,
+	session: AdminSession,
 	Query(includes): Query<TagIncludes>,
 	Json(request): Json<CreateTagRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let new_tag = request.to_insertable(*profile_id);
+	let new_tag = request.to_insertable(session.data.profile_id);
 	let tag = new_tag.insert(includes, &conn).await?;
 	let response: TagResponse = tag.into();
 
@@ -40,14 +40,14 @@ pub async fn create_tag(
 #[instrument(skip(pool))]
 pub async fn update_tag(
 	State(pool): State<DbPool>,
-	Extension(profile_id): Extension<ProfileId>,
+	session: AdminSession,
 	Query(includes): Query<TagIncludes>,
 	Path(id): Path<i32>,
 	Json(request): Json<UpdateTagRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let tag_update = request.to_insertable(*profile_id);
+	let tag_update = request.to_insertable(session.data.profile_id);
 	let updated_tag = tag_update.apply_to(id, includes, &conn).await?;
 	let response: TagResponse = updated_tag.into();
 
@@ -57,6 +57,7 @@ pub async fn update_tag(
 #[instrument(skip(pool))]
 pub async fn delete_tag(
 	State(pool): State<DbPool>,
+	session: AdminSession,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;

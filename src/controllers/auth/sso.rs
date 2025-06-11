@@ -5,7 +5,6 @@ use axum_extra::extract::PrivateCookieJar;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use common::{Error, OAuthError};
 use models::Profile;
-use models::ephemeral::Session;
 use openidconnect::core::{CoreClient, CoreProviderMetadata, CoreResponseType};
 use openidconnect::reqwest::blocking::ClientBuilder;
 use openidconnect::reqwest::redirect::Policy;
@@ -21,7 +20,7 @@ use openidconnect::{
 use serde::Deserialize;
 use time::Duration;
 
-use crate::{Config, DbPool, RedisConn, SsoConfig};
+use crate::{Config, DbPool, RedisConn, Session, SsoConfig};
 
 #[must_use]
 pub fn make_cookie(
@@ -204,13 +203,8 @@ pub async fn sso_callback(
 		config.access_token_lifetime,
 		config.production,
 	);
-	let refresh_token_cookie = session.to_refresh_token_cookie(
-		config.refresh_token_name,
-		config.refresh_token_lifetime,
-		config.production,
-	);
 
-	let jar = jar.add(access_token_cookie).add(refresh_token_cookie);
+	let jar = jar.add(access_token_cookie);
 
 	let profile = profile.update_last_login(&conn).await?;
 

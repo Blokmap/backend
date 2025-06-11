@@ -15,7 +15,7 @@ use crate::schema::{image, profile, simple_profile};
 diesel::joinable!(profile -> image (avatar_image_id));
 
 #[derive(
-	Clone, DbEnum, Debug, Default, Deserialize, PartialEq, Eq, Serialize,
+	Clone, Copy, DbEnum, Debug, Default, Deserialize, PartialEq, Eq, Serialize,
 )]
 #[ExistingTypePath = "crate::schema::sql_types::ProfileState"]
 pub enum ProfileState {

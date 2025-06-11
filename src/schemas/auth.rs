@@ -48,7 +48,7 @@ pub struct PasswordResetData {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct LoginUsernameRequest {
+pub struct LoginRequest {
 	pub username: String,
 	pub password: String,
 }
