@@ -4,11 +4,11 @@ use std::fs::File;
 use std::io::{BufWriter, Cursor, Write};
 use std::path::PathBuf;
 
+use axum::Json;
 use axum::body::Bytes;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
-use axum::{Extension, Json};
 use common::{DbPool, Error};
 use fast_image_resize::images::Image;
 use fast_image_resize::{IntoImageView, Resizer};
@@ -25,25 +25,25 @@ use models::{
 use rayon::prelude::*;
 use uuid::Uuid;
 
-use crate::ProfileId;
 use crate::schemas::location::{
 	CreateLocationRequest,
 	LocationResponse,
 	RejectLocationRequest,
 	UpdateLocationRequest,
 };
+use crate::{AdminSession, Session};
 
 /// Create a new location in the database.
 #[instrument(skip(pool))]
 pub(crate) async fn create_location(
 	State(pool): State<DbPool>,
-	Extension(profile_id): Extension<ProfileId>,
+	session: Session,
 	Query(includes): Query<LocationIncludes>,
 	Json(request): Json<CreateLocationRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let new_location = request.to_insertable(*profile_id);
+	let new_location = request.to_insertable(session.data.profile_id);
 	let records = new_location.insert(includes, &conn).await?;
 	let response = LocationResponse::from(records);
 
@@ -99,7 +99,7 @@ fn generate_image_filepaths(id: i32) -> Result<(PathBuf, PathBuf), Error> {
 #[instrument(skip(pool, data))]
 pub(crate) async fn upload_location_image(
 	State(pool): State<DbPool>,
-	Extension(profile_id): Extension<ProfileId>,
+	session: Session,
 	Path(id): Path<i32>,
 	mut data: Multipart,
 ) -> Result<impl IntoResponse, Error> {
@@ -134,7 +134,7 @@ pub(crate) async fn upload_location_image(
 
 			let new_image = NewImage {
 				file_path:   rel_filepath.to_string_lossy().into_owned(),
-				uploaded_by: *profile_id,
+				uploaded_by: session.data.profile_id,
 			};
 
 			Ok(new_image)
@@ -151,13 +151,15 @@ pub(crate) async fn upload_location_image(
 #[instrument(skip(pool))]
 pub async fn delete_location_image(
 	State(pool): State<DbPool>,
-	Extension(profile_id): Extension<ProfileId>,
+	session: Session,
 	Path(id): Path<i32>,
 	Path(image_id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	// Delete the image record before the file prevent dangling
+	// TODO: check permission
+
+	// Delete the image record before the file to prevent dangling
 	let image = DbImage::get_by_id(id, &conn).await?;
 	DbImage::delete_by_id(id, &conn).await?;
 
@@ -263,7 +265,7 @@ pub(crate) async fn search_locations(
 #[instrument(skip(pool))]
 pub(crate) async fn update_location(
 	State(pool): State<DbPool>,
-	Extension(profile_id): Extension<ProfileId>,
+	session: Session,
 	Path(id): Path<i32>,
 	Query(includes): Query<LocationIncludes>,
 	Json(request): Json<UpdateLocationRequest>,
@@ -278,12 +280,12 @@ pub(crate) async fn update_location(
 
 	#[allow(clippy::collapsible_if)]
 	if let Some(Some(creator)) = location.created_by {
-		if creator.id != *profile_id {
+		if creator.id != session.data.profile_id {
 			return Err(Error::Forbidden);
 		}
 	}
 
-	let loc_update = request.to_insertable(*profile_id);
+	let loc_update = request.to_insertable(session.data.profile_id);
 	let updated_loc = loc_update.apply_to(id, includes, &conn).await?;
 	let response = LocationResponse::from(updated_loc);
 
@@ -294,12 +296,12 @@ pub(crate) async fn update_location(
 #[instrument(skip(pool))]
 pub(crate) async fn approve_location(
 	State(pool): State<DbPool>,
-	Extension(profile_id): Extension<ProfileId>,
+	session: AdminSession,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	Location::approve_by(id, *profile_id, &conn).await?;
+	Location::approve_by(id, session.data.profile_id, &conn).await?;
 
 	Ok((StatusCode::NO_CONTENT, NoContent))
 }
@@ -308,13 +310,14 @@ pub(crate) async fn approve_location(
 #[instrument(skip(pool))]
 pub(crate) async fn reject_location(
 	State(pool): State<DbPool>,
-	Extension(profile_id): Extension<ProfileId>,
+	session: AdminSession,
 	Path(id): Path<i32>,
 	Json(request): Json<RejectLocationRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	Location::reject_by(id, *profile_id, request.reason, &conn).await?;
+	Location::reject_by(id, session.data.profile_id, request.reason, &conn)
+		.await?;
 
 	Ok((StatusCode::NO_CONTENT, NoContent))
 }
@@ -326,6 +329,8 @@ pub(crate) async fn delete_location(
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
+
+	// TODO: check permissions
 
 	Location::delete_by_id(id, &conn).await?;
 

@@ -11,7 +11,6 @@ mod profile;
 mod tag;
 mod translation;
 
-pub mod ephemeral;
 pub mod schema;
 
 pub use image::*;

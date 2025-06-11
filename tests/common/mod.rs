@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum_extra::extract::cookie::Key;
 use axum_test::TestServer;
 use blokmap::mailer::{Mailer, StubMailbox};
-use blokmap::schemas::auth::LoginUsernameRequest;
+use blokmap::schemas::auth::LoginRequest;
 use blokmap::{AppState, Config, SeedProfile, Seeder, SsoConfig, routes};
 use common::Error;
 use mock_redis::{RedisUrlGuard, RedisUrlProvider};
@@ -170,7 +170,7 @@ impl TestEnv {
 	pub async fn login(self, username: &str) -> Self {
 		self.app
 			.post("/auth/login")
-			.json(&LoginUsernameRequest {
+			.json(&LoginRequest {
 				username: username.to_string(),
 				password: "foo".to_string(),
 			})

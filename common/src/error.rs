@@ -19,6 +19,9 @@ pub enum Error {
 	/// Request/operation forbidden
 	#[error("forbidden")]
 	Forbidden,
+	/// An error that should never happen
+	#[error("{0}")]
+	Infallible(String),
 	/// Opaque internal server error
 	#[error("internal server error")]
 	InternalServerError,
@@ -57,7 +60,9 @@ impl IntoResponse for Error {
 
 		let status = match self {
 			Self::Duplicate(_) => StatusCode::CONFLICT,
-			Self::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
+			Self::InternalServerError | Self::Infallible(_) => {
+				StatusCode::INTERNAL_SERVER_ERROR
+			},
 			Self::Forbidden
 			| Self::LoginError(_)
 			| Self::OAuthError(_)
@@ -104,6 +109,11 @@ pub enum OAuthError {
 /// Any error related to a token
 #[derive(Debug, Error)]
 pub enum TokenError {
+	#[error("missing or invalid access token")]
+	MissingAccessToken,
+	#[error("missing session")]
+	MissingSession,
+
 	#[error("email confirmation token has expired")]
 	ExpiredEmailToken,
 	#[error("password reset token has expired")]
@@ -151,6 +161,13 @@ pub enum InternalServerError {
 	/// Error executing some redis operation
 	#[error("redis error -- {0:?}")]
 	RedisError(redis::RedisError),
+	/// Error related to `serde_json`
+	#[error("serde_json error -- {0:?}")]
+	SerdeJsonError(serde_json::Error),
+	/// Attempted to extract a session from a request that has not been
+	/// authorized
+	#[error("attempted to extract session without checking authorization")]
+	SessionWithoutAuthError,
 }
 
 // Map internal server errors to application errors

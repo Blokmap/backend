@@ -1,5 +1,5 @@
 use axum::http::StatusCode;
-use blokmap::schemas::auth::LoginUsernameRequest;
+use blokmap::schemas::auth::LoginRequest;
 use models::{Paginated, PaginationOptions, Profile, ProfileState};
 
 mod common;
@@ -15,7 +15,7 @@ async fn get_all_profiles() {
 	let response = env
 		.app
 		.post("/auth/login")
-		.json(&LoginUsernameRequest {
+		.json(&LoginRequest {
 			username: "test".to_string(),
 			password: "foo".to_string(),
 		})

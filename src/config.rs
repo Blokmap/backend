@@ -39,9 +39,6 @@ pub struct Config {
 	pub access_token_name:     String,
 	pub access_token_lifetime: time::Duration,
 
-	pub refresh_token_name:     String,
-	pub refresh_token_lifetime: time::Duration,
-
 	pub email_address:       Address,
 	pub email_queue_size:    usize,
 	pub email_smtp_server:   String,
@@ -86,15 +83,6 @@ impl Config {
 				.unwrap(),
 		);
 
-		let refresh_token_name =
-			get_env_default("REFRESH_TOKEN_NAME", "blokmap_refresh_token");
-
-		let refresh_token_lifetime = time::Duration::minutes(
-			get_env_default("REFRESH_TOKEN_LIFETIME_MINUTES", "10080") // 1 week
-				.parse::<i64>()
-				.unwrap(),
-		);
-
 		let email_address =
 			get_env_default("EMAIL_ADDRESS", "blokmap@gmail.com")
 				.parse::<Address>()
@@ -124,8 +112,6 @@ impl Config {
 			password_reset_token_lifetime,
 			access_token_name,
 			access_token_lifetime,
-			refresh_token_name,
-			refresh_token_lifetime,
 			email_address,
 			email_queue_size,
 			email_smtp_server,

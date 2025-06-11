@@ -1,13 +1,13 @@
 //! Controllers for [`Translation`]s
 
+use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
-use axum::{Extension, Json};
 use common::{DbPool, Error};
 use models::{Translation, TranslationIncludes};
 
-use crate::ProfileId;
+use crate::Session;
 use crate::schemas::translation::{
 	CreateTranslationRequest,
 	TranslationResponse,
@@ -18,13 +18,13 @@ use crate::schemas::translation::{
 #[instrument(skip(pool))]
 pub(crate) async fn create_translation(
 	State(pool): State<DbPool>,
-	Extension(profile_id): Extension<ProfileId>,
+	session: Session,
 	Query(includes): Query<TranslationIncludes>,
 	Json(request): Json<CreateTranslationRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let new_tr = request.to_insertable(*profile_id);
+	let new_tr = request.to_insertable(session.data.profile_id);
 	let translation = new_tr.insert(includes, &conn).await?;
 	let response = TranslationResponse::from(translation);
 
@@ -50,7 +50,7 @@ pub(crate) async fn get_translation(
 #[instrument(skip(pool))]
 pub(crate) async fn update_translation(
 	State(pool): State<DbPool>,
-	Extension(profile_id): Extension<ProfileId>,
+	session: Session,
 	Path(id): Path<i32>,
 	Query(includes): Query<TranslationIncludes>,
 	Json(request): Json<UpdateTranslationRequest>,
@@ -58,7 +58,7 @@ pub(crate) async fn update_translation(
 	// Get a connection from the pool.
 	let conn = pool.get().await?;
 
-	let tr_update = request.to_insertable(*profile_id);
+	let tr_update = request.to_insertable(session.data.profile_id);
 	let updated_tr = tr_update.apply_to(id, includes, &conn).await?;
 	let response = TranslationResponse::from(updated_tr);
 

@@ -58,7 +58,7 @@ use crate::controllers::translation::{
 	get_translation,
 	update_translation,
 };
-use crate::middleware::{AdminLayer, AuthLayer};
+use crate::middleware::AuthLayer;
 
 /// Get the app router
 pub fn get_app_router(state: AppState) -> Router {
@@ -103,30 +103,22 @@ fn auth_routes(state: &AppState) -> Router<AppState> {
 
 /// Profile routes
 fn profile_routes(state: &AppState) -> Router<AppState> {
-	let protected = Router::new()
-		.route("/{profile_id}/block", post(disable_profile))
-		.route("/{profile_id}/unblock", post(activate_profile))
-		.route_layer(AdminLayer::new(state.clone()));
-
 	Router::new()
 		.route("/", get(get_all_profiles))
 		.route("/me", get(get_current_profile).patch(update_current_profile))
 		.route("/{profile_id}/locations", get(get_profile_locations))
-		.merge(protected)
+		.route("/{profile_id}/block", post(disable_profile))
+		.route("/{profile_id}/unblock", post(activate_profile))
 		.route_layer(AuthLayer::new(state.clone()))
 }
 
 /// Location routes with auth protection for write operations
 fn location_routes(state: &AppState) -> Router<AppState> {
 	let protected = Router::new()
-		.route("/{id}/approve", post(approve_location))
-		.route("/{id}/reject", post(reject_location))
-		.route_layer(AdminLayer::new(state.clone()))
-		.route_layer(AuthLayer::new(state.clone()));
-
-	let authenticated = Router::new()
 		.route("/", post(create_location))
 		.route("/{id}", patch(update_location).delete(delete_location))
+		.route("/{id}/approve", post(approve_location))
+		.route("/{id}/reject", post(reject_location))
 		.route("/{id}/images", post(upload_location_image))
 		.route("/{id}/images/{image_id}", delete(delete_location_image))
 		.route(
@@ -144,7 +136,6 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 		.route("/search", get(search_locations))
 		.route("/positions", get(get_location_positions))
 		.route("/{id}", get(get_location))
-		.merge(authenticated)
 		.merge(protected)
 }
 
@@ -162,13 +153,8 @@ fn translation_routes(state: &AppState) -> Router<AppState> {
 }
 
 fn tag_routes(state: &AppState) -> Router<AppState> {
-	let protected = Router::new()
-		.route("/", post(create_tag))
-		.route("/{id}", patch(update_tag).delete(delete_tag))
-		.route_layer(AdminLayer::new(state.clone()));
-
 	Router::new()
-		.route("/", get(get_all_tags))
-		.merge(protected)
+		.route("/", get(get_all_tags).post(create_tag))
+		.route("/{id}", patch(update_tag).delete(delete_tag))
 		.route_layer(AuthLayer::new(state.clone()))
 }

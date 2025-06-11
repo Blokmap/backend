@@ -1,8 +1,8 @@
 //! Controllers for [`Profile`]s
 
+use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::response::NoContent;
-use axum::{Extension, Json};
 use common::{DbPool, Error};
 use models::{
 	Location,
@@ -18,7 +18,7 @@ use uuid::Uuid;
 use crate::mailer::Mailer;
 use crate::schemas::location::LocationResponse;
 use crate::schemas::profile::{ProfileResponse, UpdateProfileRequest};
-use crate::{Config, ProfileId};
+use crate::{AdminSession, Config, Session};
 
 /// Get all [`Profile`]s
 #[instrument(skip(pool))]
@@ -42,11 +42,11 @@ pub(crate) async fn get_all_profiles(
 #[instrument(skip(pool))]
 pub(crate) async fn get_current_profile(
 	State(pool): State<DbPool>,
-	Extension(profile_id): Extension<ProfileId>,
+	session: Session,
 ) -> Result<Json<ProfileResponse>, Error> {
 	let conn = pool.get().await?;
 
-	let profile = Profile::get(*profile_id, &conn).await?;
+	let profile = Profile::get(session.data.profile_id, &conn).await?;
 
 	Ok(Json(profile.into()))
 }
@@ -56,15 +56,16 @@ pub(crate) async fn update_current_profile(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,
 	State(mailer): State<Mailer>,
-	Extension(profile_id): Extension<ProfileId>,
+	session: Session,
 	Json(update): Json<UpdateProfileRequest>,
 ) -> Result<Json<ProfileResponse>, Error> {
 	let conn = pool.get().await?;
 
-	let old_profile = Profile::get(*profile_id, &conn).await?;
+	let old_profile = Profile::get(session.data.profile_id, &conn).await?;
 
-	let mut updated_profile =
-		UpdateProfile::from(update).apply_to(*profile_id, &conn).await?;
+	let mut updated_profile = UpdateProfile::from(update)
+		.apply_to(session.data.profile_id, &conn)
+		.await?;
 
 	if old_profile.pending_email != updated_profile.pending_email {
 		let email_confirmation_token = Uuid::new_v4().to_string();
@@ -94,6 +95,7 @@ pub(crate) async fn update_current_profile(
 #[instrument(skip(pool))]
 pub(crate) async fn disable_profile(
 	State(pool): State<DbPool>,
+	session: AdminSession,
 	Path(profile_id): Path<i32>,
 ) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;
@@ -110,6 +112,7 @@ pub(crate) async fn disable_profile(
 #[instrument(skip(pool))]
 pub(crate) async fn activate_profile(
 	State(pool): State<DbPool>,
+	session: AdminSession,
 	Path(profile_id): Path<i32>,
 ) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;
