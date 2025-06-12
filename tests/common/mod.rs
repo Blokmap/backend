@@ -12,10 +12,13 @@ use models::{
 	LocationIncludes,
 	NewLocation,
 	NewOpeningTime,
+	NewReservation,
 	NewTag,
 	NewTranslation,
+	OpeningTime,
 	OpeningTimeIncludes,
 	Profile,
+	ReservationIncludes,
 	TagIncludes,
 	Translation,
 	TranslationIncludes,
@@ -40,6 +43,7 @@ impl TestEnv {
 	///
 	/// # Panics
 	/// Panics if building a test server or mailbox fails
+	#[allow(clippy::too_many_lines)]
 	pub async fn new() -> Self {
 		// Load the configuration from the environment
 		let mut config = Config::from_env();
@@ -122,6 +126,21 @@ impl TestEnv {
 					async |conn, tags: Vec<NewTag>| {
 						for tag in tags {
 							tag.insert(TagIncludes::default(), conn).await?;
+						}
+
+						Ok(())
+					},
+				)
+				.await;
+
+			// Seed reservations
+			seeder
+				.populate(
+					"tests/seed/reservations.json",
+					async |conn, reservations: Vec<NewReservation>| {
+						for res in reservations {
+							res.insert(ReservationIncludes::default(), conn)
+								.await?;
 						}
 
 						Ok(())
@@ -218,5 +237,12 @@ impl TestEnv {
 		let (location, ..) =
 			Location::get_by_id(1, LocationIncludes::default(), &conn).await?;
 		Ok(location)
+	}
+
+	/// Get an opening time from the test database
+	#[allow(dead_code)]
+	pub async fn get_opening_time(&self) -> Result<OpeningTime, Error> {
+		let conn = self.db_guard.create_pool().get().await.unwrap();
+		OpeningTime::get_by_id(1, OpeningTimeIncludes::default(), &conn).await
 	}
 }

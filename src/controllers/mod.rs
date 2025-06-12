@@ -11,6 +11,7 @@ pub mod auth;
 pub mod location;
 pub mod opening_time;
 pub mod profile;
+pub mod reservation;
 pub mod tag;
 pub mod translation;
 

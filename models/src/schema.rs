@@ -240,6 +240,7 @@ diesel::alias!(
 	simple_profile as rejecter: RejecterAlias,
 	simple_profile as creator: CreatorAlias,
 	simple_profile as updater: UpdaterAlias,
+	simple_profile as confirmer: ConfirmerAlias,
 );
 
 diesel::joinable!(authority_profile -> authority (authority_id));

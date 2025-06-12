@@ -8,6 +8,7 @@ mod location;
 mod opening_time;
 mod pagination;
 mod profile;
+mod reservation;
 mod tag;
 mod translation;
 
@@ -18,5 +19,6 @@ pub use location::*;
 pub use opening_time::*;
 pub use pagination::*;
 pub use profile::*;
+pub use reservation::*;
 pub use tag::*;
 pub use translation::*;

@@ -13,6 +13,7 @@ publish = false
 [dependencies]
 argon2 = { workspace = true }
 axum = { workspace = true }
+chrono = { workspace = true }
 deadpool-diesel = { workspace = true }
 diesel = { workspace = true }
 fast_image_resize = { workspace = true }
