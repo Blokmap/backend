@@ -48,15 +48,74 @@ pub enum Error {
 	ValidationError(String),
 }
 
-/// Convert an error into a [`Result`]
-impl From<Error> for Result<(), Error> {
-	fn from(val: Error) -> Self { Err(val) }
+impl Error {
+	/// Return a unique identifying code for this error
+	///
+	/// When modifying this function the error code should only ever incrrease,
+	/// an error code should never be reused once its assigned to avoid
+	/// unexpectedly breaking the frontend
+	fn code(&self) -> i32 {
+		match self {
+			Self::Duplicate(_) => 1,
+			Self::Forbidden => 2,
+			Self::Infallible(_) => 3,
+			Self::InternalServerError => 4,
+			Self::InvalidImage(_) => 5,
+			Self::NotFound(_) => 6,
+			Self::LoginError(e) => {
+				match e {
+					LoginError::UnknownUsername(_) => 7,
+					LoginError::UnknownEmail(_) => 8,
+					LoginError::InvalidPassword => 9,
+					LoginError::PendingEmailVerification => 10,
+					LoginError::Disabled => 11,
+				}
+			},
+			Self::OAuthError(e) => {
+				match e {
+					OAuthError::InvalidCSRFToken => 12,
+					OAuthError::MissingCSRFTokenCookie => 13,
+					OAuthError::MissingEmailField => 14,
+					OAuthError::MissingNonceCookie => 15,
+				}
+			},
+			Self::MultipartError(_) => 16,
+			Self::TokenError(e) => {
+				match e {
+					TokenError::MissingAccessToken => 17,
+					TokenError::MissingSession => 18,
+					TokenError::ExpiredEmailToken => 19,
+					TokenError::ExpiredPasswordToken => 20,
+				}
+			},
+			Self::ValidationError(_) => 21,
+		}
+	}
+
+	fn info(&self) -> Option<&str> {
+		match self {
+			Self::Duplicate(m)
+			| Self::InvalidImage(m)
+			| Self::NotFound(m)
+			| Self::LoginError(
+				LoginError::UnknownUsername(m) | LoginError::UnknownEmail(m),
+			)
+			| Self::ValidationError(m) => Some(m),
+			_ => None,
+		}
+	}
 }
 
 /// Convert an error into a [`Response`]
 impl IntoResponse for Error {
 	fn into_response(self) -> Response {
 		let message = self.to_string();
+
+		let data = serde_json::json!({
+			"message": message,
+			"code": self.code(),
+			"info": self.info(),
+		});
 
 		let status = match self {
 			Self::Duplicate(_) => StatusCode::CONFLICT,
@@ -74,7 +133,7 @@ impl IntoResponse for Error {
 			Self::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
 		};
 
-		(status, message).into_response()
+		(status, axum::Json(data)).into_response()
 	}
 }
 
