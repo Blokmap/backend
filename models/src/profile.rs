@@ -440,26 +440,29 @@ impl Profile {
 	/// # Errors
 	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
-	pub async fn confirm_email(&self, conn: &DbConn) -> Result<(), Error> {
+	pub async fn confirm_email(&self, conn: &DbConn) -> Result<Self, Error> {
 		let self_id = self.id;
 		let pending = self.pending_email.clone().unwrap();
 
-		conn.interact(move |conn| {
-			use self::profile::dsl::*;
+		let profile = conn
+			.interact(move |conn| {
+				use self::profile::dsl::*;
 
-			diesel::update(profile.find(self_id))
-				.set((
-					email.eq(pending),
-					pending_email.eq(None::<String>),
-					email_confirmation_token.eq(None::<String>),
-					email_confirmation_token_expiry.eq(None::<NaiveDateTime>),
-					state.eq(ProfileState::Active),
-				))
-				.execute(conn)
-		})
-		.await??;
+				diesel::update(profile.find(self_id))
+					.set((
+						email.eq(pending),
+						pending_email.eq(None::<String>),
+						email_confirmation_token.eq(None::<String>),
+						email_confirmation_token_expiry
+							.eq(None::<NaiveDateTime>),
+						state.eq(ProfileState::Active),
+					))
+					.returning(Self::as_returning())
+					.get_result(conn)
+			})
+			.await??;
 
-		Ok(())
+		Ok(profile)
 	}
 
 	/// Set a new email confirmation token and expiry for a [`Profile`]

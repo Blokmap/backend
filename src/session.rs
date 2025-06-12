@@ -152,6 +152,20 @@ impl Session {
 		Ok(Some(session))
 	}
 
+	/// Remove a session given its id
+	#[instrument(skip(conn))]
+	pub async fn delete(id: &Uuid, conn: &mut RedisConn) -> Result<(), Error> {
+		let n: i32 = conn.del(id).await?;
+
+		if n != 1 {
+			return Err(Error::Infallible(
+				"tried to delete non existant session".to_string(),
+			));
+		}
+
+		Ok(())
+	}
+
 	/// Check if a session with this id exists
 	#[instrument(skip(conn))]
 	pub async fn exists(

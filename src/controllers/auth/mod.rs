@@ -51,11 +51,11 @@ pub(crate) async fn register_profile(
 	let new_profile = insertable_profile.insert(&conn).await?;
 
 	if !config.production && config.skip_verify {
-		new_profile.confirm_email(&conn).await?;
+		let profile = new_profile.confirm_email(&conn).await?;
 
 		let session = Session::create(
 			config.access_token_lifetime,
-			&new_profile,
+			&profile,
 			&mut r_conn,
 		)
 		.await?;
@@ -68,7 +68,7 @@ pub(crate) async fn register_profile(
 
 		let jar = jar.add(access_token_cookie);
 
-		let profile = new_profile.update_last_login(&conn).await?;
+		let profile = profile.update_last_login(&conn).await?;
 
 		info!("confirmed email for profile {}", profile.id);
 
@@ -288,11 +288,14 @@ pub(crate) async fn login_profile(
 #[instrument(skip(config, jar))]
 pub(crate) async fn logout_profile(
 	State(config): State<Config>,
+	State(mut r_conn): State<RedisConn>,
 	jar: PrivateCookieJar,
 	session: Session,
 ) -> Result<(PrivateCookieJar, NoContent), Error> {
 	let access_token = Cookie::build(config.access_token_name).path("/");
 	let jar = jar.remove(access_token);
+
+	Session::delete(&session.id, &mut r_conn).await?;
 
 	info!("logged out profile {}", session.data.profile_id);
 
