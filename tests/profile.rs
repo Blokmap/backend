@@ -1,5 +1,6 @@
 use axum::http::StatusCode;
 use blokmap::schemas::auth::LoginRequest;
+use blokmap::schemas::reservation::ReservationResponse;
 use models::{Paginated, PaginationOptions, Profile, ProfileState};
 
 mod common;
@@ -218,6 +219,16 @@ async fn get_profile_locations() {
 
 	let response = env.app.get("/profiles/1/locations").await;
 	let _ = response.json::<Vec<LocationResponse>>();
+
+	assert_eq!(response.status_code(), StatusCode::OK);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn get_profile_reservations() {
+	let env = TestEnv::new().await.login("test").await;
+
+	let response = env.app.get("/profiles/1/reservations").await;
+	let _ = response.json::<Vec<ReservationResponse>>();
 
 	assert_eq!(response.status_code(), StatusCode::OK);
 }

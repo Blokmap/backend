@@ -2,7 +2,8 @@
 
 use axum::Json;
 use axum::extract::{Path, Query, State};
-use axum::response::NoContent;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
 use models::{
 	Location,
@@ -11,6 +12,8 @@ use models::{
 	PaginationOptions,
 	Profile,
 	ProfileState,
+	Reservation,
+	ReservationIncludes,
 	UpdateProfile,
 };
 use uuid::Uuid;
@@ -18,6 +21,7 @@ use uuid::Uuid;
 use crate::mailer::Mailer;
 use crate::schemas::location::LocationResponse;
 use crate::schemas::profile::{ProfileResponse, UpdateProfileRequest};
+use crate::schemas::reservation::ReservationResponse;
 use crate::{AdminSession, Config, Session};
 
 /// Get all [`Profile`]s
@@ -131,11 +135,27 @@ pub(crate) async fn get_profile_locations(
 	State(pool): State<DbPool>,
 	Query(includes): Query<LocationIncludes>,
 	Path(profile_id): Path<i32>,
-) -> Result<Json<Vec<LocationResponse>>, Error> {
+) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 	let locations =
 		Location::get_by_profile_id(profile_id, includes, &conn).await?;
-	let locations = locations.into_iter().map(LocationResponse::from).collect();
+	let response: Vec<LocationResponse> =
+		locations.into_iter().map(Into::into).collect();
 
-	Ok(Json(locations))
+	Ok((StatusCode::OK, Json(response)))
+}
+
+pub async fn get_profile_reservations(
+	State(pool): State<DbPool>,
+	Query(includes): Query<ReservationIncludes>,
+	Path(profile_id): Path<i32>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let reservations =
+		Reservation::for_profile(profile_id, includes, &conn).await?;
+	let response: Vec<ReservationResponse> =
+		reservations.into_iter().map(Into::into).collect();
+
+	Ok((StatusCode::OK, Json(response)))
 }

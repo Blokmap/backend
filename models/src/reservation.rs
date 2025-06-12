@@ -262,6 +262,72 @@ impl Reservation {
 		Ok(reservations)
 	}
 
+	/// Get all the reservations for a specific [`Profile`](crate::Profile)
+	#[instrument(skip(conn))]
+	pub async fn for_profile(
+		p_id: i32,
+		includes: ReservationIncludes,
+		conn: &DbConn,
+	) -> Result<Vec<(PrimitiveLocation, PrimitiveOpeningTime, Self)>, Error> {
+		let reservations: Vec<(PrimitiveLocation, PrimitiveOpeningTime, Self)> =
+			conn.interact(move |conn| {
+				location::table
+					.inner_join(
+						opening_time::table
+							.on(opening_time::location_id.eq(location::id)),
+					)
+					.inner_join(
+						reservation::table
+							.on(reservation::opening_time_id
+								.eq(opening_time::id)),
+					)
+					.inner_join(
+						creator.on(reservation::profile_id
+							.eq(creator.field(simple_profile::id))),
+					)
+					.left_outer_join(confirmer.on(
+						includes.confirmed_by.into_sql::<Bool>().and(
+							reservation::confirmed_by.eq(
+								confirmer.field(simple_profile::id).nullable(),
+							),
+						),
+					))
+					.filter(creator.field(simple_profile::id).eq(p_id))
+					.select((
+						PrimitiveLocation::as_select(),
+						PrimitiveOpeningTime::as_select(),
+						PrimitiveReservation::as_select(),
+						creator.fields(simple_profile::all_columns),
+						confirmer
+							.fields(simple_profile::all_columns)
+							.nullable(),
+					))
+					.get_results(conn)
+			})
+			.await??
+			.into_iter()
+			.map(|(loc, time, r, cr, conf)| {
+				let res = Self {
+					reservation:  r,
+					profile:      if includes.profile {
+						Some(cr)
+					} else {
+						None
+					},
+					confirmed_by: if includes.confirmed_by {
+						Some(conf)
+					} else {
+						None
+					},
+				};
+
+				(loc, time, res)
+			})
+			.collect();
+
+		Ok(reservations)
+	}
+
 	/// Get all the block (base, count) pairs a given opening time
 	#[instrument(skip(conn))]
 	pub async fn get_spans_for_opening_time(

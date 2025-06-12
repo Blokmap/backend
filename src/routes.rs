@@ -44,6 +44,7 @@ use crate::controllers::profile::{
 	get_all_profiles,
 	get_current_profile,
 	get_profile_locations,
+	get_profile_reservations,
 	update_current_profile,
 };
 use crate::controllers::reservation::{
@@ -113,6 +114,7 @@ fn profile_routes(state: &AppState) -> Router<AppState> {
 		.route("/", get(get_all_profiles))
 		.route("/me", get(get_current_profile).patch(update_current_profile))
 		.route("/{profile_id}/locations", get(get_profile_locations))
+		.route("/{profile_id}/reservations", get(get_profile_reservations))
 		.route("/{profile_id}/block", post(disable_profile))
 		.route("/{profile_id}/unblock", post(activate_profile))
 		.route_layer(AuthLayer::new(state.clone()))
