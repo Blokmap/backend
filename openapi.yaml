@@ -445,7 +445,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/simpleAuthority'
 
-  /profiles/{id}/reservations:
+  /profiles/{id}/reservations ✅:
     parameters:
       - name: id
         in: path
@@ -1604,7 +1604,7 @@ paths:
         "204":
           description: No content
 
-  /locations/{id}/reservations:
+  /locations/{id}/reservations ✅:
     parameters:
       - name: id
         in: path
@@ -1638,7 +1638,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/profileReservation'
 
-  /locations/{id}/opening-times/{openingTimeId}/reservations:
+  /locations/{id}/opening-times/{openingTimeId}/reservations ✅:
     parameters:
       - name: id
         in: path
@@ -1703,7 +1703,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/profileReservation'
 
-  /locations/{id}/opening-times/{openingTimeId}/reservations/{reservationId}:
+  /locations/{id}/opening-times/{openingTimeId}/reservations/{reservationId} ✅:
     parameters:
       - name: id
         in: path

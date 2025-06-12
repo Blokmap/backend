@@ -52,6 +52,25 @@ pub struct PrimitiveOpeningTime {
 	pub updated_at:       NaiveDateTime,
 }
 
+impl PrimitiveOpeningTime {
+	/// Get a [`PrimitiveOpeningTime`] by its id
+	#[instrument(skip(conn))]
+	pub async fn get_by_id(t_id: i32, conn: &DbConn) -> Result<Self, Error> {
+		let opening_time = conn
+			.interact(move |conn| {
+				use crate::schema::opening_time::dsl::*;
+
+				opening_time
+					.find(t_id)
+					.select(Self::as_select())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(opening_time)
+	}
+}
+
 impl OpeningTime {
 	/// Get an [`OpeningTime`] by its id
 	#[instrument(skip(conn))]

@@ -44,7 +44,14 @@ use crate::controllers::profile::{
 	get_all_profiles,
 	get_current_profile,
 	get_profile_locations,
+	get_profile_reservations,
 	update_current_profile,
+};
+use crate::controllers::reservation::{
+	create_reservation,
+	delete_reservation,
+	get_reservation_for_location,
+	get_reservation_for_opening_time,
 };
 use crate::controllers::tag::{
 	create_tag,
@@ -107,6 +114,7 @@ fn profile_routes(state: &AppState) -> Router<AppState> {
 		.route("/", get(get_all_profiles))
 		.route("/me", get(get_current_profile).patch(update_current_profile))
 		.route("/{profile_id}/locations", get(get_profile_locations))
+		.route("/{profile_id}/reservations", get(get_profile_reservations))
 		.route("/{profile_id}/block", post(disable_profile))
 		.route("/{profile_id}/unblock", post(activate_profile))
 		.route_layer(AuthLayer::new(state.clone()))
@@ -128,6 +136,15 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 		.route(
 			"/{id}/opening-times/{time_id}",
 			patch(update_location_time).delete(delete_location_time),
+		)
+		.route("/{l_id}/reservations", get(get_reservation_for_location))
+		.route(
+			"/{l_id}/opening-times/{t_id}/reservations",
+			get(get_reservation_for_opening_time).post(create_reservation),
+		)
+		.route(
+			"/{l_id}/opening-times/{t_id}/reservations/{r_id}",
+			delete(delete_reservation),
 		)
 		.route_layer(AuthLayer::new(state.clone()));
 

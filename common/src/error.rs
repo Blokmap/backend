@@ -6,6 +6,7 @@ use std::sync::LazyLock;
 use axum::extract::multipart::MultipartError;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use chrono::{NaiveDateTime, NaiveTime};
 use diesel::result::DatabaseErrorKind;
 use thiserror::Error;
 use tokio::sync::mpsc;
@@ -43,6 +44,9 @@ pub enum Error {
 	/// Invalid or missing token
 	#[error(transparent)]
 	TokenError(#[from] TokenError),
+	/// Any error related to creating a reservation
+	#[error(transparent)]
+	CreateReservationError(#[from] CreateReservationError),
 	/// Resource could not be validated
 	#[error("{0}")]
 	ValidationError(String),
@@ -88,11 +92,24 @@ impl Error {
 					TokenError::ExpiredPasswordToken => 20,
 				}
 			},
+			Self::CreateReservationError(e) => {
+				match e {
+					CreateReservationError::OutOfBounds {
+						start: _,
+						end: _,
+					} => 22,
+					CreateReservationError::NotReservableYet(_) => 23,
+					CreateReservationError::NotReservableAnymore(_) => 24,
+					CreateReservationError::ReservationTooShort(_) => 25,
+					CreateReservationError::ReservationTooLong(_) => 26,
+					CreateReservationError::Full(_) => 27,
+				}
+			},
 			Self::ValidationError(_) => 21,
 		}
 	}
 
-	fn info(&self) -> Option<&str> {
+	fn info(&self) -> Option<String> {
 		match self {
 			Self::Duplicate(m)
 			| Self::InvalidImage(m)
@@ -100,7 +117,32 @@ impl Error {
 			| Self::LoginError(
 				LoginError::UnknownUsername(m) | LoginError::UnknownEmail(m),
 			)
-			| Self::ValidationError(m) => Some(m),
+			| Self::ValidationError(m) => Some(m.to_owned()),
+			Self::CreateReservationError(e) => {
+				match e {
+					CreateReservationError::OutOfBounds { start, end } => {
+						Some(
+							serde_json::json!({"start": start, "end": end})
+								.to_string(),
+						)
+					},
+					CreateReservationError::NotReservableYet(from) => {
+						Some(serde_json::json!({"from": from}).to_string())
+					},
+					CreateReservationError::NotReservableAnymore(until) => {
+						Some(serde_json::json!({"until": until}).to_string())
+					},
+					CreateReservationError::ReservationTooShort(min) => {
+						Some(serde_json::json!({"min": min}).to_string())
+					},
+					CreateReservationError::ReservationTooLong(max) => {
+						Some(serde_json::json!({"max": max}).to_string())
+					},
+					CreateReservationError::Full(blocks) => {
+						Some(serde_json::json!({"blocks": blocks}).to_string())
+					},
+				}
+			},
 			_ => None,
 		}
 	}
@@ -126,9 +168,9 @@ impl IntoResponse for Error {
 			| Self::LoginError(_)
 			| Self::OAuthError(_)
 			| Self::TokenError(_) => StatusCode::FORBIDDEN,
-			Self::MultipartError(_) | Self::InvalidImage(_) => {
-				StatusCode::BAD_REQUEST
-			},
+			Self::MultipartError(_)
+			| Self::InvalidImage(_)
+			| Self::CreateReservationError(_) => StatusCode::BAD_REQUEST,
 			Self::NotFound(_) => StatusCode::NOT_FOUND,
 			Self::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
 		};
@@ -177,6 +219,31 @@ pub enum TokenError {
 	ExpiredEmailToken,
 	#[error("password reset token has expired")]
 	ExpiredPasswordToken,
+}
+
+#[derive(Debug, Error)]
+pub enum CreateReservationError {
+	/// The request was out of bounds for the given opening time
+	#[error("reservation out of bounds for the opening time")]
+	OutOfBounds { start: NaiveTime, end: NaiveTime },
+	/// The request was made before the timeslot was reservable
+	#[error("this timeslot is not reservable yet")]
+	NotReservableYet(NaiveDateTime),
+	/// The request was made after the timeslot was reservable
+	#[error("this timeslot is not reservable anymore")]
+	NotReservableAnymore(NaiveDateTime),
+	/// The amount of blocks reserved was less than the minimum reservation
+	/// length
+	#[error("the reserved amount of time was too short")]
+	ReservationTooShort(i32),
+	/// The amount of blocks reserved was more than the maximum reservation
+	/// length
+	#[error("the reserved amount of time was too long")]
+	ReservationTooLong(i32),
+	/// The reservation exceeds the capacity of the opening time at one or more
+	/// blocks
+	#[error("the reservation would overoccupy some blocks")]
+	Full(Vec<i32>),
 }
 
 /// A list of possible internal errors

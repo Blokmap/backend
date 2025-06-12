@@ -111,6 +111,22 @@ pub struct PrimitiveLocation {
 	pub updated_at:             NaiveDateTime,
 }
 
+impl PrimitiveLocation {
+	/// Get a [`PrimitiveLocation`] by its id
+	#[instrument(skip(conn))]
+	pub async fn get_by_id(l_id: i32, conn: &DbConn) -> Result<Self, Error> {
+		let location = conn
+			.interact(move |conn| {
+				use crate::schema::location::dsl::*;
+
+				location.find(l_id).select(Self::as_select()).first(conn)
+			})
+			.await??;
+
+		Ok(location)
+	}
+}
+
 impl Location {
 	fn group_by_id(data: Vec<LocationBackfill>) -> Vec<FullLocationData> {
 		let mut id_map = HashMap::new();
