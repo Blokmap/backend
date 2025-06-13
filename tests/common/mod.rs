@@ -18,7 +18,6 @@ use models::{
 	OpeningTime,
 	OpeningTimeIncludes,
 	Profile,
-	ReservationIncludes,
 	TagIncludes,
 	Translation,
 	TranslationIncludes,
@@ -53,35 +52,56 @@ impl TestEnv {
 		config.skip_verify = false;
 
 		// Create a test database pool
+		tracing::info!("acquiring db guard");
 		let test_pool_guard = (*DATABASE_PROVIDER).acquire().await;
+		tracing::info!("db guard acquired");
 		let test_pool = test_pool_guard.create_pool();
 
 		// Run the seeders to populate the test database
 		{
+			use diesel::prelude::*;
+
 			let conn = test_pool.get().await.unwrap();
 			let seeder = Seeder::new(&conn);
 
+			tracing::info!("seeding database...");
+
 			// Seed profiles
 			seeder
-				.populate("tests/seed/profiles.json", async |conn, profiles| {
-					for profile in profiles {
-						SeedProfile::insert(profile, conn).await?;
-					}
+				.populate(
+					"tests/seed/profiles.json",
+					async |conn, records: Vec<SeedProfile>| {
+						conn.interact(move |conn| {
+							use models::schema::profile::dsl::*;
 
-					Ok(())
-				})
+							diesel::insert_into(profile)
+								.values(records)
+								.execute(conn)
+						})
+						.await
+						.unwrap()
+						.unwrap();
+
+						Ok(())
+					},
+				)
 				.await;
 
 			// Seed translations
 			seeder
 				.populate(
 					"tests/seed/translations.json",
-					async |conn, translations: Vec<NewTranslation>| {
-						for translation in translations {
-							translation
-								.insert(TranslationIncludes::default(), conn)
-								.await?;
-						}
+					async |conn, records: Vec<NewTranslation>| {
+						conn.interact(move |conn| {
+							use models::schema::translation::dsl::*;
+
+							diesel::insert_into(translation)
+								.values(records)
+								.execute(conn)
+						})
+						.await
+						.unwrap()
+						.unwrap();
 
 						Ok(())
 					},
@@ -108,11 +128,17 @@ impl TestEnv {
 			seeder
 				.populate(
 					"tests/seed/opening-times.json",
-					async |conn, times: Vec<NewOpeningTime>| {
-						for time in times {
-							time.insert(OpeningTimeIncludes::default(), conn)
-								.await?;
-						}
+					async |conn, records: Vec<NewOpeningTime>| {
+						conn.interact(move |conn| {
+							use models::schema::opening_time::dsl::*;
+
+							diesel::insert_into(opening_time)
+								.values(records)
+								.execute(conn)
+						})
+						.await
+						.unwrap()
+						.unwrap();
 
 						Ok(())
 					},
@@ -137,11 +163,17 @@ impl TestEnv {
 			seeder
 				.populate(
 					"tests/seed/reservations.json",
-					async |conn, reservations: Vec<NewReservation>| {
-						for res in reservations {
-							res.insert(ReservationIncludes::default(), conn)
-								.await?;
-						}
+					async |conn, records: Vec<NewReservation>| {
+						conn.interact(move |conn| {
+							use models::schema::reservation::dsl::*;
+
+							diesel::insert_into(reservation)
+								.values(records)
+								.execute(conn)
+						})
+						.await
+						.unwrap()
+						.unwrap();
 
 						Ok(())
 					},
