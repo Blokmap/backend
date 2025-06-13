@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use common::{DbConn, Error};
 use diesel::prelude::*;
-use models::{Profile, ProfileState};
+use models::ProfileState;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
@@ -61,24 +61,15 @@ impl<'c> Seeder<'c> {
 	}
 }
 
-#[derive(Clone, Debug, Deserialize)]
-pub struct SeedProfile {
-	pub username: String,
-	pub password: String,
-	pub email:    String,
-	#[serde(default)]
-	pub is_admin: bool,
-	#[serde(default)]
-	pub state:    ProfileState,
-}
-
-#[derive(Clone, Debug, Insertable, AsChangeset)]
+#[derive(Clone, Debug, Deserialize, Insertable, AsChangeset)]
 #[diesel(table_name = models::schema::profile)]
-struct InsertableSeedProfile {
+pub struct SeedProfile {
 	username:      String,
 	password_hash: String,
 	email:         String,
+	#[serde(default)]
 	is_admin:      bool,
+	#[serde(default)]
 	state:         ProfileState,
 }
 
@@ -89,20 +80,11 @@ impl SeedProfile {
 	/// Errors if the password is invalid or if interacting with the database
 	/// fails
 	pub async fn insert(self, conn: &DbConn) -> Result<(), Error> {
-		let hash = Profile::hash_password(&self.password)?;
-		let insertable = InsertableSeedProfile {
-			username:      self.username,
-			password_hash: hash,
-			email:         self.email,
-			is_admin:      self.is_admin,
-			state:         self.state,
-		};
-
 		conn.interact(|conn| {
 			use models::schema::profile::dsl::*;
 
 			diesel::insert_into(profile)
-				.values(insertable)
+				.values(self)
 				.on_conflict_do_nothing()
 				.execute(conn)
 		})

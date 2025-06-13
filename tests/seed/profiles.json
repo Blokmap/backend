@@ -2,28 +2,28 @@
     {
         "username": "test",
         "email": "test@example.com",
-        "password": "foo",
+        "password_hash": "$argon2id$v=19$m=19456,t=2,p=1$NkVNZ2VXMlg5MHFuV0poMg$xKPr5HzVUF0uxFTQS0J4KQjpYlxQ0zEbBj+/SPYBv5g",
         "is_admin": false,
         "state": "Active"
     },
     {
         "username": "test2",
         "email": "test2@example.com",
-        "password": "foo",
+        "password_hash": "$argon2id$v=19$m=19456,t=2,p=1$NkVNZ2VXMlg5MHFuV0poMg$xKPr5HzVUF0uxFTQS0J4KQjpYlxQ0zEbBj+/SPYBv5g",
         "is_admin": false,
         "state": "Active"
     },
     {
         "username": "test-admin",
         "email": "test-admin@example.com",
-        "password": "foo",
+        "password_hash": "$argon2id$v=19$m=19456,t=2,p=1$NkVNZ2VXMlg5MHFuV0poMg$xKPr5HzVUF0uxFTQS0J4KQjpYlxQ0zEbBj+/SPYBv5g",
         "is_admin": true,
         "state": "Active"
     },
     {
         "username": "test-disabled",
         "email": "test-disabled@example.com",
-        "password": "foo",
+        "password_hash": "$argon2id$v=19$m=19456,t=2,p=1$NkVNZ2VXMlg5MHFuV0poMg$xKPr5HzVUF0uxFTQS0J4KQjpYlxQ0zEbBj+/SPYBv5g",
         "is_admin": false,
         "state": "Disabled"
     }
