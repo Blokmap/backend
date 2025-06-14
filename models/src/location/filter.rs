@@ -10,8 +10,8 @@ use diesel::sql_types::{Bool, Date, Double, Nullable, Text, Time};
 use serde::{Deserialize, Serialize};
 
 use super::{DescriptionAlias, ExcerptAlias, description, excerpt};
-use crate::Location;
 use crate::schema::{location, opening_time, translation};
+use crate::{Location, PaginationOptions};
 
 #[derive(Clone, Debug, Deserialize, Queryable, Selectable, Serialize)]
 #[diesel(table_name = location)]
@@ -191,13 +191,14 @@ impl Location {
 	/// # Errors
 	#[instrument(skip(conn))]
 	pub async fn search(
-		location_filter: LocationFilter,
+		loc_filter: LocationFilter,
+		pagination: PaginationOptions,
 		conn: &DbConn,
 	) -> Result<Vec<PartialLocation>, Error> {
 		let mut filter: BoxedCondition =
 			Box::new(location::is_visible.eq(true).nullable());
 
-		if let Some(f) = location_filter.into_boxed_condition() {
+		if let Some(f) = loc_filter.into_boxed_condition() {
 			filter = Box::new(filter.and(f));
 		}
 
@@ -213,7 +214,7 @@ impl Location {
 					))
 					.left_outer_join(opening_time::table)
 					.filter(filter)
-					.limit(50)
+					.limit(pagination.per_page.into())
 					.select(PartialLocation::as_select())
 					.distinct()
 					.get_results(conn)
