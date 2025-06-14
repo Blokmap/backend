@@ -49,7 +49,7 @@ paths:
           description: Created new profile
           headers:
             Set-Cookie:
-              $ref: '#/components/headers/set-access-token'
+              $ref: "#/components/headers/set-access-token"
           content:
             application/json:
               schema:
@@ -73,7 +73,7 @@ paths:
           description: No Content
           headers:
             Set-Cookie:
-              $ref: '#/components/headers/set-access-token'
+              $ref: "#/components/headers/set-access-token"
 
   /auth/resend_confirmation_email/{profile_id} ✅:
     post:
@@ -160,7 +160,7 @@ paths:
           description: No Content
           headers:
             Set-Cookie:
-              $ref: '#/components/headers/set-access-token'
+              $ref: "#/components/headers/set-access-token"
           content:
             application/json:
               schema:
@@ -184,7 +184,7 @@ paths:
           description: No Content
           headers:
             Set-Cookie:
-              $ref: '#/components/headers/set-access-token'
+              $ref: "#/components/headers/set-access-token"
 
   /auth/sso/callback:
     post:
@@ -209,7 +209,7 @@ paths:
           description: Log in succesfull
           headers:
             Set-Cookie:
-              $ref: '#/components/headers/set-access-token'
+              $ref: "#/components/headers/set-access-token"
           content:
             application/json:
               schema:
@@ -225,7 +225,7 @@ paths:
           description: No Content
           headers:
             Set-Cookie:
-              $ref: '#/components/headers/clear-access-token'
+              $ref: "#/components/headers/clear-access-token"
 
   /institutions:
     get:
@@ -242,7 +242,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/institution'
+                  $ref: "#/components/schemas/institution"
 
   /profiles ✅:
     get:
@@ -258,13 +258,13 @@ paths:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/paginated'
+                  - $ref: "#/components/schemas/paginated"
                   - type: object
                     properties:
                       data:
                         type: array
                         items:
-                          $ref: '#/components/schemas/profile'
+                          $ref: "#/components/schemas/profile"
 
   /profiles/{id}:
     parameters:
@@ -289,7 +289,7 @@ paths:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/simpleProfile'
+                  - $ref: "#/components/schemas/simpleProfile"
                   - type: object
                     properties:
                       institutionName:
@@ -300,7 +300,7 @@ paths:
                       authorities:
                         type: array
                         items:
-                          $ref: '#/components/schemas/simpleAuthority'
+                          $ref: "#/components/schemas/simpleAuthority"
     patch:
       tags:
         - profiles
@@ -315,8 +315,8 @@ paths:
           application/json:
             schema:
               oneOf:
-                - $ref: '#/components/schemas/patchProfile'
-                - $ref: '#/components/schemas/patchProfileAdmin'
+                - $ref: "#/components/schemas/patchProfile"
+                - $ref: "#/components/schemas/patchProfileAdmin"
       responses:
         "200":
           description: OK
@@ -324,7 +324,7 @@ paths:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/simpleProfile'
+                  - $ref: "#/components/schemas/simpleProfile"
                   - type: object
                     properties:
                       institutionName:
@@ -335,7 +335,7 @@ paths:
                       authorities:
                         type: array
                         items:
-                          $ref: '#/components/schemas/simpleAuthority'
+                          $ref: "#/components/schemas/simpleAuthority"
 
   /profiles/{id}/avatar:
     parameters:
@@ -368,7 +368,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/image'
+                $ref: "#/components/schemas/image"
     delete:
       tags:
         - profiles
@@ -443,7 +443,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/simpleAuthority'
+                  $ref: "#/components/schemas/simpleAuthority"
 
   /profiles/{id}/reservations ✅:
     parameters:
@@ -469,7 +469,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/reservation'
+                  $ref: "#/components/schemas/reservation"
 
   /profiles/{id}/reviews:
     parameters:
@@ -495,7 +495,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/review'
+                  $ref: "#/components/schemas/review"
 
   /profiles/{id}/locations ✅:
     parameters:
@@ -524,7 +524,7 @@ paths:
                   type: object
                   properties:
                     location:
-                      $ref: '#/components/schemas/partialLocation'
+                      $ref: "#/components/schemas/partialLocation"
                     permissions:
                       type: number
                       format: int64
@@ -544,13 +544,13 @@ paths:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/paginated'
+                  - $ref: "#/components/schemas/paginated"
                   - type: object
                     properties:
                       data:
                         type: array
                         items:
-                          $ref: '#/components/schemas/simpleAuthority'
+                          $ref: "#/components/schemas/simpleAuthority"
     post:
       tags:
         - authorities
@@ -575,7 +575,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/authority'
+                $ref: "#/components/schemas/authority"
 
   /authorities/permissions:
     get:
@@ -594,11 +594,11 @@ paths:
                 additionalProperties:
                   type: number
                 example:
-                    manage_members: 0
-                    manage_locations: 1
-                    manage_tags: 2
-                    manage_opening_times: 3
-                    manage_reservations: 4
+                  manage_members: 0
+                  manage_locations: 1
+                  manage_tags: 2
+                  manage_opening_times: 3
+                  manage_reservations: 4
 
   /authorities/{id}:
     parameters:
@@ -622,7 +622,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/authority'
+                $ref: "#/components/schemas/authority"
     patch:
       tags:
         - authorities
@@ -647,7 +647,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/authority'
+                $ref: "#/components/schemas/authority"
 
   /authorities/{id}/locations:
     parameters:
@@ -673,7 +673,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/manageableLocation'
+                  $ref: "#/components/schemas/manageableLocation"
     post:
       tags:
         - authorities
@@ -689,9 +689,9 @@ paths:
                 name:
                   type: string
                 description:
-                  $ref: '#/components/schemas/translation'
+                  $ref: "#/components/schemas/translation"
                 excerpt:
-                  $ref: '#/components/schemas/translation'
+                  $ref: "#/components/schemas/translation"
                 seatCount:
                   type: number
                 isReservable:
@@ -738,7 +738,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/location'
+                $ref: "#/components/schemas/location"
 
   /authorities/{id}/members:
     parameters:
@@ -762,7 +762,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/profileWithPermissions'
+                $ref: "#/components/schemas/profileWithPermissions"
     post:
       tags:
         - authorities
@@ -789,7 +789,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/profileWithPermissions'
+                $ref: "#/components/schemas/profileWithPermissions"
 
   /authorities/{id}/members/{profileId}:
     parameters:
@@ -859,7 +859,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/profileWithPermissions'
+                $ref: "#/components/schemas/profileWithPermissions"
 
   /locations/search ✅:
     get:
@@ -910,9 +910,9 @@ paths:
           in: query
           description: Longitude of the center point for distance search
           schema:
-              type: number
-              format: double
-              example: 3.7064
+            type: number
+            format: double
+            example: 3.7064
         - name: distance
           in: query
           description: |
@@ -965,7 +965,14 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/miniLocation'
+                  allOf:
+                    - $ref: "#/components/schemas/miniLocation"
+                    - type: object
+                      properties:
+                        images:
+                          type: array
+                          items:
+                            $ref: "#/components/schemas/image"
 
   /locations ✅:
     get:
@@ -983,7 +990,7 @@ paths:
                 type: array
                 items:
                   allOf:
-                    - $ref: '#/components/schemas/paginated'
+                    - $ref: "#/components/schemas/paginated"
                     - type: object
                       properties:
                         data:
@@ -1007,9 +1014,9 @@ paths:
                 authorityId:
                   type: [number, "null"]
                 description:
-                  $ref: '#/components/schemas/translation'
+                  $ref: "#/components/schemas/translation"
                 excerpt:
-                  $ref: '#/components/schemas/translation'
+                  $ref: "#/components/schemas/translation"
                 seatCount:
                   type: number
                 isReservable:
@@ -1063,11 +1070,11 @@ paths:
                 additionalProperties:
                   type: number
                 example:
-                    manage_members: 0
-                    manage_locations: 1
-                    manage_tags: 2
-                    manage_opening_times: 3
-                    manage_reservations: 4
+                  manage_members: 0
+                  manage_locations: 1
+                  manage_tags: 2
+                  manage_opening_times: 3
+                  manage_reservations: 4
 
   /locations/{id} ✅:
     parameters:
@@ -1091,7 +1098,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/location'
+                $ref: "#/components/schemas/location"
     patch:
       tags:
         - locations
@@ -1114,11 +1121,11 @@ paths:
                   type: [number, "null"]
                 description:
                   oneOf:
-                    - $ref: '#/components/schemas/translation'
+                    - $ref: "#/components/schemas/translation"
                     - type: "null"
                 excerpt:
                   oneOf:
-                    - $ref: '#/components/schemas/translation'
+                    - $ref: "#/components/schemas/translation"
                     - type: "null"
                 minReservationLength:
                   type: [number, "null"]
@@ -1146,7 +1153,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/location'
+                $ref: "#/components/schemas/location"
     delete:
       tags:
         - locations
@@ -1190,7 +1197,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/image'
+                  $ref: "#/components/schemas/image"
 
   /locations/{id}/images/{imageId} ✅:
     parameters:
@@ -1328,7 +1335,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/profileWithPermissions'
+                $ref: "#/components/schemas/profileWithPermissions"
     post:
       tags:
         - locations
@@ -1355,7 +1362,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/profileWithPermissions'
+                $ref: "#/components/schemas/profileWithPermissions"
 
   /locations/{id}/members/{profileId}:
     parameters:
@@ -1425,7 +1432,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/profileWithPermissions'
+                $ref: "#/components/schemas/profileWithPermissions"
 
   /locations/{id}/opening-times ✅:
     parameters:
@@ -1474,7 +1481,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/openingTime'
+                  $ref: "#/components/schemas/openingTime"
     post:
       tags:
         - openingTimes
@@ -1520,7 +1527,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/openingTime'
+                $ref: "#/components/schemas/openingTime"
 
   /locations/{id}/opening-times/{openingTimeId} ✅:
     parameters:
@@ -1593,7 +1600,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/openingTime'
+                $ref: "#/components/schemas/openingTime"
     delete:
       tags:
         - openingTimes
@@ -1636,7 +1643,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/profileReservation'
+                  $ref: "#/components/schemas/profileReservation"
 
   /locations/{id}/opening-times/{openingTimeId}/reservations ✅:
     parameters:
@@ -1668,7 +1675,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/profileReservation'
+                $ref: "#/components/schemas/profileReservation"
     post:
       tags:
         - reservations
@@ -1701,7 +1708,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/profileReservation'
+                $ref: "#/components/schemas/profileReservation"
 
   /locations/{id}/opening-times/{openingTimeId}/reservations/{reservationId} ✅:
     parameters:
@@ -1754,7 +1761,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/tag'
+                  $ref: "#/components/schemas/tag"
     post:
       tags:
         - tags
@@ -1768,14 +1775,14 @@ paths:
               type: object
               properties:
                 name:
-                  $ref: '#/components/schemas/translation'
+                  $ref: "#/components/schemas/translation"
       responses:
         "201":
           description: Created new tag
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/tag'
+                $ref: "#/components/schemas/tag"
 
   /tags/{id} ✅:
     parameters:
@@ -1800,14 +1807,14 @@ paths:
               type: object
               properties:
                 name:
-                  $ref: '#/components/schemas/translation'
+                  $ref: "#/components/schemas/translation"
       responses:
         "200":
           description: Updated tag
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/tag'
+                $ref: "#/components/schemas/tag"
     delete:
       tags:
         - tags
@@ -1829,14 +1836,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/translation'
+              $ref: "#/components/schemas/translation"
       responses:
         "201":
           description: Created new translation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/fullTranslation'
+                $ref: "#/components/schemas/fullTranslation"
 
   /translations/{id} ✅:
     parameters:
@@ -1858,14 +1865,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/translation'
+              $ref: "#/components/schemas/translation"
       responses:
         "200":
           description: Updated translation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/fullTranslation'
+                $ref: "#/components/schemas/fullTranslation"
     delete:
       tags:
         - translations
@@ -1899,13 +1906,13 @@ paths:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/paginated'
+                  - $ref: "#/components/schemas/paginated"
                   - type: object
                     properties:
                       data:
                         type: array
                         items:
-                          $ref: '#/components/schemas/partialReview'
+                          $ref: "#/components/schemas/partialReview"
     post:
       tags:
         - reviews
@@ -1933,7 +1940,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/partialReview'
+                $ref: "#/components/schemas/partialReview"
 
   /locations/{id}/review/{reviewId}:
     parameters:
@@ -1982,7 +1989,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/partialReview'
+                $ref: "#/components/schemas/partialReview"
 
 components:
   headers:
@@ -2046,14 +2053,14 @@ components:
     patchProfileAdmin:
       description: Admin users
       allOf:
-        - $ref: '#/components/schemas/patchProfile'
+        - $ref: "#/components/schemas/patchProfile"
         - type: object
           properties:
             insitutionName:
               type: [string, "null"]
             state:
               oneOf:
-                - $ref: '#/components/schemas/profileState'
+                - $ref: "#/components/schemas/profileState"
                 - type: "null"
 
     paginated:
@@ -2092,7 +2099,7 @@ components:
 
     simpleProfile:
       allOf:
-        - $ref: '#/components/schemas/partialProfile'
+        - $ref: "#/components/schemas/partialProfile"
         - type: object
           properties:
             email:
@@ -2106,11 +2113,11 @@ components:
               type: [string, "null"]
               example: De Bouwer
             state:
-              $ref: '#/components/schemas/profileState'
+              $ref: "#/components/schemas/profileState"
 
     profile:
       allOf:
-        - $ref: '#/components/schemas/simpleProfile'
+        - $ref: "#/components/schemas/simpleProfile"
         - type: object
           properties:
             insitution:
@@ -2120,7 +2127,7 @@ components:
 
     profileWithPermissions:
       allOf:
-        - $ref: '#/components/schemas/profile'
+        - $ref: "#/components/schemas/profile"
         - type: object
           properties:
             permissions:
@@ -2141,9 +2148,9 @@ components:
           type: [string, "null"]
           example: Ghent University
         createdAt:
-            type: string
-            format: date-time
-            example: "2025-01-02T12:00:00"
+          type: string
+          format: date-time
+          example: "2025-01-02T12:00:00"
         createdBy:
           oneOf:
             - $ref: "#/components/schemas/partialProfile"
@@ -2161,7 +2168,7 @@ components:
 
     authority:
       allOf:
-        - $ref: '#/components/schemas/simpleAuthority'
+        - $ref: "#/components/schemas/simpleAuthority"
         - type: object
           properties:
             members:
@@ -2269,7 +2276,7 @@ components:
 
     manageableLocation:
       allOf:
-        - $ref: '#/components/schemas/partialLocation'
+        - $ref: "#/components/schemas/partialLocation"
         - type: object
           properties:
             excerpt:
@@ -2331,7 +2338,7 @@ components:
 
     location:
       allOf:
-        - $ref: '#/components/schemas/manageableLocation'
+        - $ref: "#/components/schemas/manageableLocation"
         - type: object
           properties:
             openingTimes:
@@ -2365,7 +2372,7 @@ components:
 
     fullTranslation:
       allOf:
-        - $ref: '#/components/schemas/translation'
+        - $ref: "#/components/schemas/translation"
         - type: object
           properties:
             createdAt:
@@ -2483,7 +2490,7 @@ components:
             - type: "null"
         confirmedBy:
           oneOf:
-            - $ref: '#/components/schemas/partialProfile'
+            - $ref: "#/components/schemas/partialProfile"
             - type: "null"
         updatedAt:
           type: string
@@ -2496,19 +2503,19 @@ components:
 
     profileReservation:
       allOf:
-        - $ref: '#/components/schemas/partialReservation'
+        - $ref: "#/components/schemas/partialReservation"
         - type: object
           properties:
             profile:
-              $ref: '#/components/schemas/simpleProfile'
+              $ref: "#/components/schemas/simpleProfile"
 
     reservation:
       allOf:
-        - $ref: '#/components/schemas/profileReservation'
+        - $ref: "#/components/schemas/profileReservation"
         - type: object
           properties:
             openingTime:
-              $ref: '#/components/schemas/openingTime'
+              $ref: "#/components/schemas/openingTime"
 
     tag:
       type: object
@@ -2547,8 +2554,8 @@ components:
 
     review:
       allOf:
-        - $ref: '#/components/schemas/partialReview'
+        - $ref: "#/components/schemas/partialReview"
         - type: object
           properties:
             location:
-              $ref: '#/components/schemas/partialLocation'
+              $ref: "#/components/schemas/partialLocation"
