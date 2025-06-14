@@ -861,14 +861,15 @@ paths:
               schema:
                 $ref: "#/components/schemas/profileWithPermissions"
 
-  /locations/search ✅:
+
+  /locations ✅:
     get:
       tags:
         - locations
-      description: Search through all locations with a set of filters
-      security:
-        - access-token: []
+      description: Get all paginated locations with optional filters
       parameters:
+        - $ref: "#/components/parameters/perPage"
+        - $ref: "#/components/parameters/page"
         - name: language
           in: query
           description: The language to search in
@@ -957,31 +958,6 @@ paths:
             type: number
             format: double
             example: 3.7
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  allOf:
-                    - $ref: "#/components/schemas/miniLocation"
-                    - type: object
-                      properties:
-                        excerpt:
-                          $ref: "#/components/schemas/translation"
-                        images:
-                          type: array
-                          items:
-                            $ref: "#/components/schemas/image"
-
-
-  /locations ✅:
-    get:
-      tags:
-        - locations
-      description: Get all locations
       security:
         - access-token: []
       responses:
@@ -2568,3 +2544,25 @@ components:
           properties:
             location:
               $ref: "#/components/schemas/partialLocation"
+  parameters:
+    page:
+      name: page
+      in: query
+      description: Page number (starting from 1)
+      required: false
+      schema:
+        type: integer
+        format: int32
+        default: 1
+        minimum: 1
+    perPage:
+      name: perPage
+      in: query
+      description: Number of items per page
+      required: false
+      schema:
+        type: integer
+        format: int32
+        default: 10
+        minimum: 1
+        maximum: 100
