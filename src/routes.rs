@@ -170,8 +170,10 @@ fn translation_routes(state: &AppState) -> Router<AppState> {
 }
 
 fn tag_routes(state: &AppState) -> Router<AppState> {
-	Router::new()
-		.route("/", get(get_all_tags).post(create_tag))
+	let protected = Router::new()
+		.route("/", post(create_tag))
 		.route("/{id}", patch(update_tag).delete(delete_tag))
-		.route_layer(AuthLayer::new(state.clone()))
+		.route_layer(AuthLayer::new(state.clone()));
+
+	Router::new().route("/", get(get_all_tags)).merge(protected)
 }
