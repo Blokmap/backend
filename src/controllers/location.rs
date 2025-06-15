@@ -184,35 +184,6 @@ pub(crate) async fn get_location(
 	Ok((StatusCode::OK, Json(response)))
 }
 
-/// Get all positions of locations from the database.
-#[instrument(skip(pool))]
-pub(crate) async fn get_location_positions(
-	State(pool): State<DbPool>,
-) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let positions = Location::get_latlng_positions(&conn).await?;
-
-	Ok((StatusCode::OK, Json(positions)))
-}
-
-#[instrument(skip(pool))]
-pub(crate) async fn get_locations(
-	State(pool): State<DbPool>,
-	Query(includes): Query<LocationIncludes>,
-	Query(p_opts): Query<PaginationOptions>,
-) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let (total, locations) = Location::get_all(includes, p_opts, &conn).await?;
-	let locations: Vec<LocationResponse> =
-		locations.into_iter().map(Into::into).collect();
-
-	let paginated = p_opts.paginate(total, locations);
-
-	Ok((StatusCode::OK, Json(paginated)))
-}
-
 /// Search all locations from the database on given latlng bounds.
 /// The latlng bounds include the southwestern and northeastern corners.
 /// The southwestern corner is the minimum latitude and longitude, and the
@@ -221,6 +192,8 @@ pub(crate) async fn get_locations(
 pub(crate) async fn search_locations(
 	State(pool): State<DbPool>,
 	Query(filter): Query<LocationFilter>,
+	Query(includes): Query<LocationIncludes>,
+	Query(p_opts): Query<PaginationOptions>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
@@ -256,9 +229,14 @@ pub(crate) async fn search_locations(
 		));
 	}
 
-	let locations = Location::search(filter, &conn).await?;
+	let (total, locations) =
+		Location::search(filter, includes, p_opts, &conn).await?;
+	let locations: Vec<LocationResponse> =
+		locations.into_iter().map(Into::into).collect();
 
-	Ok((StatusCode::OK, Json(locations)))
+	let paginated = p_opts.paginate(total, locations);
+
+	Ok((StatusCode::OK, Json(paginated)))
 }
 
 /// Update a location in the database.

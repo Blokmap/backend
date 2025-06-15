@@ -2,7 +2,7 @@ mod common;
 use axum::http::StatusCode;
 use blokmap::schemas::location::LocationResponse;
 use common::TestEnv;
-use models::{Paginated, PartialLocation};
+use models::Paginated;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn create_location_test() {
@@ -95,7 +95,7 @@ async fn search_locations_test() {
 	// Use the location above to fill the query parameters
 	let response = env
 		.app
-		.get("/locations/search")
+		.get("/locations")
 		.add_query_params([
 			("northEastLat", location.location.latitude + 1.0),
 			("northEastLng", location.location.longitude + 1.0),
@@ -107,30 +107,9 @@ async fn search_locations_test() {
 	assert_eq!(response.status_code(), StatusCode::OK);
 
 	// Check if the location is in the response
-	let locations = response.json::<Vec<PartialLocation>>();
-	assert!(locations.iter().any(|l| l.id == location.location.id));
-	assert!(locations.iter().any(|l| l.name == location.location.name));
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn get_location_positions_test() {
-	let env = TestEnv::new().await;
-
-	// Get a test location in the database
-	let location = env.get_location().await.unwrap();
-
-	// Get the location positions from the app router
-	let response = env.app.get("/locations/positions").await;
-
-	assert_eq!(response.status_code(), StatusCode::OK);
-
-	// Check if the location is in the response
-	let locations = response.json::<Vec<(f64, f64)>>();
-
-	assert!(locations.iter().any(|l| {
-		(l.0 - location.location.latitude).abs() <= f64::EPSILON
-			&& (l.1 - location.location.longitude).abs() <= f64::EPSILON
-	}));
+	let locations = response.json::<Paginated<Vec<LocationResponse>>>();
+	assert!(locations.data.iter().any(|l| l.id == location.location.id));
+	assert!(locations.data.iter().any(|l| l.name == location.location.name));
 }
 
 #[tokio::test(flavor = "multi_thread")]

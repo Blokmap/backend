@@ -10,8 +10,6 @@ use diesel::{Identifiable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
 
 use crate::schema::{
-	DescriptionAlias,
-	ExcerptAlias,
 	approver,
 	creator,
 	description,
@@ -28,7 +26,6 @@ use crate::{
 	NewImage,
 	NewLocationImage,
 	NewTranslation,
-	PaginationOptions,
 	PrimitiveOpeningTime,
 	PrimitiveTranslation,
 	SimpleProfile,
@@ -140,127 +137,6 @@ impl Location {
 		}
 
 		id_map.into_iter().collect()
-	}
-
-	/// Get all [`Location`]s
-	#[allow(clippy::too_many_lines)]
-	pub async fn get_all(
-		includes: LocationIncludes,
-		p_opts: PaginationOptions,
-		conn: &DbConn,
-	) -> Result<(i64, Vec<FullLocationData>), Error> {
-		let total: i64 = conn
-			.interact(move |conn| {
-				use diesel::dsl::count;
-
-				use crate::schema::location::dsl::*;
-
-				location.select(count(id)).first(conn)
-			})
-			.await??;
-
-		let locations: Vec<LocationBackfill> = conn
-			.interact(move |conn| {
-				use crate::schema::location::dsl::*;
-
-				location
-					.inner_join(
-						description.on(description_id
-							.eq(description.field(translation::id))),
-					)
-					.inner_join(
-						excerpt.on(excerpt_id
-							.eq(excerpt.field(translation::id))),
-					)
-					.left_outer_join(approver.on(
-						includes.approved_by.into_sql::<Bool>().and(
-							approved_by
-								.eq(approver.field(simple_profile::id)
-								.nullable())
-						)
-					))
-					.left_outer_join(rejecter.on(
-						includes.rejected_by.into_sql::<Bool>().and(
-							rejected_by
-								.eq(rejecter.field(simple_profile::id)
-								.nullable())
-						)
-					))
-					.left_outer_join(creator.on(
-						includes.created_by.into_sql::<Bool>().and(
-							created_by
-								.eq(creator.field(simple_profile::id)
-								.nullable())
-						)
-					))
-					.left_outer_join(updater.on(
-						includes.updated_by.into_sql::<Bool>().and(
-							updated_by
-								.eq(updater.field(simple_profile::id)
-								.nullable())
-						)
-					))
-					.left_outer_join(opening_time::table)
-					.select((
-						PrimitiveLocation::as_select(),
-						description.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
-						),
-						excerpt.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
-						),
-						approver.fields(simple_profile::all_columns).nullable(),
-						rejecter.fields(simple_profile::all_columns).nullable(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
-						<
-							PrimitiveOpeningTime as Selectable<Pg>
-						>
-						::construct_selection().nullable(),
-					))
-					.order(id)
-					.limit(p_opts.limit())
-					.offset(p_opts.offset())
-					.load(conn)
-			})
-			.await??
-			.into_iter()
-			.map(|(loc, desc, exc, a, r, c, u, t)| {
-				let loc = Location {
-					location:    loc,
-					description: desc,
-					excerpt:     exc,
-					approved_by: if includes.approved_by {
-						Some(a)
-					} else {
-						None
-					},
-					rejected_by: if includes.rejected_by {
-						Some(r)
-					} else {
-						None
-					},
-					created_by:  if includes.created_by {
-						Some(c)
-					} else {
-						None
-					},
-					updated_by:  if includes.updated_by {
-						Some(u)
-					} else {
-						None
-					},
-				};
-
-				(loc, t)
-			})
-			.collect();
-
-		Ok((total, Self::group_by_id(locations)))
 	}
 
 	/// Get a [`Location`] by its id
@@ -479,23 +355,6 @@ impl Location {
 			.collect();
 
 		Ok(Self::group_by_id(locations))
-	}
-
-	/// Get all the latlng positions of the locations.
-	///
-	/// # Errors
-	pub async fn get_latlng_positions(
-		conn: &DbConn,
-	) -> Result<Vec<(f64, f64)>, Error> {
-		let positions = conn
-			.interact(move |conn| {
-				location::table
-					.select((location::latitude, location::longitude))
-					.load(conn)
-			})
-			.await??;
-
-		Ok(positions)
 	}
 
 	/// Delete a [`Location`] by its id.
