@@ -18,8 +18,15 @@ jobs:
         permissions:
             contents: write
         steps:
+          - name: Parse tag
+            id: parse_tag
+            run: "echo \"version=$(echo ${{ github.ref }} | sed 's#^refs/tags/v##')\" >> $GITHUB_OUTPUT"
+
           - uses: release-drafter/release-drafter@v6
             with:
+                name: v${{ steps.parse_tag.outputs.version }}
+                tag: v${{ steps.parse_tag.outputs.version }}
+                version: v${{ steps.parse_tag.outputs.version }}
                 config-name: release-drafter.yaml
             env:
                 GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
