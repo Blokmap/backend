@@ -59,3 +59,29 @@ WHERE
 ORDER BY l.id
 LIMIT {limit}
 OFFSET {offset}
+
+
+
+tr_ids = select *
+         from translation
+		 where {lang} % {query};
+
+time_ids = select location_id
+           from opening_time
+           where day = {open_on_day}
+		         and {open_on_time} between start_time and end_time;
+
+dist_ids = select id
+           from location
+		   where (
+		       description_id in tr_ids
+			   or excerpt_id in tr_ids
+			   or name % query
+		   )
+
+		   and fancy_cirkel_berekening({center_lat}, {center_lng}) <= {distance};
+
+		   and is_reservable = {is_reservable}
+
+		   and latitude between {south_lat} and {north_lat}
+		   and longitude between {south_lng} and {north_lng};

@@ -18,7 +18,7 @@ use uuid::Uuid;
 
 use crate::mailer::Mailer;
 use crate::schemas::location::LocationResponse;
-use crate::schemas::pagination::{PaginationRequest, PaginationResponse};
+use crate::schemas::pagination::{PaginationOptions, PaginationResponse};
 use crate::schemas::profile::{ProfileResponse, UpdateProfileRequest};
 use crate::schemas::reservation::ReservationResponse;
 use crate::{AdminSession, Config, Session};
@@ -27,7 +27,7 @@ use crate::{AdminSession, Config, Session};
 #[instrument(skip(pool))]
 pub(crate) async fn get_all_profiles(
 	State(pool): State<DbPool>,
-	Query(p_opts): Query<PaginationRequest>,
+	Query(p_opts): Query<PaginationOptions>,
 ) -> Result<Json<PaginationResponse<Vec<ProfileResponse>>>, Error> {
 	let conn = pool.get().await?;
 

@@ -28,6 +28,15 @@ use crate::{
 	PrimitiveTranslation,
 };
 
+type BoxedCondition<S, T = Nullable<Bool>> =
+	Box<dyn BoxableExpression<S, Pg, SqlType = T>>;
+
+trait ToFilter<S> {
+	type SqlType;
+
+	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType>;
+}
+
 #[derive(Clone, Debug, Deserialize, Queryable, Selectable, Serialize)]
 #[diesel(table_name = location)]
 #[diesel(check_for_backend(Pg))]
@@ -39,360 +48,275 @@ pub struct PartialLocation {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct LocationFilter {
-	pub language: Option<String>,
-	pub query:    Option<String>,
-
-	pub open_on_day:  Option<NaiveDate>,
-	pub open_on_time: Option<NaiveTime>,
-
-	pub center_lat: Option<f64>,
-	pub center_lng: Option<f64>,
-	pub distance:   Option<f64>,
-
-	pub is_reservable: Option<bool>,
-
-	pub north_east_lat: Option<f64>,
-	pub north_east_lng: Option<f64>,
-	pub south_west_lat: Option<f64>,
-	pub south_west_lng: Option<f64>,
+	#[serde(flatten)]
+	query:      Option<QueryFilter>,
+	#[serde(flatten)]
+	time:       Option<TimeFilter>,
+	#[serde(flatten)]
+	distance:   Option<DistanceFilter>,
+	#[serde(flatten)]
+	reservable: Option<ReservableFilter>,
+	#[serde(flatten)]
+	bounds:     Option<BoundsFilter>,
 }
 
-type BoxedCondition<S> =
-	Box<dyn BoxableExpression<S, Pg, SqlType = Nullable<Bool>>>;
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct QueryFilter {
+	pub language: String,
+	pub query:    String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct TimeFilter {
+	pub open_on_day:  NaiveDate,
+	pub open_on_time: Option<NaiveTime>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct DistanceFilter {
+	pub center_lat: f64,
+	pub center_lng: f64,
+	pub distance:   f64,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct ReservableFilter {
+	pub is_reservable: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct BoundsFilter {
+	pub north_east_lat: f64,
+	pub north_east_lng: f64,
+	pub south_west_lat: f64,
+	pub south_west_lng: f64,
+}
+
+impl<S> ToFilter<S> for LocationFilter
+where
+	S: 'static,
+	diesel::dsl::Nullable<location::is_visible>: SelectableExpression<S>,
+	diesel::dsl::Nullable<opening_time::id>: SelectableExpression<S>,
+	diesel::dsl::Nullable<opening_time::day>: SelectableExpression<S>,
+	diesel::dsl::Nullable<opening_time::start_time>: SelectableExpression<S>,
+	diesel::dsl::Nullable<opening_time::end_time>: SelectableExpression<S>,
+	location::latitude: SelectableExpression<S>,
+	location::longitude: SelectableExpression<S>,
+	location::is_reservable: SelectableExpression<S>,
+{
+	type SqlType = Nullable<Bool>;
+
+	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType> {
+		let mut filter: BoxedCondition<S, Self::SqlType> =
+			Box::new(location::is_visible.nullable().eq(true));
+
+		if let Some(query) = self.query.clone() {
+			filter = Box::new(filter.and(query.to_filter()));
+		}
+
+		if let Some(dist) = self.distance {
+			filter = Box::new(filter.and(dist.to_filter()));
+		}
+
+		if let Some(resv) = self.reservable {
+			filter = Box::new(filter.and(resv.to_filter()));
+		}
+
+		if let Some(time) = self.time {
+			filter = Box::new(filter.and(time.to_filter()));
+		}
+
+		if let Some(bounds) = self.bounds {
+			filter = Box::new(filter.and(bounds.to_filter()));
+		}
+
+		filter
+	}
+}
+
+impl<S> ToFilter<S> for QueryFilter {
+	type SqlType = Bool;
+
+	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType> {
+		let language = self.language.clone().to_ascii_lowercase();
+
+		let dyn_description = diesel_dynamic_schema::table("description");
+		let dyn_excerpt = diesel_dynamic_schema::table("excerpt");
+
+		let name_filter = sql::<Bool>("")
+			.bind::<Text, _>(location::name)
+			.sql(" % ")
+			.bind::<Text, _>(self.query.clone());
+
+		let desc_filter = sql::<Bool>("")
+			.bind::<Text, _>(dyn_description.column(language.clone()))
+			.sql(" % ")
+			.bind::<Text, _>(self.query.clone());
+
+		let exc_filter = sql::<Bool>("")
+			.bind::<Text, _>(dyn_excerpt.column(language))
+			.sql(" % ")
+			.bind::<Text, _>(self.query.clone());
+
+		Box::new(name_filter.or(desc_filter).or(exc_filter))
+	}
+}
+
+impl<S> ToFilter<S> for TimeFilter
+where
+	S: 'static,
+	diesel::dsl::Nullable<opening_time::id>: SelectableExpression<S>,
+	diesel::dsl::Nullable<opening_time::day>: SelectableExpression<S>,
+	diesel::dsl::Nullable<opening_time::start_time>: SelectableExpression<S>,
+	diesel::dsl::Nullable<opening_time::end_time>: SelectableExpression<S>,
+{
+	type SqlType = Nullable<Bool>;
+
+	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType> {
+		let mut filter: BoxedCondition<S, Self::SqlType> = Box::new(
+			self.open_on_day
+				.into_sql::<Nullable<Date>>()
+				.eq(opening_time::day.nullable()),
+		);
+
+		if let Some(open_on_time) = self.open_on_time {
+			filter = Box::new(filter.and(
+				open_on_time.into_sql::<Nullable<Time>>().between(
+					opening_time::start_time.nullable(),
+					opening_time::end_time.nullable(),
+				),
+			));
+		}
+
+		filter
+	}
+}
+
+impl<S> ToFilter<S> for DistanceFilter
+where
+	location::latitude: SelectableExpression<S>,
+	location::longitude: SelectableExpression<S>,
+{
+	type SqlType = Bool;
+
+	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType> {
+		Box::new(
+			sql::<Double>("2 * 6371 * asin(sqrt(1 - cos(radians( ")
+				.bind::<Double, _>(self.center_lat)
+				.sql(
+					" ) - radians( latitude )) + cos(radians( latitude )) * \
+					 cos(radians( ",
+				)
+				.bind::<Double, _>(self.center_lat)
+				.sql(" )) * (1 - cos(radians( ")
+				.bind::<Double, _>(self.center_lng)
+				.sql(" ) - radians( longitude ))) / 2))")
+				.le(self.distance),
+		)
+	}
+}
+
+impl<S> ToFilter<S> for ReservableFilter
+where
+	location::is_reservable: SelectableExpression<S>,
+{
+	type SqlType = Bool;
+
+	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType> {
+		Box::new(location::is_reservable.eq(self.is_reservable))
+	}
+}
+
+impl<S> ToFilter<S> for BoundsFilter
+where
+	location::latitude: SelectableExpression<S>,
+	location::longitude: SelectableExpression<S>,
+{
+	type SqlType = Bool;
+
+	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType> {
+		Box::new(
+			location::latitude
+				.between(self.south_west_lat, self.north_east_lat)
+				.and(
+					location::longitude
+						.between(self.south_west_lng, self.north_east_lng),
+				),
+		)
+	}
+}
+
+mod auto_type_helpers {
+	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
+}
 
 impl Location {
+	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
+	fn build_query(includes: LocationIncludes) -> _ {
+		let inc_approved_by: bool = includes.approved_by;
+		let inc_rejected_by: bool = includes.rejected_by;
+		let inc_created_by: bool = includes.created_by;
+		let inc_updated_by: bool = includes.updated_by;
+
+		crate::schema::location::dsl::location
+			.inner_join(
+				description.on(crate::schema::location::dsl::description_id
+					.eq(description.field(translation::id))),
+			)
+			.inner_join(
+				excerpt.on(crate::schema::location::dsl::excerpt_id
+					.eq(excerpt.field(translation::id))),
+			)
+			.left_outer_join(crate::schema::opening_time::table)
+			.left_outer_join(
+				approver.on(inc_approved_by.into_sql::<Bool>().and(
+					crate::schema::location::dsl::approved_by
+						.eq(approver.field(simple_profile::id).nullable()),
+				)),
+			)
+			.left_outer_join(
+				rejecter.on(inc_rejected_by.into_sql::<Bool>().and(
+					crate::schema::location::dsl::rejected_by
+						.eq(rejecter.field(simple_profile::id).nullable()),
+				)),
+			)
+			.left_outer_join(
+				creator.on(inc_created_by.into_sql::<Bool>().and(
+					crate::schema::location::dsl::created_by
+						.eq(creator.field(simple_profile::id).nullable()),
+				)),
+			)
+			.left_outer_join(
+				updater.on(inc_updated_by.into_sql::<Bool>().and(
+					crate::schema::location::dsl::updated_by
+						.eq(updater.field(simple_profile::id).nullable()),
+				)),
+			)
+	}
+
 	/// Search through all [`Location`]s with a given [`LocationFilter`]
 	#[instrument(skip(conn))]
-	#[allow(clippy::too_many_lines)]
 	pub async fn search(
 		loc_filter: LocationFilter,
 		includes: LocationIncludes,
-		per_page: i64,
+		limit: i64,
 		offset: i64,
 		conn: &DbConn,
 	) -> Result<(i64, Vec<FullLocationData>), Error> {
-		let mut filter: BoxedCondition<_> =
-			Box::new(location::is_visible.eq(true).nullable());
-
-		if let Some(query) = loc_filter.query.clone() {
-			let language = loc_filter
-				.language
-				.clone()
-				.unwrap_or_else(|| String::from("en"))
-				.to_ascii_lowercase();
-
-			let dyn_description = diesel_dynamic_schema::table("description");
-			let dyn_excerpt = diesel_dynamic_schema::table("excerpt");
-
-			let name_filter = sql::<Bool>("")
-				.bind::<Text, _>(location::name)
-				.sql(" % ")
-				.bind::<Text, _>(query.clone());
-
-			let desc_filter = sql::<Bool>("")
-				.bind::<Text, _>(dyn_description.column(language.clone()))
-				.sql(" % ")
-				.bind::<Text, _>(query.clone())
-				.nullable();
-
-			let exc_filter = sql::<Bool>("")
-				.bind::<Text, _>(dyn_excerpt.column(language))
-				.sql(" % ")
-				.bind::<Text, _>(query)
-				.nullable();
-
-			filter = Box::new(
-				filter
-					.and(name_filter.or(desc_filter).or(exc_filter).nullable()),
-			);
-		}
-
-		if let Some(dist) = loc_filter.distance {
-			// The route controller guarantees that if one param is present,
-			// all of them are
-			let lat = loc_filter.center_lat.unwrap();
-			let lng = loc_filter.center_lng.unwrap();
-
-			filter = Box::new(
-				filter.and(
-					sql::<Double>("2 * 6371 * asin(sqrt(1 - cos(radians( ")
-						.bind::<Double, _>(lat)
-						.sql(
-							" ) - radians( latitude )) + cos(radians( \
-							 latitude )) * cos(radians( ",
-						)
-						.bind::<Double, _>(lat)
-						.sql(" )) * (1 - cos(radians( ")
-						.bind::<Double, _>(lng)
-						.sql(" ) - radians( longitude ))) / 2))")
-						.le(dist)
-						.nullable(),
-				),
-			);
-		}
-
-		if let Some(is_reservable) = loc_filter.is_reservable {
-			filter = Box::new(
-				filter
-					.and(location::is_reservable.eq(is_reservable).nullable()),
-			);
-		}
-
-		if let Some(open_on_day) = loc_filter.open_on_day {
-			filter = Box::new(
-				filter.and(
-					open_on_day
-						.into_sql::<Date>()
-						.eq(opening_time::day)
-						.and(opening_time::id.is_not_null())
-						.nullable(),
-				),
-			);
-
-			if let Some(open_on_time) = loc_filter.open_on_time {
-				filter = Box::new(
-					filter.and(
-						open_on_time
-							.into_sql::<Time>()
-							.between(
-								opening_time::start_time,
-								opening_time::end_time,
-							)
-							.and(opening_time::id.is_not_null())
-							.nullable(),
-					),
-				);
-			}
-		}
-
-		if let Some(north_lat) = loc_filter.north_east_lat {
-			// The route controller guarantees that if one bound is present,
-			// all of them are
-			let north_lng = loc_filter.north_east_lng.unwrap();
-			let south_lat = loc_filter.south_west_lat.unwrap();
-			let south_lng = loc_filter.south_west_lng.unwrap();
-
-			filter = Box::new(
-				filter.and(
-					location::latitude.between(south_lat, north_lat).and(
-						location::longitude
-							.between(south_lng, north_lng)
-							.nullable(),
-					),
-				),
-			);
-		}
-
-		let query = {
-			use crate::schema::location::dsl::*;
-
-			location
-				.inner_join(
-					description
-						.on(description_id
-							.eq(description.field(translation::id))),
-				)
-				.inner_join(
-					excerpt.on(excerpt_id.eq(excerpt.field(translation::id))),
-				)
-				.left_outer_join(opening_time::table)
-				.left_outer_join(
-					approver.on(includes
-						.approved_by
-						.into_sql::<Bool>()
-						.and(approved_by.eq(
-							approver.field(simple_profile::id).nullable(),
-						))),
-				)
-				.left_outer_join(
-					rejecter.on(includes
-						.rejected_by
-						.into_sql::<Bool>()
-						.and(rejected_by.eq(
-							rejecter.field(simple_profile::id).nullable(),
-						))),
-				)
-				.left_outer_join(
-					creator.on(includes.created_by.into_sql::<Bool>().and(
-						created_by
-							.eq(creator.field(simple_profile::id).nullable()),
-					)),
-				)
-				.left_outer_join(
-					updater.on(includes.updated_by.into_sql::<Bool>().and(
-						updated_by
-							.eq(updater.field(simple_profile::id).nullable()),
-					)),
-				)
-				.filter(filter)
-		};
+		let filter = loc_filter.to_filter();
+		let query = Self::build_query(includes).filter(filter);
 
 		let total: i64 = conn
-			.interact(move |conn| {
-				use diesel::dsl::count;
+			.interact(|conn| {
+				use diesel::dsl::count_star;
 
-				use crate::schema::location::dsl::*;
-
-				query.select(count(id)).first(conn)
+				query.select(count_star()).first(conn)
 			})
 			.await??;
 
-		let mut filter: BoxedCondition<_> =
-			Box::new(location::is_visible.eq(true).nullable());
-
-		if let Some(query) = loc_filter.query {
-			let language = loc_filter
-				.language
-				.unwrap_or_else(|| String::from("en"))
-				.to_ascii_lowercase();
-
-			let dyn_description = diesel_dynamic_schema::table("description");
-			let dyn_excerpt = diesel_dynamic_schema::table("excerpt");
-
-			let name_filter = sql::<Bool>("")
-				.bind::<Text, _>(location::name)
-				.sql(" % ")
-				.bind::<Text, _>(query.clone());
-
-			let desc_filter = sql::<Bool>("")
-				.bind::<Text, _>(dyn_description.column(language.clone()))
-				.sql(" % ")
-				.bind::<Text, _>(query.clone())
-				.nullable();
-
-			let exc_filter = sql::<Bool>("")
-				.bind::<Text, _>(dyn_excerpt.column(language))
-				.sql(" % ")
-				.bind::<Text, _>(query)
-				.nullable();
-
-			filter = Box::new(
-				filter
-					.and(name_filter.or(desc_filter).or(exc_filter).nullable()),
-			);
-		}
-
-		if let Some(dist) = loc_filter.distance {
-			// The route controller guarantees that if one param is present,
-			// all of them are
-			let lat = loc_filter.center_lat.unwrap();
-			let lng = loc_filter.center_lng.unwrap();
-
-			filter = Box::new(
-				filter.and(
-					sql::<Double>("2 * 6371 * asin(sqrt(1 - cos(radians( ")
-						.bind::<Double, _>(lat)
-						.sql(
-							" ) - radians( latitude )) + cos(radians( \
-							 latitude )) * cos(radians( ",
-						)
-						.bind::<Double, _>(lat)
-						.sql(" )) * (1 - cos(radians( ")
-						.bind::<Double, _>(lng)
-						.sql(" ) - radians( longitude ))) / 2))")
-						.le(dist)
-						.nullable(),
-				),
-			);
-		}
-
-		if let Some(is_reservable) = loc_filter.is_reservable {
-			filter = Box::new(
-				filter
-					.and(location::is_reservable.eq(is_reservable).nullable()),
-			);
-		}
-
-		if let Some(open_on_day) = loc_filter.open_on_day {
-			filter = Box::new(
-				filter.and(
-					open_on_day
-						.into_sql::<Date>()
-						.eq(opening_time::day)
-						.and(opening_time::id.is_not_null())
-						.nullable(),
-				),
-			);
-
-			if let Some(open_on_time) = loc_filter.open_on_time {
-				filter = Box::new(
-					filter.and(
-						open_on_time
-							.into_sql::<Time>()
-							.between(
-								opening_time::start_time,
-								opening_time::end_time,
-							)
-							.and(opening_time::id.is_not_null())
-							.nullable(),
-					),
-				);
-			}
-		}
-
-		if let Some(north_lat) = loc_filter.north_east_lat {
-			// The route controller guarantees that if one bound is present,
-			// all of them are
-			let north_lng = loc_filter.north_east_lng.unwrap();
-			let south_lat = loc_filter.south_west_lat.unwrap();
-			let south_lng = loc_filter.south_west_lng.unwrap();
-
-			filter = Box::new(
-				filter.and(
-					location::latitude.between(south_lat, north_lat).and(
-						location::longitude
-							.between(south_lng, north_lng)
-							.nullable(),
-					),
-				),
-			);
-		}
-
-		let query = {
-			use crate::schema::location::dsl::*;
-
-			location
-				.inner_join(
-					description
-						.on(description_id
-							.eq(description.field(translation::id))),
-				)
-				.inner_join(
-					excerpt.on(excerpt_id.eq(excerpt.field(translation::id))),
-				)
-				.left_outer_join(opening_time::table)
-				.left_outer_join(
-					approver.on(includes
-						.approved_by
-						.into_sql::<Bool>()
-						.and(approved_by.eq(
-							approver.field(simple_profile::id).nullable(),
-						))),
-				)
-				.left_outer_join(
-					rejecter.on(includes
-						.rejected_by
-						.into_sql::<Bool>()
-						.and(rejected_by.eq(
-							rejecter.field(simple_profile::id).nullable(),
-						))),
-				)
-				.left_outer_join(
-					creator.on(includes.created_by.into_sql::<Bool>().and(
-						created_by
-							.eq(creator.field(simple_profile::id).nullable()),
-					)),
-				)
-				.left_outer_join(
-					updater.on(includes.updated_by.into_sql::<Bool>().and(
-						updated_by
-							.eq(updater.field(simple_profile::id).nullable()),
-					)),
-				)
-				.filter(filter)
-		};
+		let filter = loc_filter.to_filter();
+		let query = Self::build_query(includes).filter(filter);
 
 		let locations = conn
 			.interact(move |conn| {
@@ -421,7 +345,7 @@ impl Location {
 						::construct_selection().nullable(),
 					))
 					.order(id)
-					.limit(per_page)
+					.limit(limit)
 					.offset(offset)
 					.get_results(conn)
 			})

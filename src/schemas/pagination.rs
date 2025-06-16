@@ -9,7 +9,7 @@ const fn per_page_default() -> u32 { 12 }
 /// Pagination request parameters.
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PaginationRequest {
+pub struct PaginationOptions {
 	#[serde(default = "page_default", deserialize_with = "ds_page_bounds")]
 	pub page:     u32,
 	#[serde(
@@ -28,11 +28,11 @@ pub struct PaginationResponse<T> {
 	pub data:     T,
 }
 
-impl Default for PaginationRequest {
+impl Default for PaginationOptions {
 	fn default() -> Self { Self { page: 1, per_page: 12 } }
 }
 
-impl PaginationRequest {
+impl PaginationOptions {
 	/// Create a new [`Paginated`] struct based on the current parameters with
 	/// the given data
 	pub fn paginate<T>(&self, total: i64, data: T) -> PaginationResponse<T> {
