@@ -23,7 +23,6 @@ use crate::{
 	FullLocationData,
 	Location,
 	LocationIncludes,
-	PaginationOptions,
 	PrimitiveLocation,
 	PrimitiveOpeningTime,
 	PrimitiveTranslation,
@@ -70,7 +69,8 @@ impl Location {
 	pub async fn search(
 		loc_filter: LocationFilter,
 		includes: LocationIncludes,
-		p_opts: PaginationOptions,
+		per_page: i64,
+		offset: i64,
 		conn: &DbConn,
 	) -> Result<(i64, Vec<FullLocationData>), Error> {
 		let mut filter: BoxedCondition<_> =
@@ -421,8 +421,8 @@ impl Location {
 						::construct_selection().nullable(),
 					))
 					.order(id)
-					.limit(p_opts.limit())
-					.offset(p_opts.offset())
+					.limit(per_page)
+					.offset(offset)
 					.get_results(conn)
 			})
 			.await??

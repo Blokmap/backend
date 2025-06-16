@@ -1,7 +1,8 @@
 use axum::http::StatusCode;
 use blokmap::schemas::auth::LoginRequest;
+use blokmap::schemas::pagination::{PaginationRequest, PaginationResponse};
 use blokmap::schemas::reservation::ReservationResponse;
-use models::{Paginated, PaginationOptions, Profile, ProfileState};
+use models::{Profile, ProfileState};
 
 mod common;
 
@@ -117,7 +118,7 @@ async fn disable_profile() {
 	let env = TestEnv::new().await.login_admin().await;
 
 	let response = env.app.get("/profiles").await;
-	let profiles: Paginated<Vec<ProfileResponse>> = response.json();
+	let profiles: PaginationResponse<Vec<ProfileResponse>> = response.json();
 	let test_id = profiles
 		.data
 		.iter()
@@ -141,7 +142,7 @@ async fn disable_profile_not_admin() {
 	let env = TestEnv::new().await.login("test").await;
 
 	let response = env.app.get("/profiles").await;
-	let profiles: Paginated<Vec<ProfileResponse>> = response.json();
+	let profiles: PaginationResponse<Vec<ProfileResponse>> = response.json();
 
 	let test_id = profiles
 		.data
@@ -167,7 +168,8 @@ async fn activate_profile() {
 
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
-	let test = Profile::get_all(PaginationOptions::default(), &conn)
+	let pagination = PaginationRequest::default();
+	let test = Profile::get_all(pagination.limit(), pagination.offset(), &conn)
 		.await
 		.unwrap()
 		.1
@@ -192,7 +194,8 @@ async fn activate_profile_not_admin() {
 
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
-	let test = Profile::get_all(PaginationOptions::default(), &conn)
+	let pagination = PaginationRequest::default();
+	let test = Profile::get_all(pagination.limit(), pagination.offset(), &conn)
 		.await
 		.unwrap()
 		.1

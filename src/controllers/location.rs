@@ -20,7 +20,6 @@ use models::{
 	LocationFilter,
 	LocationIncludes,
 	NewImage,
-	PaginationOptions,
 };
 use rayon::prelude::*;
 use uuid::Uuid;
@@ -31,6 +30,7 @@ use crate::schemas::location::{
 	RejectLocationRequest,
 	UpdateLocationRequest,
 };
+use crate::schemas::pagination::PaginationRequest;
 use crate::{AdminSession, Session};
 
 /// Create a new location in the database.
@@ -193,7 +193,7 @@ pub(crate) async fn search_locations(
 	State(pool): State<DbPool>,
 	Query(filter): Query<LocationFilter>,
 	Query(includes): Query<LocationIncludes>,
-	Query(p_opts): Query<PaginationOptions>,
+	Query(p_opts): Query<PaginationRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
@@ -229,8 +229,15 @@ pub(crate) async fn search_locations(
 		));
 	}
 
-	let (total, locations) =
-		Location::search(filter, includes, p_opts, &conn).await?;
+	let (total, locations) = Location::search(
+		filter,
+		includes,
+		p_opts.limit(),
+		p_opts.offset(),
+		&conn,
+	)
+	.await?;
+
 	let locations: Vec<LocationResponse> =
 		locations.into_iter().map(Into::into).collect();
 

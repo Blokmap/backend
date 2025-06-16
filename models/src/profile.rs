@@ -9,7 +9,6 @@ use diesel_derive_enum::DbEnum;
 use lettre::message::Mailbox;
 use serde::{Deserialize, Serialize};
 
-use crate::PaginationOptions;
 use crate::schema::{image, profile, simple_profile};
 
 diesel::joinable!(profile -> image (avatar_image_id));
@@ -287,7 +286,8 @@ impl Profile {
 	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
 	pub async fn get_all(
-		p_opts: PaginationOptions,
+		limit: i64,
+		offset: i64,
 		conn: &DbConn,
 	) -> Result<(i64, Vec<Self>), Error> {
 		use self::profile::dsl::*;
@@ -304,8 +304,8 @@ impl Profile {
 			.interact(move |conn| {
 				profile
 					.order_by(id)
-					.limit(p_opts.limit())
-					.offset(p_opts.offset())
+					.limit(limit)
+					.offset(offset)
 					.get_results(conn)
 			})
 			.await??;

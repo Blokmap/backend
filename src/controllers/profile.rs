@@ -8,8 +8,6 @@ use common::{DbPool, Error};
 use models::{
 	Location,
 	LocationIncludes,
-	Paginated,
-	PaginationOptions,
 	Profile,
 	ProfileState,
 	Reservation,
@@ -20,6 +18,7 @@ use uuid::Uuid;
 
 use crate::mailer::Mailer;
 use crate::schemas::location::LocationResponse;
+use crate::schemas::pagination::{PaginationRequest, PaginationResponse};
 use crate::schemas::profile::{ProfileResponse, UpdateProfileRequest};
 use crate::schemas::reservation::ReservationResponse;
 use crate::{AdminSession, Config, Session};
@@ -28,11 +27,12 @@ use crate::{AdminSession, Config, Session};
 #[instrument(skip(pool))]
 pub(crate) async fn get_all_profiles(
 	State(pool): State<DbPool>,
-	Query(p_opts): Query<PaginationOptions>,
-) -> Result<Json<Paginated<Vec<ProfileResponse>>>, Error> {
+	Query(p_opts): Query<PaginationRequest>,
+) -> Result<Json<PaginationResponse<Vec<ProfileResponse>>>, Error> {
 	let conn = pool.get().await?;
 
-	let (total, profiles) = Profile::get_all(p_opts, &conn).await?;
+	let (total, profiles) =
+		Profile::get_all(p_opts.limit(), p_opts.offset(), &conn).await?;
 
 	let profiles: Vec<ProfileResponse> =
 		profiles.into_iter().map(Into::into).collect();
