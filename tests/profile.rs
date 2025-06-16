@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
 use blokmap::schemas::auth::LoginRequest;
-use blokmap::schemas::pagination::{PaginationRequest, PaginationResponse};
+use blokmap::schemas::pagination::{PaginationOptions, PaginationResponse};
 use blokmap::schemas::reservation::ReservationResponse;
 use models::{Profile, ProfileState};
 
@@ -168,7 +168,7 @@ async fn activate_profile() {
 
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
-	let pagination = PaginationRequest::default();
+	let pagination = PaginationOptions::default();
 	let test = Profile::get_all(pagination.limit(), pagination.offset(), &conn)
 		.await
 		.unwrap()
@@ -194,7 +194,7 @@ async fn activate_profile_not_admin() {
 
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
-	let pagination = PaginationRequest::default();
+	let pagination = PaginationOptions::default();
 	let test = Profile::get_all(pagination.limit(), pagination.offset(), &conn)
 		.await
 		.unwrap()

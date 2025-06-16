@@ -30,7 +30,7 @@ use crate::schemas::location::{
 	RejectLocationRequest,
 	UpdateLocationRequest,
 };
-use crate::schemas::pagination::PaginationRequest;
+use crate::schemas::pagination::PaginationOptions;
 use crate::{AdminSession, Session};
 
 /// Create a new location in the database.
@@ -193,41 +193,9 @@ pub(crate) async fn search_locations(
 	State(pool): State<DbPool>,
 	Query(filter): Query<LocationFilter>,
 	Query(includes): Query<LocationIncludes>,
-	Query(p_opts): Query<PaginationRequest>,
+	Query(p_opts): Query<PaginationOptions>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
-
-	let all_dist = filter.distance.is_some()
-		&& filter.center_lat.is_some()
-		&& filter.center_lng.is_some();
-
-	let any_dist = filter.distance.is_some()
-		|| filter.center_lat.is_some()
-		|| filter.center_lng.is_some();
-
-	if all_dist != any_dist {
-		return Err(Error::ValidationError(
-			"expected all of distance, centerLat, centerLng to be set".into(),
-		));
-	}
-
-	let all_bounds = filter.north_east_lat.is_some()
-		&& filter.north_east_lng.is_some()
-		&& filter.south_west_lat.is_some()
-		&& filter.south_west_lng.is_some();
-
-	let any_bounds = filter.north_east_lat.is_some()
-		|| filter.north_east_lng.is_some()
-		|| filter.south_west_lat.is_some()
-		|| filter.south_west_lng.is_some();
-
-	if all_bounds != any_bounds {
-		return Err(Error::ValidationError(
-			"expected all of northEastLat, northEastLng, southWestLat, \
-			 southWestLng to be set"
-				.into(),
-		));
-	}
 
 	let (total, locations) = Location::search(
 		filter,
