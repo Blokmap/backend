@@ -309,11 +309,9 @@ impl Location {
 
 		let total: i64 = conn
 			.interact(|conn| {
-				use diesel::dsl::count;
+				use diesel::dsl::count_star;
 
-				use crate::schema::location::dsl::*;
-
-				query.select(count(id)).first(conn)
+				query.select(count_star()).first(conn)
 			})
 			.await??;
 
