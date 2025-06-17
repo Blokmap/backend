@@ -866,7 +866,13 @@ paths:
     get:
       tags:
         - locations
-      description: Get all paginated locations with optional filters
+      description: |
+        Get all paginated locations with optional filters
+
+        if the open_on_day filter is specified the list of opening times is bounded to the week of the specified date,
+        if it is not specified the opening times are bounded to the current week.
+
+        The amount of locations this can return is bounded at 1000
       parameters:
         - $ref: "#/components/parameters/perPage"
         - $ref: "#/components/parameters/page"
