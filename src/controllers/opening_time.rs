@@ -3,7 +3,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
-use models::{OpeningTime, OpeningTimeFilter, OpeningTimeIncludes};
+use models::{OpeningTime, OpeningTimeIncludes, TimeBoundsFilter};
 
 use crate::Session;
 use crate::schemas::opening_time::{
@@ -16,7 +16,7 @@ use crate::schemas::opening_time::{
 pub async fn get_location_times(
 	State(pool): State<DbPool>,
 	Path(id): Path<i32>,
-	Query(filter): Query<OpeningTimeFilter>,
+	Query(filter): Query<TimeBoundsFilter>,
 	Query(includes): Query<OpeningTimeIncludes>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;

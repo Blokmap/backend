@@ -1,11 +1,10 @@
 use std::f64;
 
-use chrono::{NaiveDate, NaiveTime};
 use common::{DbConn, Error, PaginationError};
 use diesel::dsl::sql;
 use diesel::pg::Pg;
 use diesel::prelude::*;
-use diesel::sql_types::{Bool, Date, Double, Nullable, Text, Time};
+use diesel::sql_types::{Bool, Double, Nullable, Text};
 use serde::{Deserialize, Serialize};
 
 use super::{description, excerpt};
@@ -20,22 +19,15 @@ use crate::schema::{
 	updater,
 };
 use crate::{
-	FullLocationData,
+	BoxedCondition,
 	Location,
 	LocationIncludes,
 	PrimitiveLocation,
-	PrimitiveOpeningTime,
 	PrimitiveTranslation,
+	TimeBoundsFilter,
+	TimeFilter,
+	ToFilter,
 };
-
-type BoxedCondition<S, T = Nullable<Bool>> =
-	Box<dyn BoxableExpression<S, Pg, SqlType = T>>;
-
-trait ToFilter<S> {
-	type SqlType;
-
-	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType>;
-}
 
 #[derive(Clone, Debug, Deserialize, Queryable, Selectable, Serialize)]
 #[diesel(table_name = location)]
@@ -52,8 +44,6 @@ pub struct LocationFilter {
 	#[serde(flatten)]
 	query:      Option<QueryFilter>,
 	#[serde(flatten)]
-	time:       Option<TimeFilter>,
-	#[serde(flatten)]
 	distance:   Option<DistanceFilter>,
 	#[serde(flatten)]
 	reservable: Option<ReservableFilter>,
@@ -65,12 +55,6 @@ pub struct LocationFilter {
 pub struct QueryFilter {
 	pub language: String,
 	pub query:    String,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-pub struct TimeFilter {
-	pub open_on_day:  NaiveDate,
-	pub open_on_time: Option<NaiveTime>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
@@ -97,10 +81,6 @@ impl<S> ToFilter<S> for LocationFilter
 where
 	S: 'static,
 	diesel::dsl::Nullable<location::is_visible>: SelectableExpression<S>,
-	diesel::dsl::Nullable<opening_time::id>: SelectableExpression<S>,
-	diesel::dsl::Nullable<opening_time::day>: SelectableExpression<S>,
-	diesel::dsl::Nullable<opening_time::start_time>: SelectableExpression<S>,
-	diesel::dsl::Nullable<opening_time::end_time>: SelectableExpression<S>,
 	location::latitude: SelectableExpression<S>,
 	location::longitude: SelectableExpression<S>,
 	location::is_reservable: SelectableExpression<S>,
@@ -121,10 +101,6 @@ where
 
 		if let Some(resv) = self.reservable {
 			filter = Box::new(filter.and(resv.to_filter()));
-		}
-
-		if let Some(time) = self.time {
-			filter = Box::new(filter.and(time.to_filter()));
 		}
 
 		if let Some(bounds) = self.bounds {
@@ -160,36 +136,6 @@ impl<S> ToFilter<S> for QueryFilter {
 			.bind::<Text, _>(self.query.clone());
 
 		Box::new(name_filter.or(desc_filter).or(exc_filter))
-	}
-}
-
-impl<S> ToFilter<S> for TimeFilter
-where
-	S: 'static,
-	diesel::dsl::Nullable<opening_time::id>: SelectableExpression<S>,
-	diesel::dsl::Nullable<opening_time::day>: SelectableExpression<S>,
-	diesel::dsl::Nullable<opening_time::start_time>: SelectableExpression<S>,
-	diesel::dsl::Nullable<opening_time::end_time>: SelectableExpression<S>,
-{
-	type SqlType = Nullable<Bool>;
-
-	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType> {
-		let mut filter: BoxedCondition<S, Self::SqlType> = Box::new(
-			self.open_on_day
-				.into_sql::<Nullable<Date>>()
-				.eq(opening_time::day.nullable()),
-		);
-
-		if let Some(open_on_time) = self.open_on_time {
-			filter = Box::new(filter.and(
-				open_on_time.into_sql::<Nullable<Time>>().between(
-					opening_time::start_time.nullable(),
-					opening_time::end_time.nullable(),
-				),
-			));
-		}
-
-		filter
 	}
 }
 
@@ -268,7 +214,6 @@ impl Location {
 				excerpt.on(crate::schema::location::dsl::excerpt_id
 					.eq(excerpt.field(translation::id))),
 			)
-			.left_outer_join(crate::schema::opening_time::table)
 			.left_outer_join(
 				approver.on(inc_approved_by.into_sql::<Bool>().and(
 					crate::schema::location::dsl::approved_by
@@ -299,50 +244,91 @@ impl Location {
 	#[instrument(skip(conn))]
 	pub async fn search(
 		loc_filter: LocationFilter,
+		time_filter: TimeFilter,
 		includes: LocationIncludes,
 		limit: usize,
 		offset: usize,
 		conn: &DbConn,
-	) -> Result<(usize, Vec<FullLocationData>), Error> {
+	) -> Result<(usize, Vec<Self>), Error> {
 		let filter = loc_filter.to_filter();
-		let query = Self::build_query(includes).filter(filter);
+		let query = Self::build_query(includes);
+
+		let bounds_filter = if let Some(open_on_day) = time_filter.open_on_day {
+			let week = open_on_day.week(chrono::Weekday::Mon);
+			// I don't think blokmap will still be used in 264.000 AD so unwrap
+			// should be safe
+			let week_start = week.checked_first_day().unwrap();
+			let week_end = week.checked_last_day().unwrap();
+
+			let bounds_filter = TimeBoundsFilter {
+				start_date: Some(week_start),
+				end_date:   Some(week_end),
+			};
+
+			bounds_filter.to_filter()
+		} else {
+			let now = chrono::Utc::now().date_naive();
+			let week = now.week(chrono::Weekday::Mon);
+			let week_start = week.checked_first_day().unwrap();
+			let week_end = week.checked_last_day().unwrap();
+
+			let bounds_filter = TimeBoundsFilter {
+				start_date: Some(week_start),
+				end_date:   Some(week_end),
+			};
+
+			bounds_filter.to_filter()
+		};
+
+		let time_filter = Box::new(time_filter.to_filter().and(bounds_filter));
 
 		let locations = conn
 			.interact(move |conn| {
 				use crate::schema::location::dsl::*;
 
 				query
-					.select((
-						PrimitiveLocation::as_select(),
-						description.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
+					.filter(filter)
+					.filter(
+						diesel::dsl::exists(
+							opening_time::table
+								.filter(time_filter)
+								.filter(opening_time::location_id.eq(id))
+								.select(opening_time::id)
+						)
+					)
+					.select(
+						(
+							PrimitiveLocation::as_select(),
+							description
+								.fields(<PrimitiveTranslation as Selectable<
+								Pg,
+							>>::construct_selection()),
+							excerpt
+								.fields(<PrimitiveTranslation as Selectable<
+								Pg,
+							>>::construct_selection()),
+							approver
+								.fields(simple_profile::all_columns)
+								.nullable(),
+							rejecter
+								.fields(simple_profile::all_columns)
+								.nullable(),
+							creator
+								.fields(simple_profile::all_columns)
+								.nullable(),
+							updater
+								.fields(simple_profile::all_columns)
+								.nullable(),
 						),
-						excerpt.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
-						),
-						approver.fields(simple_profile::all_columns).nullable(),
-						rejecter.fields(simple_profile::all_columns).nullable(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
-						<
-							PrimitiveOpeningTime as Selectable<Pg>
-						>
-						::construct_selection().nullable(),
-					))
+					)
 					.order(id)
 					.limit(1000)
-					// .limit(limit)
-					// .offset(offset)
 					.get_results(conn)
 			})
 			.await??
 			.into_iter()
-			.map(|(loc, desc, exc, a, r, c, u, t)| {
-				let loc = Location {
+			.map(|(loc, desc, exc, a, r, c, u)| {
+				Location {
 					location:    loc,
 					description: desc,
 					excerpt:     exc,
@@ -366,13 +352,10 @@ impl Location {
 					} else {
 						None
 					},
-				};
-
-				(loc, t)
+				}
 			})
-			.collect();
+			.collect::<Vec<_>>();
 
-		let locations = Self::group_by_id(locations);
 		let total = locations.len();
 
 		if offset >= total {

@@ -378,6 +378,7 @@ CREATE TABLE opening_time (
 
 CREATE INDEX idx__opening_time__location_id ON opening_time(location_id);
 CREATE INDEX idx__opening_time__start_end ON opening_time(start_time, end_time);
+CREATE INDEX idx__opening_time__day ON opening_time(day);
 
 SELECT diesel_manage_updated_at('opening_time');
 
