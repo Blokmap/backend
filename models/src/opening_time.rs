@@ -253,6 +253,8 @@ impl OpeningTime {
 	) -> Result<Vec<PrimitiveOpeningTime>, Error> {
 		let filter = time_filter.to_filter();
 
+		info!("building opening time filter");
+
 		let bounds_filter = if let Some(open_on_day) = time_filter.open_on_day {
 			let week = open_on_day.week(Weekday::Mon);
 			// I don't think blokmap will still be used in 264.000 AD so unwrap
@@ -281,6 +283,8 @@ impl OpeningTime {
 		};
 
 		let filter = Box::new(filter.and(bounds_filter));
+
+		info!("finished building opening time filter");
 
 		let times = conn
 			.interact(move |conn| {

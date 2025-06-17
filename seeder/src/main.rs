@@ -7,14 +7,16 @@ use common::DbConn;
 use deadpool_diesel::postgres::{Manager, Pool};
 use diesel::RunQueryDsl;
 use diesel::query_dsl::methods::SelectDsl;
-use fake::Fake;
 use fake::faker::address::raw::{CityName, StateName, StreetName, ZipCode};
+use fake::faker::chrono::raw::{Date, DateTime, Time};
 use fake::faker::company::raw::CompanyName;
 use fake::faker::internet::raw::{FreeEmail, Password, Username};
 use fake::faker::lorem::raw::Sentence;
 use fake::locales::{DE_DE, EN, FR_FR};
+use fake::{Dummy, Fake};
 use models::{
 	InsertableNewLocation,
+	NewOpeningTime,
 	NewProfileDirect,
 	NewTranslation,
 	ProfileState,
@@ -27,9 +29,11 @@ use crate::util::{batch_insert, generate_unique_set};
 #[derive(Parser, Debug)]
 struct Opt {
 	#[arg(long, short = 'p', default_value_t = 100_000)]
-	profiles:  usize,
+	profiles:      usize,
 	#[arg(long, short = 'l', default_value_t = 1_000)]
-	locations: usize,
+	locations:     usize,
+	#[arg(long, short = 't', default_value_t = 5_000)]
+	opening_times: usize,
 }
 
 #[tokio::main]
@@ -47,6 +51,12 @@ async fn main() -> Result<(), Error> {
 		println!("Seeding {} locations…", cli.locations);
 		let inserted = seed_locations(&conn, cli.locations).await?;
 		println!("Inserted {inserted} locations with translations");
+	}
+
+	if cli.opening_times > 0 {
+		println!("Seeding {} opening times…", cli.opening_times);
+		let inserted = seed_opening_times(&conn, cli.opening_times).await?;
+		println!("Inserted {inserted} opening times for locations");
 	}
 
 	Ok(())
@@ -195,6 +205,87 @@ async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 	batch_insert(conn, locations, 2 << 10, |conn, chunk| {
 		use models::schema::location::dsl::*;
 		diesel::insert_into(location).values(chunk).execute(conn)
+	})
+	.await
+}
+
+/// Faked DateTime that is bounded to the current week +- 1 week
+struct RelevantDate;
+
+impl Dummy<RelevantDate> for chrono::NaiveDateTime {
+	fn dummy_with_rng<R: Rng + ?Sized>(_: &RelevantDate, rng: &mut R) -> Self {
+		let now = chrono::Utc::now().date_naive();
+		let week = now.week(chrono::Weekday::Mon);
+		let start = (week.checked_first_day().unwrap() - chrono::Days::new(7))
+			.and_time(chrono::NaiveTime::from_hms_opt(8, 0, 0).unwrap());
+		let end = (week.checked_last_day().unwrap() + chrono::Days::new(7))
+			.and_time(chrono::NaiveTime::from_hms_opt(22, 0, 0).unwrap());
+
+		let start = start.and_utc().timestamp();
+		let end = end.and_utc().timestamp();
+
+		let random_secs = rng.random_range(start..end);
+
+		let datetime =
+			chrono::DateTime::from_timestamp(random_secs, 0).unwrap();
+		datetime.naive_utc()
+	}
+}
+
+async fn seed_opening_times(
+	conn: &DbConn,
+	count: usize,
+) -> Result<usize, Error> {
+	let profile_ids: Vec<i32> = conn
+		.interact(|c| {
+			use models::schema::profile::dsl::*;
+			profile.select(id).load::<i32>(c)
+		})
+		.await
+		.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?
+		.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?;
+
+	assert!(
+		!profile_ids.is_empty(),
+		"No profiles exist to assign as opening time creators"
+	);
+
+	let location_ids: Vec<i32> = conn
+		.interact(|c| {
+			use models::schema::location::dsl::*;
+			location.select(id).get_results(c)
+		})
+		.await
+		.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?
+		.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?;
+
+	assert!(
+		!location_ids.is_empty(),
+		"No locations exist to create opening times"
+	);
+
+	let mut rng = rng();
+
+	let opening_times: Vec<NewOpeningTime> = (0..count)
+		.map(|_| {
+			NewOpeningTime {
+				location_id:      *location_ids.choose(&mut rng).unwrap(),
+				day:              RelevantDate
+					.fake::<chrono::NaiveDateTime>()
+					.date(),
+				start_time:       Time(EN).fake(),
+				end_time:         Time(EN).fake(),
+				seat_count:       (10..100).fake_with_rng(&mut rng),
+				reservable_from:  RelevantDate.fake(),
+				reservable_until: RelevantDate.fake(),
+				created_by:       *profile_ids.choose(&mut rng).unwrap(),
+			}
+		})
+		.collect();
+
+	batch_insert(conn, opening_times, 2 << 10, |conn, chunk| {
+		use models::schema::opening_time::dsl::*;
+		diesel::insert_into(opening_time).values(chunk).execute(conn)
 	})
 	.await
 }

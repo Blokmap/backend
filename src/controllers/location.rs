@@ -202,9 +202,14 @@ pub(crate) async fn search_locations(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
+	info!("starting opening time search");
+
 	let times = OpeningTime::search(time_filter, &conn).await?;
 	let time_ids = times.iter().map(|t| t.location_id).collect::<Vec<_>>();
 	let id_filter = IdFilter(time_ids);
+
+	info!("finished opening time search");
+	info!("starting location search");
 
 	#[allow(clippy::cast_sign_loss)]
 	#[allow(clippy::cast_possible_truncation)]
@@ -216,6 +221,8 @@ pub(crate) async fn search_locations(
 	let (total, locations) =
 		Location::search(id_filter, loc_filter, includes, limit, offset, &conn)
 			.await?;
+
+	info!("finished location search");
 
 	let mut id_map = HashMap::new();
 

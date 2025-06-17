@@ -161,8 +161,6 @@ impl IntoResponse for Error {
 	fn into_response(self) -> Response {
 		let message = self.to_string();
 
-		error!("{self}");
-
 		let data = serde_json::json!({
 			"message": message,
 			"code": self.code(),
