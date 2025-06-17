@@ -1,7 +1,7 @@
 use std::f64;
 
 use chrono::{NaiveDate, NaiveTime};
-use common::{DbConn, Error};
+use common::{DbConn, Error, PaginationError};
 use diesel::dsl::sql;
 use diesel::pg::Pg;
 use diesel::prelude::*;
@@ -300,21 +300,10 @@ impl Location {
 	pub async fn search(
 		loc_filter: LocationFilter,
 		includes: LocationIncludes,
-		limit: i64,
-		offset: i64,
+		limit: usize,
+		offset: usize,
 		conn: &DbConn,
-	) -> Result<(i64, Vec<FullLocationData>), Error> {
-		let filter = loc_filter.to_filter();
-		let query = Self::build_query(includes).filter(filter);
-
-		let total: i64 = conn
-			.interact(|conn| {
-				use diesel::dsl::count_star;
-
-				query.select(count_star()).first(conn)
-			})
-			.await??;
-
+	) -> Result<(usize, Vec<FullLocationData>), Error> {
 		let filter = loc_filter.to_filter();
 		let query = Self::build_query(includes).filter(filter);
 
@@ -345,8 +334,9 @@ impl Location {
 						::construct_selection().nullable(),
 					))
 					.order(id)
-					.limit(limit)
-					.offset(offset)
+					.limit(1000)
+					// .limit(limit)
+					// .offset(offset)
 					.get_results(conn)
 			})
 			.await??
@@ -382,6 +372,21 @@ impl Location {
 			})
 			.collect();
 
-		Ok((total, Self::group_by_id(locations)))
+		let locations = Self::group_by_id(locations);
+		let total = locations.len();
+
+		if offset >= total {
+			return Err(PaginationError::OffsetTooLarge.into());
+		}
+
+		let limit = if limit > locations[offset..].len() {
+			locations[offset..].len() - offset
+		} else {
+			limit
+		};
+
+		let locations = locations[offset..offset + limit].to_vec();
+
+		Ok((total, locations))
 	}
 }

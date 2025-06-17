@@ -197,17 +197,20 @@ pub(crate) async fn search_locations(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let (total, locations) = Location::search(
-		filter,
-		includes,
-		p_opts.limit(),
-		p_opts.offset(),
-		&conn,
-	)
-	.await?;
+	#[allow(clippy::cast_sign_loss)]
+	#[allow(clippy::cast_possible_truncation)]
+	let limit = p_opts.limit() as usize;
+	#[allow(clippy::cast_sign_loss)]
+	#[allow(clippy::cast_possible_truncation)]
+	let offset = p_opts.offset() as usize;
+
+	let (total, locations) =
+		Location::search(filter, includes, limit, offset, &conn).await?;
 
 	let locations: Vec<LocationResponse> =
 		locations.into_iter().map(Into::into).collect();
+	#[allow(clippy::cast_possible_wrap)]
+	let total = total as i64;
 
 	let paginated = p_opts.paginate(total, locations);
 

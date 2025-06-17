@@ -35,12 +35,15 @@ pub enum Error {
 	/// Any error related to logging in
 	#[error(transparent)]
 	LoginError(#[from] LoginError),
-	/// Any error related to OAuth login
-	#[error(transparent)]
-	OAuthError(#[from] OAuthError),
 	/// Any error related to parsing multipart data
 	#[error(transparent)]
 	MultipartError(#[from] MultipartError),
+	/// Any error related to OAuth login
+	#[error(transparent)]
+	OAuthError(#[from] OAuthError),
+	/// Invalid pagination options
+	#[error(transparent)]
+	PaginationError(#[from] PaginationError),
 	/// Invalid or missing token
 	#[error(transparent)]
 	TokenError(#[from] TokenError),
@@ -106,6 +109,11 @@ impl Error {
 				}
 			},
 			Self::ValidationError(_) => 21,
+			Self::PaginationError(e) => {
+				match e {
+					PaginationError::OffsetTooLarge => 28,
+				}
+			},
 		}
 	}
 
@@ -170,7 +178,8 @@ impl IntoResponse for Error {
 			| Self::TokenError(_) => StatusCode::FORBIDDEN,
 			Self::MultipartError(_)
 			| Self::InvalidImage(_)
-			| Self::CreateReservationError(_) => StatusCode::BAD_REQUEST,
+			| Self::CreateReservationError(_)
+			| Self::PaginationError(_) => StatusCode::BAD_REQUEST,
 			Self::NotFound(_) => StatusCode::NOT_FOUND,
 			Self::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
 		};
@@ -244,6 +253,12 @@ pub enum CreateReservationError {
 	/// blocks
 	#[error("the reservation would overoccupy some blocks")]
 	Full(Vec<i32>),
+}
+
+#[derive(Debug, Error)]
+pub enum PaginationError {
+	#[error("the offset is too large for the amount of data")]
+	OffsetTooLarge,
 }
 
 /// A list of possible internal errors
