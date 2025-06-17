@@ -36,9 +36,6 @@ pub struct PartialLocation {
 	pub longitude: f64,
 }
 
-#[derive(Clone, Debug)]
-pub struct IdFilter(pub Vec<i32>);
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct LocationFilter {
 	#[serde(flatten)]
@@ -75,17 +72,6 @@ pub struct BoundsFilter {
 	pub north_east_lng: f64,
 	pub south_west_lat: f64,
 	pub south_west_lng: f64,
-}
-
-impl<S> ToFilter<S> for IdFilter
-where
-	location::id: SelectableExpression<S>,
-{
-	type SqlType = Bool;
-
-	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType> {
-		Box::new(location::id.eq_any(self.0.clone()))
-	}
 }
 
 impl<S> ToFilter<S> for LocationFilter
@@ -254,15 +240,13 @@ impl Location {
 	/// Search through all [`Location`]s with a given [`LocationFilter`]
 	#[instrument(skip(conn))]
 	pub async fn search(
-		id_filter: IdFilter,
 		loc_filter: LocationFilter,
 		includes: LocationIncludes,
 		limit: usize,
 		offset: usize,
 		conn: &DbConn,
 	) -> Result<(usize, Vec<Self>), Error> {
-		let filter =
-			Box::new(id_filter.to_filter().and(loc_filter.to_filter()));
+		let filter = loc_filter.to_filter();
 		let query = Self::build_query(includes).filter(filter);
 
 		let locations = conn
@@ -270,23 +254,31 @@ impl Location {
 				use crate::schema::location::dsl::*;
 
 				query
-					.select((
-						PrimitiveLocation::as_select(),
-						description.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
+					.select(
+						(
+							PrimitiveLocation::as_select(),
+							description
+								.fields(<PrimitiveTranslation as Selectable<
+								Pg,
+							>>::construct_selection()),
+							excerpt
+								.fields(<PrimitiveTranslation as Selectable<
+								Pg,
+							>>::construct_selection()),
+							approver
+								.fields(simple_profile::all_columns)
+								.nullable(),
+							rejecter
+								.fields(simple_profile::all_columns)
+								.nullable(),
+							creator
+								.fields(simple_profile::all_columns)
+								.nullable(),
+							updater
+								.fields(simple_profile::all_columns)
+								.nullable(),
 						),
-						excerpt.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
-						),
-						approver.fields(simple_profile::all_columns).nullable(),
-						rejecter.fields(simple_profile::all_columns).nullable(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
-					))
+					)
 					.order(id)
 					.limit(1000)
 					.get_results(conn)

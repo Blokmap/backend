@@ -8,7 +8,7 @@ use deadpool_diesel::postgres::{Manager, Pool};
 use diesel::RunQueryDsl;
 use diesel::query_dsl::methods::SelectDsl;
 use fake::faker::address::raw::{CityName, StateName, StreetName, ZipCode};
-use fake::faker::chrono::raw::{Date, DateTime, Time};
+use fake::faker::chrono::raw::Time;
 use fake::faker::company::raw::CompanyName;
 use fake::faker::internet::raw::{FreeEmail, Password, Username};
 use fake::faker::lorem::raw::Sentence;

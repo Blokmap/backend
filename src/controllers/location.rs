@@ -1,6 +1,6 @@
 //! Controllers for [`Location`]s
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufWriter, Cursor, Write};
 use std::path::PathBuf;
@@ -16,7 +16,6 @@ use fast_image_resize::{IntoImageView, Resizer};
 use image::codecs::webp::WebPEncoder;
 use image::{ColorType, ImageEncoder, ImageReader};
 use models::{
-	IdFilter,
 	Image as DbImage,
 	Location,
 	LocationFilter,
@@ -202,15 +201,6 @@ pub(crate) async fn search_locations(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	info!("starting opening time search");
-
-	let times = OpeningTime::search(time_filter, &conn).await?;
-	let time_ids = times.iter().map(|t| t.location_id).collect::<Vec<_>>();
-	let id_filter = IdFilter(time_ids);
-
-	info!("finished opening time search");
-	info!("starting location search");
-
 	#[allow(clippy::cast_sign_loss)]
 	#[allow(clippy::cast_possible_truncation)]
 	let limit = p_opts.limit() as usize;
@@ -218,11 +208,21 @@ pub(crate) async fn search_locations(
 	#[allow(clippy::cast_possible_truncation)]
 	let offset = p_opts.offset() as usize;
 
-	let (total, locations) =
-		Location::search(id_filter, loc_filter, includes, limit, offset, &conn)
-			.await?;
+	let (loc_result, time_result) = tokio::join!(
+		Location::search(loc_filter, includes, limit, offset, &conn),
+		OpeningTime::search(time_filter, &conn),
+	);
 
-	info!("finished location search");
+	let (total, locations) = loc_result?;
+	let times = time_result?;
+
+	let time_location_ids =
+		times.iter().map(|t| t.location_id).collect::<HashSet<_>>();
+
+	let locations = locations
+		.into_par_iter()
+		.filter(|l| time_location_ids.contains(&l.location.id))
+		.collect::<Vec<_>>();
 
 	let mut id_map = HashMap::new();
 
