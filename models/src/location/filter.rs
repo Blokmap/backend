@@ -12,6 +12,7 @@ use crate::schema::{
 	approver,
 	creator,
 	location,
+	opening_time,
 	rejecter,
 	simple_profile,
 	translation,
@@ -23,6 +24,8 @@ use crate::{
 	LocationIncludes,
 	PrimitiveLocation,
 	PrimitiveTranslation,
+	TimeBoundsFilter,
+	TimeFilter,
 	ToFilter,
 };
 
@@ -241,19 +244,58 @@ impl Location {
 	#[instrument(skip(conn))]
 	pub async fn search(
 		loc_filter: LocationFilter,
+		time_filter: TimeFilter,
 		includes: LocationIncludes,
 		limit: usize,
 		offset: usize,
 		conn: &DbConn,
 	) -> Result<(usize, Vec<Self>), Error> {
 		let filter = loc_filter.to_filter();
-		let query = Self::build_query(includes).filter(filter);
+		let query = Self::build_query(includes);
+
+		let bounds_filter = if let Some(open_on_day) = time_filter.open_on_day {
+			let week = open_on_day.week(chrono::Weekday::Mon);
+			// I don't think blokmap will still be used in 264.000 AD so unwrap
+			// should be safe
+			let week_start = week.checked_first_day().unwrap();
+			let week_end = week.checked_last_day().unwrap();
+
+			let bounds_filter = TimeBoundsFilter {
+				start_date: Some(week_start),
+				end_date:   Some(week_end),
+			};
+
+			bounds_filter.to_filter()
+		} else {
+			let now = chrono::Utc::now().date_naive();
+			let week = now.week(chrono::Weekday::Mon);
+			let week_start = week.checked_first_day().unwrap();
+			let week_end = week.checked_last_day().unwrap();
+
+			let bounds_filter = TimeBoundsFilter {
+				start_date: Some(week_start),
+				end_date:   Some(week_end),
+			};
+
+			bounds_filter.to_filter()
+		};
+
+		let time_filter = Box::new(time_filter.to_filter().and(bounds_filter));
 
 		let locations = conn
 			.interact(move |conn| {
 				use crate::schema::location::dsl::*;
 
 				query
+					.filter(filter)
+					.filter(
+						diesel::dsl::exists(
+							opening_time::table
+								.filter(time_filter)
+								.filter(opening_time::location_id.eq(id))
+								.select(opening_time::id)
+						)
+					)
 					.select(
 						(
 							PrimitiveLocation::as_select(),

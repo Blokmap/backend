@@ -1,6 +1,6 @@
 //! Controllers for [`Location`]s
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Cursor, Write};
 use std::path::PathBuf;
@@ -208,21 +208,33 @@ pub(crate) async fn search_locations(
 	#[allow(clippy::cast_possible_truncation)]
 	let offset = p_opts.offset() as usize;
 
-	let (loc_result, time_result) = tokio::join!(
-		Location::search(loc_filter, includes, limit, offset, &conn),
-		OpeningTime::search(time_filter, &conn),
-	);
+	// let (loc_result, time_result) = tokio::join!(
+	// 	Location::search(loc_filter, time_filter, includes, limit, offset,
+	// &conn), 	OpeningTime::search(time_filter, &conn),
+	// );
 
-	let (total, locations) = loc_result?;
-	let times = time_result?;
+	// let (total, locations) = loc_result?;
+	// let times = time_result?;
 
-	let time_location_ids =
-		times.iter().map(|t| t.location_id).collect::<HashSet<_>>();
+	let (total, locations) = Location::search(
+		loc_filter,
+		time_filter,
+		includes,
+		limit,
+		offset,
+		&conn,
+	)
+	.await?;
 
-	let locations = locations
-		.into_par_iter()
-		.filter(|l| time_location_ids.contains(&l.location.id))
-		.collect::<Vec<_>>();
+	let location_ids =
+		locations.iter().map(|l| l.location.id).collect::<Vec<_>>();
+
+	let times = OpeningTime::skibidi(location_ids, &conn).await?;
+
+	// let locations = locations
+	// 	.into_par_iter()
+	// 	.filter(|l| time_location_ids.contains(&l.location.id))
+	// 	.collect::<Vec<_>>();
 
 	let mut id_map = HashMap::new();
 
