@@ -1,5 +1,6 @@
 //! Controllers for [`Location`]s
 
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Cursor, Write};
 use std::path::PathBuf;
@@ -15,11 +16,14 @@ use fast_image_resize::{IntoImageView, Resizer};
 use image::codecs::webp::WebPEncoder;
 use image::{ColorType, ImageEncoder, ImageReader};
 use models::{
+	IdFilter,
 	Image as DbImage,
 	Location,
 	LocationFilter,
 	LocationIncludes,
 	NewImage,
+	OpeningTime,
+	TimeFilter,
 };
 use rayon::prelude::*;
 use uuid::Uuid;
@@ -191,11 +195,16 @@ pub(crate) async fn get_location(
 #[instrument(skip(pool))]
 pub(crate) async fn search_locations(
 	State(pool): State<DbPool>,
-	Query(filter): Query<LocationFilter>,
+	Query(time_filter): Query<TimeFilter>,
+	Query(loc_filter): Query<LocationFilter>,
 	Query(includes): Query<LocationIncludes>,
 	Query(p_opts): Query<PaginationOptions>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
+
+	let times = OpeningTime::search(time_filter, &conn).await?;
+	let time_ids = times.iter().map(|t| t.location_id).collect::<Vec<_>>();
+	let id_filter = IdFilter(time_ids);
 
 	#[allow(clippy::cast_sign_loss)]
 	#[allow(clippy::cast_possible_truncation)]
@@ -205,7 +214,23 @@ pub(crate) async fn search_locations(
 	let offset = p_opts.offset() as usize;
 
 	let (total, locations) =
-		Location::search(filter, includes, limit, offset, &conn).await?;
+		Location::search(id_filter, loc_filter, includes, limit, offset, &conn)
+			.await?;
+
+	let mut id_map = HashMap::new();
+
+	for loc in locations {
+		let loc_id = loc.location.id;
+		let entry = id_map.entry(loc).or_insert(vec![]);
+
+		for time in &times {
+			if time.location_id == loc_id {
+				entry.push(time.clone());
+			}
+		}
+	}
+
+	let locations = id_map.into_iter().collect::<Vec<_>>();
 
 	let locations: Vec<LocationResponse> =
 		locations.into_iter().map(Into::into).collect();

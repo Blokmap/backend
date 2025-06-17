@@ -1,21 +1,85 @@
-use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Utc, Weekday};
 use common::{DbConn, Error};
 use diesel::pg::Pg;
 use diesel::prelude::*;
-use diesel::sql_types::{Bool, Date};
+use diesel::sql_types::{Bool, Date, Time};
 use serde::{Deserialize, Serialize};
 
-use crate::SimpleProfile;
 use crate::schema::{creator, opening_time, simple_profile, updater};
+use crate::{BoxedCondition, SimpleProfile, ToFilter};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OpeningTimeFilter {
+pub struct TimeBoundsFilter {
 	pub start_date: Option<NaiveDate>,
 	pub end_date:   Option<NaiveDate>,
 }
 
-type BoxedCondition<S, T> = Box<dyn BoxableExpression<S, Pg, SqlType = T>>;
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeFilter {
+	pub open_on_day:  Option<NaiveDate>,
+	pub open_on_time: Option<NaiveTime>,
+}
+
+impl<S> ToFilter<S> for TimeBoundsFilter
+where
+	S: 'static,
+	opening_time::day: SelectableExpression<S>,
+{
+	type SqlType = Bool;
+
+	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType> {
+		let start_filter: BoxedCondition<_, Bool> =
+			if let Some(start_date) = self.start_date {
+				Box::new(start_date.into_sql::<Date>().le(opening_time::day))
+			} else {
+				Box::new(true.into_sql::<Bool>().eq(true))
+			};
+
+		let end_filter: BoxedCondition<_, Bool> =
+			if let Some(end_date) = self.end_date {
+				Box::new(end_date.into_sql::<Date>().ge(opening_time::day))
+			} else {
+				Box::new(true.into_sql::<Bool>().eq(true))
+			};
+
+		let filter: BoxedCondition<S, Self::SqlType> =
+			Box::new(start_filter.and(end_filter));
+
+		filter
+	}
+}
+
+impl<S> ToFilter<S> for TimeFilter
+where
+	S: 'static,
+	opening_time::id: SelectableExpression<S>,
+	opening_time::day: SelectableExpression<S>,
+	opening_time::start_time: SelectableExpression<S>,
+	opening_time::end_time: SelectableExpression<S>,
+{
+	type SqlType = Bool;
+
+	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType> {
+		let mut filter: BoxedCondition<S, Self::SqlType> =
+			if let Some(open_on_day) = self.open_on_day {
+				Box::new(open_on_day.into_sql::<Date>().eq(opening_time::day))
+			} else {
+				Box::new(true.into_sql::<Bool>())
+			};
+
+		if let Some(open_on_time) = self.open_on_time {
+			filter =
+				Box::new(filter.and(open_on_time.into_sql::<Time>().between(
+					opening_time::start_time,
+					opening_time::end_time,
+				)));
+		}
+
+		filter
+	}
+}
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct OpeningTimeIncludes {
@@ -125,23 +189,11 @@ impl OpeningTime {
 	#[instrument(skip(conn))]
 	pub async fn get_for_location(
 		loc_id: i32,
-		time_filter: OpeningTimeFilter,
+		time_filter: TimeBoundsFilter,
 		includes: OpeningTimeIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
-		let start_filter: BoxedCondition<_, Bool> =
-			if let Some(start_date) = time_filter.start_date {
-				Box::new(start_date.into_sql::<Date>().ge(opening_time::day))
-			} else {
-				Box::new(true.into_sql::<Bool>().eq(true))
-			};
-
-		let end_filter: BoxedCondition<_, Bool> =
-			if let Some(end_date) = time_filter.end_date {
-				Box::new(end_date.into_sql::<Date>().le(opening_time::day))
-			} else {
-				Box::new(true.into_sql::<Bool>().eq(true))
-			};
+		let filter = time_filter.to_filter();
 
 		let times = conn
 			.interact(move |conn| {
@@ -163,8 +215,7 @@ impl OpeningTime {
 						),
 					))
 					.filter(location_id.eq(loc_id))
-					.filter(start_filter)
-					.filter(end_filter)
+					.filter(filter)
 					.select((
 						PrimitiveOpeningTime::as_select(),
 						creator.fields(simple_profile::all_columns).nullable(),
@@ -190,6 +241,57 @@ impl OpeningTime {
 				}
 			})
 			.collect();
+
+		Ok(times)
+	}
+
+	/// Search through all [`OpeningTime`]s
+	#[instrument(skip(conn))]
+	pub async fn search(
+		time_filter: TimeFilter,
+		conn: &DbConn,
+	) -> Result<Vec<PrimitiveOpeningTime>, Error> {
+		let filter = time_filter.to_filter();
+
+		let bounds_filter = if let Some(open_on_day) = time_filter.open_on_day {
+			let week = open_on_day.week(Weekday::Mon);
+			// I don't think blokmap will still be used in 264.000 AD so unwrap
+			// should be safe
+			let week_start = week.checked_first_day().unwrap();
+			let week_end = week.checked_last_day().unwrap();
+
+			let bounds_filter = TimeBoundsFilter {
+				start_date: Some(week_start),
+				end_date:   Some(week_end),
+			};
+
+			bounds_filter.to_filter()
+		} else {
+			let now = Utc::now().date_naive();
+			let week = now.week(Weekday::Mon);
+			let week_start = week.checked_first_day().unwrap();
+			let week_end = week.checked_last_day().unwrap();
+
+			let bounds_filter = TimeBoundsFilter {
+				start_date: Some(week_start),
+				end_date:   Some(week_end),
+			};
+
+			bounds_filter.to_filter()
+		};
+
+		let filter = Box::new(filter.and(bounds_filter));
+
+		let times = conn
+			.interact(move |conn| {
+				use crate::schema::opening_time::dsl::*;
+
+				opening_time
+					.filter(filter)
+					.select(PrimitiveOpeningTime::as_select())
+					.get_results(conn)
+			})
+			.await??;
 
 		Ok(times)
 	}
