@@ -29,3 +29,5 @@ time = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
+
+bitflags = { version = "2.9.1", features = ["serde"] }
