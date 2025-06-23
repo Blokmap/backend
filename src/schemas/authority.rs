@@ -1,5 +1,11 @@
 use chrono::NaiveDateTime;
-use models::{Authority, Location, SimpleProfile};
+use models::{
+	Authority,
+	AuthorityUpdate,
+	Location,
+	NewAuthority,
+	SimpleProfile,
+};
 use serde::{Deserialize, Serialize};
 
 #[skip_serializing_none]
@@ -58,6 +64,42 @@ impl From<(Authority, Vec<SimpleProfile>, Vec<Location>)>
 			updated_by:  value.0.updated_by,
 			members:     value.1,
 			locations:   value.2,
+		}
+	}
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateAuthorityRequest {
+	pub name:        String,
+	pub description: Option<String>,
+}
+
+impl CreateAuthorityRequest {
+	#[must_use]
+	pub fn to_insertable(self, created_by: i32) -> NewAuthority {
+		NewAuthority {
+			name: self.name,
+			description: self.description,
+			created_by,
+		}
+	}
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateAuthorityRequest {
+	pub name:        Option<String>,
+	pub description: Option<String>,
+}
+
+impl UpdateAuthorityRequest {
+	#[must_use]
+	pub fn to_insertable(self, updated_by: i32) -> AuthorityUpdate {
+		AuthorityUpdate {
+			name: self.name,
+			description: self.description,
+			updated_by,
 		}
 	}
 }

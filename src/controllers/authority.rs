@@ -5,7 +5,13 @@ use axum::response::IntoResponse;
 use common::{DbPool, Error};
 use models::{Authority, AuthorityIncludes, Location, LocationIncludes};
 
-use crate::schemas::authority::{AuthorityResponse, FullAuthorityResponse};
+use crate::Session;
+use crate::schemas::authority::{
+	AuthorityResponse,
+	CreateAuthorityRequest,
+	FullAuthorityResponse,
+	UpdateAuthorityRequest,
+};
 use crate::schemas::profile::ProfilePermissionsResponse;
 
 #[instrument(skip(pool))]
@@ -23,6 +29,22 @@ pub async fn get_all_authorities(
 }
 
 #[instrument(skip(pool))]
+pub async fn create_authority(
+	State(pool): State<DbPool>,
+	session: Session,
+	Query(includes): Query<AuthorityIncludes>,
+	Json(request): Json<CreateAuthorityRequest>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let new_auth = request.to_insertable(session.data.profile_id);
+	let auth = new_auth.insert(includes, &conn).await?;
+	let response: AuthorityResponse = auth.into();
+
+	Ok((StatusCode::CREATED, Json(response)))
+}
+
+#[instrument(skip(pool))]
 pub async fn get_authority(
 	State(pool): State<DbPool>,
 	Query(includes): Query<AuthorityIncludes>,
@@ -37,6 +59,25 @@ pub async fn get_authority(
 			.await?;
 
 	let response = FullAuthorityResponse::from((authority, members, locations));
+
+	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn update_authority(
+	State(pool): State<DbPool>,
+	session: Session,
+	Query(includes): Query<AuthorityIncludes>,
+	Path(id): Path<i32>,
+	Json(request): Json<UpdateAuthorityRequest>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	// TODO: check permissions
+
+	let auth_update = request.to_insertable(session.data.profile_id);
+	let updated_auth = auth_update.apply_to(id, includes, &conn).await?;
+	let response: AuthorityResponse = updated_auth.into();
 
 	Ok((StatusCode::OK, Json(response)))
 }

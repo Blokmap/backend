@@ -173,3 +173,72 @@ impl Authority {
 		Ok(())
 	}
 }
+
+#[derive(Clone, Debug, Deserialize, Insertable, Serialize)]
+#[diesel(table_name = authority)]
+#[diesel(check_for_backend(Pg))]
+pub struct NewAuthority {
+	pub name:        String,
+	pub description: Option<String>,
+	pub created_by:  i32,
+}
+
+impl NewAuthority {
+	/// Insert this [`NewAuthority`]
+	#[instrument(skip(conn))]
+	pub async fn insert(
+		self,
+		includes: AuthorityIncludes,
+		conn: &DbConn,
+	) -> Result<Authority, Error> {
+		let authority = conn
+			.interact(|conn| {
+				use self::authority::dsl::*;
+
+				diesel::insert_into(authority)
+					.values(self)
+					.returning(PrimitiveAuthority::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		let authority =
+			Authority::get_by_id(authority.id, includes, conn).await?;
+
+		info!("created authority {authority:?}");
+
+		Ok(authority)
+	}
+}
+
+#[derive(AsChangeset, Clone, Debug, Deserialize, Serialize)]
+#[diesel(table_name = authority)]
+#[diesel(check_for_backend(Pg))]
+pub struct AuthorityUpdate {
+	pub name:        Option<String>,
+	pub description: Option<String>,
+	pub updated_by:  i32,
+}
+
+impl AuthorityUpdate {
+	/// Apply this update to the [`Authority`] with the given id
+	pub async fn apply_to(
+		self,
+		auth_id: i32,
+		includes: AuthorityIncludes,
+		conn: &DbConn,
+	) -> Result<Authority, Error> {
+		conn.interact(move |conn| {
+			use crate::schema::authority::dsl::*;
+
+			diesel::update(authority.find(auth_id)).set(self).execute(conn)
+		})
+		.await??;
+
+		let authority = Authority::get_by_id(auth_id, includes, conn).await?;
+
+		info!("updated authority {authority:?}");
+
+		Ok(authority)
+	}
+}
