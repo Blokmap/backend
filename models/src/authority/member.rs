@@ -146,3 +146,61 @@ impl NewAuthorityProfile {
 		Ok((profile, permissions))
 	}
 }
+
+#[derive(AsChangeset, Clone, Copy, Debug, Deserialize, Serialize)]
+#[diesel(table_name = authority_profile)]
+#[diesel(check_for_backend(Pg))]
+pub struct AuthorityProfileUpdate {
+	pub updated_by:  i32,
+	pub permissions: i64,
+}
+
+impl AuthorityProfileUpdate {
+	/// Apply this update to the [`Authority`] with the given id
+	pub async fn apply_to(
+		self,
+		auth_id: i32,
+		conn: &DbConn,
+	) -> Result<(SimpleProfile, Permissions), Error> {
+		let profile_id: i32 = conn
+			.interact(move |conn| {
+				use crate::schema::authority_profile::dsl::*;
+
+				diesel::update(
+					authority_profile.filter(authority_id.eq(auth_id)),
+				)
+				.set(self)
+				.returning(profile_id)
+				.get_result(conn)
+			})
+			.await??;
+
+		let (profile, permissions): (SimpleProfile, i64) = conn
+			.interact(move |conn| {
+				authority_profile::table
+					.filter(
+						authority_profile::authority_id
+							.eq(auth_id)
+							.and(authority_profile::profile_id.eq(profile_id)),
+					)
+					.inner_join(simple_profile::table.on(
+						simple_profile::id.eq(authority_profile::profile_id),
+					))
+					.select((
+						SimpleProfile::as_select(),
+						authority_profile::permissions,
+					))
+					.get_result(conn)
+			})
+			.await??;
+
+		let permissions = Permissions::from_bits_truncate(permissions);
+
+		info!(
+			"set permissions for profile {} to {} in authority {}",
+			profile_id, self.permissions, auth_id
+		);
+
+		Ok((profile, permissions))
+	}
+}

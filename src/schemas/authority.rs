@@ -1,6 +1,7 @@
 use chrono::NaiveDateTime;
 use models::{
 	Authority,
+	AuthorityProfileUpdate,
 	AuthorityUpdate,
 	Location,
 	NewAuthority,
@@ -125,5 +126,18 @@ impl CreateAuthorityMemberRequest {
 			added_by,
 			permissions: self.permissions,
 		}
+	}
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateAuthorityProfileRequest {
+	pub permissions: i64,
+}
+
+impl UpdateAuthorityProfileRequest {
+	#[must_use]
+	pub fn to_insertable(self, updated_by: i32) -> AuthorityProfileUpdate {
+		AuthorityProfileUpdate { updated_by, permissions: self.permissions }
 	}
 }

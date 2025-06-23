@@ -11,6 +11,7 @@ use crate::schemas::authority::{
 	CreateAuthorityMemberRequest,
 	CreateAuthorityRequest,
 	FullAuthorityResponse,
+	UpdateAuthorityProfileRequest,
 	UpdateAuthorityRequest,
 };
 use crate::schemas::location::{CreateLocationRequest, LocationResponse};
@@ -153,4 +154,22 @@ pub(crate) async fn add_authority_member(
 	let response = ProfilePermissionsResponse::from(member);
 
 	Ok((StatusCode::CREATED, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn update_authority_member(
+	State(pool): State<DbPool>,
+	session: Session,
+	Path((auth_id, profile_id)): Path<(i32, i32)>,
+	Json(request): Json<UpdateAuthorityProfileRequest>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	// TODO: check permissions
+
+	let auth_update = request.to_insertable(session.data.profile_id);
+	let updated_member = auth_update.apply_to(auth_id, &conn).await?;
+	let response: ProfilePermissionsResponse = updated_member.into();
+
+	Ok((StatusCode::OK, Json(response)))
 }
