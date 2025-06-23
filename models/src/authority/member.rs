@@ -24,15 +24,25 @@ pub struct AuthorityProfile {
 }
 
 bitflags! {
+	/// Possible permissions for a member of an [`Authority`]
 	#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
-	pub struct Permissions: i64 {
+	pub struct AuthorityPermissions: i64 {
+		/// Admin privileges, member can do everything
 		const Administrator = 1 << 0;
+		/// Member can submit new locations
 		const AddLocation = 1 << 1;
+		/// Member can approve/reject locations
 		const ApproveLocation = 1 << 2;
+		/// Member can delete locations
 		const DeleteLocation = 1 << 3;
+		/// Member can manage opening times for locations
 		const ManageOpeningTimes = 1 << 4;
+		/// Member can manage reservations on the authorities locations
 		const ManageReservations = 1 << 5;
+		/// Member can manage authority members
 		const ManageMembers = 1 << 6;
+		/// Member can manage the authority itself
+		const ManageAuthority = 1 << 7;
 	}
 }
 
@@ -64,7 +74,7 @@ impl Authority {
 	pub async fn get_members_with_permissions(
 		auth_id: i32,
 		conn: &DbConn,
-	) -> Result<Vec<(SimpleProfile, Permissions)>, Error> {
+	) -> Result<Vec<(SimpleProfile, AuthorityPermissions)>, Error> {
 		let members = conn
 			.interact(move |conn| {
 				authority_profile::table
@@ -81,12 +91,33 @@ impl Authority {
 			.await??
 			.into_iter()
 			.map(|(prof, perm): (_, i64)| {
-				let perm = Permissions::from_bits_truncate(perm);
+				let perm = AuthorityPermissions::from_bits_truncate(perm);
 				(prof, perm)
 			})
 			.collect();
 
 		Ok(members)
+	}
+
+	/// Get the permissions for a single member
+	#[instrument(skip(conn))]
+	pub async fn get_member_permissions(
+		auth_id: i32,
+		prof_id: i32,
+		conn: &DbConn,
+	) -> Result<AuthorityPermissions, Error> {
+		let permissions = conn
+			.interact(move |conn| {
+				use crate::schema::authority_profile::dsl::*;
+
+				authority_profile
+					.find((auth_id, prof_id))
+					.select(permissions)
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(AuthorityPermissions::from_bits_truncate(permissions))
 	}
 
 	/// Delete a member from this authority
@@ -126,7 +157,7 @@ impl NewAuthorityProfile {
 	pub async fn insert(
 		self,
 		conn: &DbConn,
-	) -> Result<(SimpleProfile, Permissions), Error> {
+	) -> Result<(SimpleProfile, AuthorityPermissions), Error> {
 		conn.interact(move |conn| {
 			use crate::schema::authority_profile::dsl::*;
 
@@ -156,7 +187,7 @@ impl NewAuthorityProfile {
 			})
 			.await??;
 
-		let permissions = Permissions::from_bits_truncate(permissions);
+		let permissions = AuthorityPermissions::from_bits_truncate(permissions);
 
 		info!(
 			"added profile {} to authority {}",
@@ -182,7 +213,7 @@ impl AuthorityProfileUpdate {
 		auth_id: i32,
 		prof_id: i32,
 		conn: &DbConn,
-	) -> Result<(SimpleProfile, Permissions), Error> {
+	) -> Result<(SimpleProfile, AuthorityPermissions), Error> {
 		conn.interact(move |conn| {
 			use crate::schema::authority_profile::dsl::*;
 
@@ -207,7 +238,7 @@ impl AuthorityProfileUpdate {
 			})
 			.await??;
 
-		let permissions = Permissions::from_bits_truncate(permissions);
+		let permissions = AuthorityPermissions::from_bits_truncate(permissions);
 
 		info!(
 			"set permissions for profile {} to {} in authority {}",
