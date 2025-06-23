@@ -791,7 +791,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/profileWithPermissions"
 
-  /authorities/{id}/members/{profileId}:
+  /authorities/{id}/members/{profileId} ✅:
     parameters:
       - name: id
         in: path

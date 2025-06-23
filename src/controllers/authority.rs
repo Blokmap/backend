@@ -157,6 +157,21 @@ pub(crate) async fn add_authority_member(
 }
 
 #[instrument(skip(pool))]
+pub async fn delete_authority_member(
+	State(pool): State<DbPool>,
+	session: Session,
+	Path((a_id, p_id)): Path<(i32, i32)>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	// TODO: check permissions
+
+	Authority::delete_member(a_id, p_id, &conn).await?;
+
+	Ok(StatusCode::NO_CONTENT)
+}
+
+#[instrument(skip(pool))]
 pub async fn update_authority_member(
 	State(pool): State<DbPool>,
 	session: Session,

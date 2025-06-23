@@ -22,6 +22,7 @@ use crate::controllers::authority::{
 	add_authority_location,
 	add_authority_member,
 	create_authority,
+	delete_authority_member,
 	get_all_authorities,
 	get_authority,
 	get_authority_locations,
@@ -176,6 +177,7 @@ fn authority_routes(state: &AppState) -> Router<AppState> {
 			"/{id}/members",
 			get(get_authority_members).post(add_authority_member),
 		)
+		.route("/{a_id}/members/{p_id}", delete(delete_authority_member))
 		.route(
 			"/{a_id}/members/{p_id}/permissions",
 			put(update_authority_member),

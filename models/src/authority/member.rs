@@ -88,6 +88,26 @@ impl Authority {
 
 		Ok(members)
 	}
+
+	/// Delete a member from this authority
+	#[instrument(skip(conn))]
+	pub async fn delete_member(
+		auth_id: i32,
+		prof_id: i32,
+		conn: &DbConn,
+	) -> Result<(), Error> {
+		conn.interact(move |conn| {
+			use crate::schema::authority_profile::dsl::*;
+
+			diesel::delete(authority_profile.find((auth_id, prof_id)))
+				.execute(conn)
+		})
+		.await??;
+
+		info!("deleted profile {prof_id} from authority {auth_id}");
+
+		Ok(())
+	}
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Insertable, Serialize)]
