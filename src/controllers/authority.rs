@@ -12,6 +12,7 @@ use crate::schemas::authority::{
 	FullAuthorityResponse,
 	UpdateAuthorityRequest,
 };
+use crate::schemas::location::{CreateLocationRequest, LocationResponse};
 use crate::schemas::profile::ProfilePermissionsResponse;
 
 #[instrument(skip(pool))]
@@ -54,9 +55,12 @@ pub async fn get_authority(
 
 	let authority = Authority::get_by_id(id, includes, &conn).await?;
 	let members = Authority::get_members(id, &conn).await?;
-	let locations =
-		Location::get_by_authority_id(id, LocationIncludes::default(), &conn)
-			.await?;
+	let locations = Location::get_simple_by_authority_id(
+		id,
+		LocationIncludes::default(),
+		&conn,
+	)
+	.await?;
 
 	let response = FullAuthorityResponse::from((authority, members, locations));
 
@@ -80,6 +84,39 @@ pub async fn update_authority(
 	let response: AuthorityResponse = updated_auth.into();
 
 	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn get_authority_locations(
+	State(pool): State<DbPool>,
+	Query(includes): Query<LocationIncludes>,
+	Path(id): Path<i32>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let locations = Location::get_by_authority_id(id, includes, &conn).await?;
+	let response: Vec<_> =
+		locations.into_iter().map(LocationResponse::from).collect();
+
+	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub(crate) async fn add_authority_location(
+	State(pool): State<DbPool>,
+	session: Session,
+	Query(includes): Query<LocationIncludes>,
+	Path(id): Path<i32>,
+	Json(request): Json<CreateLocationRequest>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let new_location =
+		request.to_insertable_for_authority(id, session.data.profile_id);
+	let records = new_location.insert(includes, &conn).await?;
+	let response = LocationResponse::from(records);
+
+	Ok((StatusCode::CREATED, Json(response)))
 }
 
 #[instrument(skip(pool))]
