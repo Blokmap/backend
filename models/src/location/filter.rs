@@ -22,6 +22,7 @@ use crate::{
 	BoxedCondition,
 	Location,
 	LocationIncludes,
+	PrimitiveAuthority,
 	PrimitiveLocation,
 	PrimitiveTranslation,
 	TimeBoundsFilter,
@@ -274,6 +275,10 @@ impl Location {
 								.fields(<PrimitiveTranslation as Selectable<
 								Pg,
 							>>::construct_selection()),
+							<
+								PrimitiveAuthority as Selectable<Pg>
+							>
+							::construct_selection().nullable(),
 							approver
 								.fields(simple_profile::all_columns)
 								.nullable(),
@@ -294,32 +299,8 @@ impl Location {
 			})
 			.await??
 			.into_iter()
-			.map(|(loc, desc, exc, a, r, c, u)| {
-				Location {
-					location:    loc,
-					description: desc,
-					excerpt:     exc,
-					approved_by: if includes.approved_by {
-						Some(a)
-					} else {
-						None
-					},
-					rejected_by: if includes.rejected_by {
-						Some(r)
-					} else {
-						None
-					},
-					created_by:  if includes.created_by {
-						Some(c)
-					} else {
-						None
-					},
-					updated_by:  if includes.updated_by {
-						Some(u)
-					} else {
-						None
-					},
-				}
+			.map(|(l, d, e, y, a, r, c, u)| {
+				Self::from_joined(includes, l, d, e, y, a, r, c, u)
 			})
 			.collect::<Vec<_>>();
 

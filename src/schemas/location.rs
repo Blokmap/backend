@@ -3,13 +3,13 @@ use models::{
 	Location,
 	LocationUpdate,
 	NewLocation,
+	PrimitiveAuthority,
 	PrimitiveOpeningTime,
 	PrimitiveTranslation,
 	SimpleProfile,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::image::ImageResponse;
 use crate::schemas::tag::TagResponse;
 use crate::schemas::translation::CreateTranslationRequest;
@@ -20,7 +20,7 @@ use crate::schemas::translation::CreateTranslationRequest;
 pub struct LocationResponse {
 	pub id:                     i32,
 	pub name:                   String,
-	pub authority:              Option<AuthorityResponse>,
+	pub authority:              Option<Option<PrimitiveAuthority>>,
 	pub description:            Option<PrimitiveTranslation>,
 	pub excerpt:                Option<PrimitiveTranslation>,
 	pub seat_count:             i32,
@@ -57,7 +57,7 @@ impl From<Location> for LocationResponse {
 		Self {
 			id:                     value.location.id,
 			name:                   value.location.name,
-			authority:              None,
+			authority:              value.authority,
 			description:            None,
 			excerpt:                None,
 			seat_count:             value.location.seat_count,
@@ -98,7 +98,7 @@ impl From<(Location, Vec<PrimitiveOpeningTime>)> for LocationResponse {
 		Self {
 			id: location.location.id,
 			name: location.location.name,
-			authority: None,
+			authority: location.authority,
 			description: location.description.into(),
 			excerpt: location.excerpt.into(),
 			seat_count: location.location.seat_count,

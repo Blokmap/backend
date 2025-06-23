@@ -26,6 +26,7 @@ use crate::{
 	NewImage,
 	NewLocationImage,
 	NewTranslation,
+	PrimitiveAuthority,
 	PrimitiveOpeningTime,
 	PrimitiveTranslation,
 	SimpleProfile,
@@ -43,6 +44,8 @@ pub type FullLocationData = (Location, Vec<PrimitiveOpeningTime>);
 #[allow(clippy::struct_excessive_bools)]
 pub struct LocationIncludes {
 	#[serde(default)]
+	pub authority:   bool,
+	#[serde(default)]
 	pub approved_by: bool,
 	#[serde(default)]
 	pub rejected_by: bool,
@@ -57,8 +60,7 @@ pub struct LocationIncludes {
 #[diesel(check_for_backend(Pg))]
 pub struct Location {
 	pub location:    PrimitiveLocation,
-	// TODO: authorities
-	// pub authority:              Option<i32>,
+	pub authority:   Option<Option<PrimitiveAuthority>>,
 	pub description: PrimitiveTranslation,
 	pub excerpt:     PrimitiveTranslation,
 	pub approved_by: Option<Option<SimpleProfile>>,
@@ -133,6 +135,7 @@ impl Location {
 	/// location data tuple
 	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
 	fn joined_query(includes: LocationIncludes) -> _ {
+		let inc_authority: bool = includes.authority;
 		let inc_approved_by: bool = includes.approved_by;
 		let inc_rejected_by: bool = includes.rejected_by;
 		let inc_created_by: bool = includes.created_by;
@@ -146,6 +149,14 @@ impl Location {
 			.inner_join(
 				excerpt.on(crate::schema::location::dsl::excerpt_id
 					.eq(excerpt.field(translation::id))),
+			)
+			.left_outer_join(
+				crate::schema::authority::table.on(inc_authority
+					.into_sql::<Bool>()
+					.and(
+						crate::schema::location::authority_id
+							.eq(crate::schema::authority::id.nullable()),
+					)),
 			)
 			.left_outer_join(
 				approver.on(inc_approved_by.into_sql::<Bool>().and(
@@ -182,6 +193,7 @@ impl Location {
 		l: PrimitiveLocation,
 		d: PrimitiveTranslation,
 		e: PrimitiveTranslation,
+		y: Option<PrimitiveAuthority>,
 		a: Option<SimpleProfile>,
 		r: Option<SimpleProfile>,
 		c: Option<SimpleProfile>,
@@ -191,6 +203,7 @@ impl Location {
 			location:    l,
 			description: d,
 			excerpt:     e,
+			authority:   if includes.authority { Some(y) } else { None },
 			approved_by: if includes.approved_by { Some(a) } else { None },
 			rejected_by: if includes.rejected_by { Some(r) } else { None },
 			created_by:  if includes.created_by { Some(c) } else { None },
@@ -239,6 +252,10 @@ impl Location {
 								PrimitiveTranslation as Selectable<Pg>
 							>::construct_selection()
 						),
+						<
+							PrimitiveAuthority as Selectable<Pg>
+						>
+						::construct_selection().nullable(),
 						approver.fields(simple_profile::all_columns).nullable(),
 						rejecter.fields(simple_profile::all_columns).nullable(),
 						creator.fields(simple_profile::all_columns).nullable(),
@@ -252,8 +269,8 @@ impl Location {
 			})
 			.await??
 			.into_iter()
-			.map(|(l, d, e, a, r, c, u, t)| {
-				let loc = Self::from_joined(includes, l, d, e, a, r, c, u);
+			.map(|(l, d, e, y, a, r, c, u, t)| {
+				let loc = Self::from_joined(includes, l, d, e, y, a, r, c, u);
 
 				(loc, t)
 			})
@@ -292,6 +309,10 @@ impl Location {
 								PrimitiveTranslation as Selectable<Pg>
 							>::construct_selection()
 						),
+						<
+							PrimitiveAuthority as Selectable<Pg>
+						>
+						::construct_selection().nullable(),
 						approver.fields(simple_profile::all_columns).nullable(),
 						rejecter.fields(simple_profile::all_columns).nullable(),
 						creator.fields(simple_profile::all_columns).nullable(),
@@ -305,8 +326,8 @@ impl Location {
 			})
 			.await??
 			.into_iter()
-			.map(|(l, d, e, a, r, c, u, t)| {
-				let loc = Self::from_joined(includes, l, d, e, a, r, c, u);
+			.map(|(l, d, e, y, a, r, c, u, t)| {
+				let loc = Self::from_joined(includes, l, d, e, y, a, r, c, u);
 
 				(loc, t)
 			})
@@ -341,6 +362,10 @@ impl Location {
 								PrimitiveTranslation as Selectable<Pg>
 							>::construct_selection()
 						),
+						<
+							PrimitiveAuthority as Selectable<Pg>
+						>
+						::construct_selection().nullable(),
 						approver.fields(simple_profile::all_columns).nullable(),
 						rejecter.fields(simple_profile::all_columns).nullable(),
 						creator.fields(simple_profile::all_columns).nullable(),
@@ -350,8 +375,8 @@ impl Location {
 			})
 			.await??
 			.into_iter()
-			.map(|(l, d, e, a, r, c, u)| {
-				Self::from_joined(includes, l, d, e, a, r, c, u)
+			.map(|(l, d, e, y, a, r, c, u)| {
+				Self::from_joined(includes, l, d, e, y, a, r, c, u)
 			})
 			.collect();
 
@@ -385,6 +410,10 @@ impl Location {
 								PrimitiveTranslation as Selectable<Pg>
 							>::construct_selection()
 						),
+						<
+							PrimitiveAuthority as Selectable<Pg>
+						>
+						::construct_selection().nullable(),
 						approver.fields(simple_profile::all_columns).nullable(),
 						rejecter.fields(simple_profile::all_columns).nullable(),
 						creator.fields(simple_profile::all_columns).nullable(),
@@ -398,8 +427,8 @@ impl Location {
 			})
 			.await??
 			.into_iter()
-			.map(|(l, d, e, a, r, c, u, t)| {
-				let loc = Self::from_joined(includes, l, d, e, a, r, c, u);
+			.map(|(l, d, e, y, a, r, c, u, t)| {
+				let loc = Self::from_joined(includes, l, d, e, y, a, r, c, u);
 
 				(loc, t)
 			})
