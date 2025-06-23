@@ -160,7 +160,7 @@ pub(crate) async fn add_authority_member(
 pub async fn update_authority_member(
 	State(pool): State<DbPool>,
 	session: Session,
-	Path((auth_id, profile_id)): Path<(i32, i32)>,
+	Path((a_id, p_id)): Path<(i32, i32)>,
 	Json(request): Json<UpdateAuthorityProfileRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
@@ -168,7 +168,7 @@ pub async fn update_authority_member(
 	// TODO: check permissions
 
 	let auth_update = request.to_insertable(session.data.profile_id);
-	let updated_member = auth_update.apply_to(auth_id, &conn).await?;
+	let updated_member = auth_update.apply_to(a_id, p_id, &conn).await?;
 	let response: ProfilePermissionsResponse = updated_member.into();
 
 	Ok((StatusCode::OK, Json(response)))

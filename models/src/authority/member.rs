@@ -160,29 +160,22 @@ impl AuthorityProfileUpdate {
 	pub async fn apply_to(
 		self,
 		auth_id: i32,
+		prof_id: i32,
 		conn: &DbConn,
 	) -> Result<(SimpleProfile, Permissions), Error> {
-		let profile_id: i32 = conn
-			.interact(move |conn| {
-				use crate::schema::authority_profile::dsl::*;
+		conn.interact(move |conn| {
+			use crate::schema::authority_profile::dsl::*;
 
-				diesel::update(
-					authority_profile.filter(authority_id.eq(auth_id)),
-				)
+			diesel::update(authority_profile.find((auth_id, prof_id)))
 				.set(self)
-				.returning(profile_id)
-				.get_result(conn)
-			})
-			.await??;
+				.execute(conn)
+		})
+		.await??;
 
 		let (profile, permissions): (SimpleProfile, i64) = conn
 			.interact(move |conn| {
 				authority_profile::table
-					.filter(
-						authority_profile::authority_id
-							.eq(auth_id)
-							.and(authority_profile::profile_id.eq(profile_id)),
-					)
+					.find((auth_id, prof_id))
 					.inner_join(simple_profile::table.on(
 						simple_profile::id.eq(authority_profile::profile_id),
 					))
@@ -198,7 +191,7 @@ impl AuthorityProfileUpdate {
 
 		info!(
 			"set permissions for profile {} to {} in authority {}",
-			profile_id, self.permissions, auth_id
+			prof_id, self.permissions, auth_id
 		);
 
 		Ok((profile, permissions))

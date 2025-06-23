@@ -177,7 +177,7 @@ fn authority_routes(state: &AppState) -> Router<AppState> {
 			get(get_authority_members).post(add_authority_member),
 		)
 		.route(
-			"/{auth_id}/members/{profile_id}/permissions",
+			"/{a_id}/members/{p_id}/permissions",
 			put(update_authority_member),
 		)
 		.route_layer(AuthLayer::new(state.clone()))
