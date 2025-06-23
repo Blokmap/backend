@@ -6,6 +6,7 @@ use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Double, Nullable, Text};
 use serde::{Deserialize, Serialize};
+use serde_with::DisplayFromStr;
 
 use super::{description, excerpt};
 use crate::schema::{
@@ -52,28 +53,41 @@ pub struct LocationFilter {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QueryFilter {
 	pub language: String,
 	pub query:    String,
 }
 
+#[serde_as]
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DistanceFilter {
+	#[serde_as(as = "DisplayFromStr")]
 	pub center_lat: f64,
+	#[serde_as(as = "DisplayFromStr")]
 	pub center_lng: f64,
+	#[serde_as(as = "DisplayFromStr")]
 	pub distance:   f64,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReservableFilter {
 	pub is_reservable: bool,
 }
 
+#[serde_as]
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BoundsFilter {
+	#[serde_as(as = "DisplayFromStr")]
 	pub north_east_lat: f64,
+	#[serde_as(as = "DisplayFromStr")]
 	pub north_east_lng: f64,
+	#[serde_as(as = "DisplayFromStr")]
 	pub south_west_lat: f64,
+	#[serde_as(as = "DisplayFromStr")]
 	pub south_west_lng: f64,
 }
 

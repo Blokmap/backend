@@ -1,6 +1,8 @@
 //! Database model definitions
 
 #[macro_use]
+extern crate serde_with;
+#[macro_use]
 extern crate tracing;
 
 mod image;

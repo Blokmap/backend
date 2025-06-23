@@ -1,6 +1,8 @@
 //! # Blokmap backend library
 
 #[macro_use]
+extern crate serde_with;
+#[macro_use]
 extern crate tracing;
 
 use axum::extract::FromRef;

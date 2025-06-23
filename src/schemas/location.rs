@@ -14,6 +14,7 @@ use crate::schemas::image::ImageResponse;
 use crate::schemas::tag::TagResponse;
 use crate::schemas::translation::CreateTranslationRequest;
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LocationResponse {

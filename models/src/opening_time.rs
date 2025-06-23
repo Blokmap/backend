@@ -252,9 +252,10 @@ impl OpeningTime {
 		Ok(times)
 	}
 
-	#[instrument(skip(loc_ids, conn))]
-	pub async fn skibidi(
-		loc_ids: Vec<i32>,
+	/// Get a list of [`PrimitiveOpeningTime`] from a list of ids
+	#[instrument(skip(ids, conn))]
+	pub async fn get_by_ids(
+		ids: Vec<i32>,
 		conn: &DbConn,
 	) -> Result<Vec<PrimitiveOpeningTime>, Error> {
 		let results = conn
@@ -262,7 +263,7 @@ impl OpeningTime {
 				use crate::schema::opening_time::dsl::*;
 
 				opening_time
-					.filter(id.eq_any(loc_ids))
+					.filter(id.eq_any(ids))
 					.select(PrimitiveOpeningTime::as_select())
 					.get_results(conn)
 			})
