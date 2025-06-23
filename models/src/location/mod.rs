@@ -315,6 +315,49 @@ impl Location {
 		Ok(Self::group_by_id(locations))
 	}
 
+	/// Get all locations belonging to an authority
+	pub async fn get_by_authority_id(
+		auth_id: i32,
+		includes: LocationIncludes,
+		conn: &DbConn,
+	) -> Result<Vec<Self>, Error> {
+		let query = Self::joined_query(includes);
+
+		let locations = conn
+			.interact(move |conn| {
+				use self::location::dsl::*;
+
+				query
+					.filter(authority_id.eq(auth_id))
+					.select((
+						PrimitiveLocation::as_select(),
+						description.fields(
+							<
+								PrimitiveTranslation as Selectable<Pg>
+							>::construct_selection()
+						),
+						excerpt.fields(
+							<
+								PrimitiveTranslation as Selectable<Pg>
+							>::construct_selection()
+						),
+						approver.fields(simple_profile::all_columns).nullable(),
+						rejecter.fields(simple_profile::all_columns).nullable(),
+						creator.fields(simple_profile::all_columns).nullable(),
+						updater.fields(simple_profile::all_columns).nullable(),
+					))
+					.load(conn)
+			})
+			.await??
+			.into_iter()
+			.map(|(l, d, e, a, r, c, u)| {
+				Self::from_joined(includes, l, d, e, a, r, c, u)
+			})
+			.collect();
+
+		Ok(locations)
+	}
+
 	/// Delete a [`Location`] by its id.
 	///
 	/// # Errors

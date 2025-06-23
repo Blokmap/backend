@@ -3,9 +3,9 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
-use models::{Authority, AuthorityIncludes};
+use models::{Authority, AuthorityIncludes, Location, LocationIncludes};
 
-use crate::schemas::authority::AuthorityResponse;
+use crate::schemas::authority::{AuthorityResponse, FullAuthorityResponse};
 
 #[instrument(skip(pool))]
 pub async fn get_all_authorities(
@@ -30,7 +30,12 @@ pub async fn get_authority(
 	let conn = pool.get().await?;
 
 	let authority = Authority::get_by_id(id, includes, &conn).await?;
-	let _members = Authority::get_members(id, &conn).await?;
+	let members = Authority::get_members(id, &conn).await?;
+	let locations =
+		Location::get_by_authority_id(id, LocationIncludes::default(), &conn)
+			.await?;
 
-	Ok((StatusCode::OK, Json(authority)))
+	let response = FullAuthorityResponse::from((authority, members, locations));
+
+	Ok((StatusCode::OK, Json(response)))
 }
