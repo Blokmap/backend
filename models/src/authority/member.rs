@@ -25,7 +25,7 @@ pub struct AuthorityProfile {
 
 bitflags! {
 	#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
-	pub struct Permissions: u64 {
+	pub struct Permissions: i64 {
 		const Administrator = 1 << 0;
 		const AddLocation = 1 << 1;
 		const ApproveLocation = 1 << 2;
@@ -81,8 +81,7 @@ impl Authority {
 			.await??
 			.into_iter()
 			.map(|(prof, perm): (_, i64)| {
-				#[allow(clippy::cast_sign_loss)]
-				let perm = Permissions::from_bits_truncate(perm as u64);
+				let perm = Permissions::from_bits_truncate(perm);
 				(prof, perm)
 			})
 			.collect();
