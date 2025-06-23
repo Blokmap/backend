@@ -124,7 +124,55 @@ impl PrimitiveLocation {
 	}
 }
 
+mod auto_type_helpers {
+	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
+}
+
 impl Location {
+	/// Build a query with all required (dynamic) joins to select a full
+	/// location data tuple
+	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
+	fn joined_query(includes: LocationIncludes) -> _ {
+		let inc_approved_by: bool = includes.approved_by;
+		let inc_rejected_by: bool = includes.rejected_by;
+		let inc_created_by: bool = includes.created_by;
+		let inc_updated_by: bool = includes.updated_by;
+
+		crate::schema::location::dsl::location
+			.inner_join(
+				description.on(crate::schema::location::dsl::description_id
+					.eq(description.field(translation::id))),
+			)
+			.inner_join(
+				excerpt.on(crate::schema::location::dsl::excerpt_id
+					.eq(excerpt.field(translation::id))),
+			)
+			.left_outer_join(
+				approver.on(inc_approved_by.into_sql::<Bool>().and(
+					crate::schema::location::dsl::approved_by
+						.eq(approver.field(simple_profile::id).nullable()),
+				)),
+			)
+			.left_outer_join(
+				rejecter.on(inc_rejected_by.into_sql::<Bool>().and(
+					crate::schema::location::dsl::rejected_by
+						.eq(rejecter.field(simple_profile::id).nullable()),
+				)),
+			)
+			.left_outer_join(
+				creator.on(inc_created_by.into_sql::<Bool>().and(
+					crate::schema::location::dsl::created_by
+						.eq(creator.field(simple_profile::id).nullable()),
+				)),
+			)
+			.left_outer_join(
+				updater.on(inc_updated_by.into_sql::<Bool>().and(
+					crate::schema::location::dsl::updated_by
+						.eq(updater.field(simple_profile::id).nullable()),
+				)),
+			)
+	}
+
 	fn group_by_id(data: Vec<LocationBackfill>) -> Vec<FullLocationData> {
 		let mut id_map = HashMap::new();
 
@@ -140,53 +188,19 @@ impl Location {
 	}
 
 	/// Get a [`Location`] by its id
-	#[allow(clippy::too_many_lines)]
 	pub async fn get_by_id(
 		loc_id: i32,
 		includes: LocationIncludes,
 		conn: &DbConn,
 	) -> Result<FullLocationData, Error> {
+		let query = Self::joined_query(includes);
+
 		let locations: Vec<LocationBackfill> = conn
 			.interact(move |conn| {
 				use crate::schema::location::dsl::*;
 
-				location
+				query
 					.filter(id.eq(loc_id))
-					.inner_join(
-						description.on(description_id
-							.eq(description.field(translation::id))),
-					)
-					.inner_join(excerpt.on(
-						excerpt_id.eq(excerpt.field(translation::id)),
-					))
-					.left_outer_join(approver.on(
-						includes.approved_by.into_sql::<Bool>().and(
-							approved_by
-								.eq(approver.field(simple_profile::id)
-								.nullable())
-						)
-					))
-					.left_outer_join(rejecter.on(
-						includes.rejected_by.into_sql::<Bool>().and(
-							rejected_by
-								.eq(rejecter.field(simple_profile::id)
-								.nullable())
-						)
-					))
-					.left_outer_join(creator.on(
-						includes.created_by.into_sql::<Bool>().and(
-							created_by
-								.eq(creator.field(simple_profile::id)
-								.nullable())
-						)
-					))
-					.left_outer_join(updater.on(
-						includes.updated_by.into_sql::<Bool>().and(
-							updated_by
-								.eq(updater.field(simple_profile::id)
-								.nullable())
-						)
-					))
 					.left_outer_join(opening_time::table)
 					.select((
 						PrimitiveLocation::as_select(),
@@ -256,47 +270,14 @@ impl Location {
 		includes: LocationIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<FullLocationData>, Error> {
+		let query = Self::joined_query(includes);
+
 		let locations = conn
 			.interact(move |conn| {
 				use self::location::dsl::*;
 
-				location
+				query
 					.filter(created_by.eq(profile_id))
-					.inner_join(description.on(
-						description_id.eq(description.field(translation::id)),
-					))
-					.inner_join(
-						excerpt
-							.on(excerpt_id.eq(excerpt.field(translation::id))),
-					)
-					.left_outer_join(approver.on(
-						includes.approved_by.into_sql::<Bool>().and(
-							approved_by
-								.eq(approver.field(simple_profile::id)
-								.nullable())
-						)
-					))
-					.left_outer_join(rejecter.on(
-						includes.rejected_by.into_sql::<Bool>().and(
-							rejected_by
-								.eq(rejecter.field(simple_profile::id)
-								.nullable())
-						)
-					))
-					.left_outer_join(creator.on(
-						includes.created_by.into_sql::<Bool>().and(
-							created_by
-								.eq(creator.field(simple_profile::id)
-								.nullable())
-						)
-					))
-					.left_outer_join(updater.on(
-						includes.updated_by.into_sql::<Bool>().and(
-							updated_by
-								.eq(updater.field(simple_profile::id)
-								.nullable())
-						)
-					))
 					.left_outer_join(opening_time::table)
 					.select((
 						PrimitiveLocation::as_select(),
