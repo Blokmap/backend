@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use axum::Router;
-use axum::routing::{delete, get, patch, post};
+use axum::routing::{delete, get, patch, post, put};
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tower_http::timeout::TimeoutLayer;
@@ -17,6 +17,17 @@ use crate::controllers::auth::{
 	request_password_reset,
 	resend_confirmation_email,
 	reset_password,
+};
+use crate::controllers::authority::{
+	add_authority_location,
+	add_authority_member,
+	create_authority,
+	get_all_authorities,
+	get_authority,
+	get_authority_locations,
+	get_authority_members,
+	update_authority,
+	update_authority_member,
 };
 use crate::controllers::healthcheck;
 use crate::controllers::location::{
@@ -71,6 +82,7 @@ pub fn get_app_router(state: AppState) -> Router {
 		.route("/healthcheck", get(healthcheck))
 		.nest("/auth", auth_routes(&state))
 		.nest("/profiles", profile_routes(&state))
+		.nest("/authorities", authority_routes(&state))
 		.nest("/locations", location_routes(&state))
 		.nest("/translations", translation_routes(&state))
 		.nest("/tags", tag_routes(&state));
@@ -150,6 +162,25 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 		.route("/", get(search_locations))
 		.route("/{id}", get(get_location))
 		.merge(protected)
+}
+
+fn authority_routes(state: &AppState) -> Router<AppState> {
+	Router::new()
+		.route("/", get(get_all_authorities).post(create_authority))
+		.route("/{id}", get(get_authority).patch(update_authority))
+		.route(
+			"/{id}/locations",
+			get(get_authority_locations).post(add_authority_location),
+		)
+		.route(
+			"/{id}/members",
+			get(get_authority_members).post(add_authority_member),
+		)
+		.route(
+			"/{auth_id}/members/{profile_id}/permissions",
+			put(update_authority_member),
+		)
+		.route_layer(AuthLayer::new(state.clone()))
 }
 
 /// Translation routes with auth protection
