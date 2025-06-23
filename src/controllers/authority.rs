@@ -6,6 +6,7 @@ use common::{DbPool, Error};
 use models::{Authority, AuthorityIncludes, Location, LocationIncludes};
 
 use crate::schemas::authority::{AuthorityResponse, FullAuthorityResponse};
+use crate::schemas::profile::ProfilePermissionsResponse;
 
 #[instrument(skip(pool))]
 pub async fn get_all_authorities(
@@ -36,6 +37,20 @@ pub async fn get_authority(
 			.await?;
 
 	let response = FullAuthorityResponse::from((authority, members, locations));
+
+	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn get_authority_members(
+	State(pool): State<DbPool>,
+	Path(id): Path<i32>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let members = Authority::get_members_with_permissions(id, &conn).await?;
+	let response: Vec<_> =
+		members.into_iter().map(ProfilePermissionsResponse::from).collect();
 
 	Ok((StatusCode::OK, Json(response)))
 }
