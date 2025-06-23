@@ -173,6 +173,31 @@ impl Location {
 			)
 	}
 
+	/// Construct a full [`Location`] struct from the data returned by a
+	/// joined query
+	#[allow(clippy::many_single_char_names)]
+	#[allow(clippy::too_many_arguments)]
+	fn from_joined(
+		includes: LocationIncludes,
+		l: PrimitiveLocation,
+		d: PrimitiveTranslation,
+		e: PrimitiveTranslation,
+		a: Option<SimpleProfile>,
+		r: Option<SimpleProfile>,
+		c: Option<SimpleProfile>,
+		u: Option<SimpleProfile>,
+	) -> Self {
+		Self {
+			location:    l,
+			description: d,
+			excerpt:     e,
+			approved_by: if includes.approved_by { Some(a) } else { None },
+			rejected_by: if includes.rejected_by { Some(r) } else { None },
+			created_by:  if includes.created_by { Some(c) } else { None },
+			updated_by:  if includes.updated_by { Some(u) } else { None },
+		}
+	}
+
 	fn group_by_id(data: Vec<LocationBackfill>) -> Vec<FullLocationData> {
 		let mut id_map = HashMap::new();
 
@@ -227,32 +252,8 @@ impl Location {
 			})
 			.await??
 			.into_iter()
-			.map(|(loc, desc, exc, a, r, c, u, t)| {
-				let loc = Location {
-					location:    loc,
-					description: desc,
-					excerpt:     exc,
-					approved_by: if includes.approved_by {
-						Some(a)
-					} else {
-						None
-					},
-					rejected_by: if includes.rejected_by {
-						Some(r)
-					} else {
-						None
-					},
-					created_by:  if includes.created_by {
-						Some(c)
-					} else {
-						None
-					},
-					updated_by:  if includes.updated_by {
-						Some(u)
-					} else {
-						None
-					},
-				};
+			.map(|(l, d, e, a, r, c, u, t)| {
+				let loc = Self::from_joined(includes, l, d, e, a, r, c, u);
 
 				(loc, t)
 			})
@@ -304,32 +305,8 @@ impl Location {
 			})
 			.await??
 			.into_iter()
-			.map(|(loc, desc, exc, a, r, c, u, t)| {
-				let loc = Location {
-					location:    loc,
-					description: desc,
-					excerpt:     exc,
-					approved_by: if includes.approved_by {
-						Some(a)
-					} else {
-						None
-					},
-					rejected_by: if includes.rejected_by {
-						Some(r)
-					} else {
-						None
-					},
-					created_by:  if includes.created_by {
-						Some(c)
-					} else {
-						None
-					},
-					updated_by:  if includes.updated_by {
-						Some(u)
-					} else {
-						None
-					},
-				};
+			.map(|(l, d, e, a, r, c, u, t)| {
+				let loc = Self::from_joined(includes, l, d, e, a, r, c, u);
 
 				(loc, t)
 			})
