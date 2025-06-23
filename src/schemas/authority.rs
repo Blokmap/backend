@@ -4,6 +4,7 @@ use models::{
 	AuthorityUpdate,
 	Location,
 	NewAuthority,
+	NewAuthorityProfile,
 	SimpleProfile,
 };
 use serde::{Deserialize, Serialize};
@@ -100,6 +101,29 @@ impl UpdateAuthorityRequest {
 			name: self.name,
 			description: self.description,
 			updated_by,
+		}
+	}
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateAuthorityMemberRequest {
+	pub profile_id:  i32,
+	pub permissions: i64,
+}
+
+impl CreateAuthorityMemberRequest {
+	#[must_use]
+	pub fn to_insertable(
+		self,
+		authority_id: i32,
+		added_by: i32,
+	) -> NewAuthorityProfile {
+		NewAuthorityProfile {
+			authority_id,
+			profile_id: self.profile_id,
+			added_by,
+			permissions: self.permissions,
 		}
 	}
 }

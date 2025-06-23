@@ -8,6 +8,7 @@ use models::{Authority, AuthorityIncludes, Location, LocationIncludes};
 use crate::Session;
 use crate::schemas::authority::{
 	AuthorityResponse,
+	CreateAuthorityMemberRequest,
 	CreateAuthorityRequest,
 	FullAuthorityResponse,
 	UpdateAuthorityRequest,
@@ -111,6 +112,8 @@ pub(crate) async fn add_authority_location(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
+	// TODO: check permissions
+
 	let new_location =
 		request.to_insertable_for_authority(id, session.data.profile_id);
 	let records = new_location.insert(includes, &conn).await?;
@@ -131,4 +134,23 @@ pub async fn get_authority_members(
 		members.into_iter().map(ProfilePermissionsResponse::from).collect();
 
 	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub(crate) async fn add_authority_member(
+	State(pool): State<DbPool>,
+	session: Session,
+	Query(includes): Query<LocationIncludes>,
+	Path(id): Path<i32>,
+	Json(request): Json<CreateAuthorityMemberRequest>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	// TODO: check permissions
+
+	let new_auth_profile = request.to_insertable(id, session.data.profile_id);
+	let member = new_auth_profile.insert(&conn).await?;
+	let response = ProfilePermissionsResponse::from(member);
+
+	Ok((StatusCode::CREATED, Json(response)))
 }

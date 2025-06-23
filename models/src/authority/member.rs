@@ -89,3 +89,60 @@ impl Authority {
 		Ok(members)
 	}
 }
+
+#[derive(Clone, Copy, Debug, Deserialize, Insertable, Serialize)]
+#[diesel(table_name = authority_profile)]
+#[diesel(check_for_backend(Pg))]
+pub struct NewAuthorityProfile {
+	pub authority_id: i32,
+	pub profile_id:   i32,
+	pub added_by:     i32,
+	pub permissions:  i64,
+}
+
+impl NewAuthorityProfile {
+	/// Insert this [`NewAuthorityProfile`]
+	#[instrument(skip(conn))]
+	pub async fn insert(
+		self,
+		conn: &DbConn,
+	) -> Result<(SimpleProfile, Permissions), Error> {
+		conn.interact(move |conn| {
+			use crate::schema::authority_profile::dsl::*;
+
+			diesel::insert_into(authority_profile).values(self).execute(conn)
+		})
+		.await??;
+
+		let (profile, permissions): (SimpleProfile, i64) = conn
+			.interact(move |conn| {
+				authority_profile::table
+					.filter(
+						authority_profile::authority_id
+							.eq(self.authority_id)
+							.and(
+								authority_profile::profile_id
+									.eq(self.profile_id),
+							),
+					)
+					.inner_join(simple_profile::table.on(
+						simple_profile::id.eq(authority_profile::profile_id),
+					))
+					.select((
+						SimpleProfile::as_select(),
+						authority_profile::permissions,
+					))
+					.get_result(conn)
+			})
+			.await??;
+
+		let permissions = Permissions::from_bits_truncate(permissions);
+
+		info!(
+			"added profile {} to authority {}",
+			self.profile_id, self.authority_id
+		);
+
+		Ok((profile, permissions))
+	}
+}
