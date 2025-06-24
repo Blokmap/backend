@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::NaiveDateTime;
 use common::{DbConn, Error};
 use diesel::pg::Pg;
@@ -45,6 +47,13 @@ bitflags! {
 		const ManageReservations = 1 << 7;
 		/// Member can manage authority members
 		const ManageMembers = 1 << 8;
+	}
+}
+
+impl AuthorityPermissions {
+	#[must_use]
+	pub fn names() -> HashMap<&'static str, i64> {
+		Self::all().iter_names().map(|(n, v)| (n, v.bits())).collect()
 	}
 }
 

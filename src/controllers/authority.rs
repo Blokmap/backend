@@ -53,6 +53,13 @@ pub async fn create_authority(
 	Ok((StatusCode::CREATED, Json(response)))
 }
 
+#[instrument]
+pub async fn get_all_authority_permissions() -> impl IntoResponse {
+	let perms = AuthorityPermissions::names();
+
+	(StatusCode::OK, Json(perms))
+}
+
 #[instrument(skip(pool))]
 pub async fn get_authority(
 	State(pool): State<DbPool>,
