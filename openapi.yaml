@@ -272,7 +272,7 @@ paths:
         - profiles
       description: Get the current profile
       security:
-        - admin-or-user-token: []
+        - access-token: []
       responses:
         "200":
           description: OK
@@ -300,7 +300,7 @@ paths:
 
         *Only for non-SSO profiles*
       security:
-        - admin-or-user-token: []
+        - access-token: []
       requestBody:
         content:
           application/json:
