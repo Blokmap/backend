@@ -9,6 +9,7 @@ use models::{
 	AuthorityPermissions,
 	Location,
 	LocationIncludes,
+	NewAuthorityProfile,
 };
 
 use crate::Session;
@@ -48,6 +49,15 @@ pub async fn create_authority(
 
 	let new_auth = request.to_insertable(session.data.profile_id);
 	let auth = new_auth.insert(includes, &conn).await?;
+
+	let new_member_req = NewAuthorityProfile {
+		authority_id: auth.authority.id,
+		profile_id:   session.data.profile_id,
+		added_by:     session.data.profile_id,
+		permissions:  AuthorityPermissions::Administrator.bits(),
+	};
+	new_member_req.insert(&conn).await?;
+
 	let response: AuthorityResponse = auth.into();
 
 	Ok((StatusCode::CREATED, Json(response)))
