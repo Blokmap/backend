@@ -28,7 +28,7 @@ use crate::{AdminSession, Config, Session};
 
 /// Get all [`Profile`]s
 #[instrument(skip(pool))]
-pub(crate) async fn get_all_profiles(
+pub async fn get_all_profiles(
 	State(pool): State<DbPool>,
 	Query(p_opts): Query<PaginationOptions>,
 ) -> Result<Json<PaginationResponse<Vec<ProfileResponse>>>, Error> {
@@ -45,9 +45,8 @@ pub(crate) async fn get_all_profiles(
 	Ok(Json(paginated))
 }
 
-/// Get a [`Profile`] given its id
 #[instrument(skip(pool))]
-pub(crate) async fn get_current_profile(
+pub async fn get_current_profile(
 	State(pool): State<DbPool>,
 	session: Session,
 ) -> Result<Json<ProfileResponse>, Error> {
@@ -59,7 +58,7 @@ pub(crate) async fn get_current_profile(
 }
 
 #[instrument(skip(pool, config, mailer))]
-pub(crate) async fn update_current_profile(
+pub async fn update_current_profile(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,
 	State(mailer): State<Mailer>,
@@ -100,7 +99,7 @@ pub(crate) async fn update_current_profile(
 }
 
 #[instrument(skip(pool))]
-pub(crate) async fn disable_profile(
+pub async fn disable_profile(
 	State(pool): State<DbPool>,
 	session: AdminSession,
 	Path(profile_id): Path<i32>,
@@ -117,7 +116,7 @@ pub(crate) async fn disable_profile(
 }
 
 #[instrument(skip(pool))]
-pub(crate) async fn activate_profile(
+pub async fn activate_profile(
 	State(pool): State<DbPool>,
 	session: AdminSession,
 	Path(profile_id): Path<i32>,
@@ -134,7 +133,7 @@ pub(crate) async fn activate_profile(
 }
 
 #[instrument(skip(pool))]
-pub(crate) async fn get_profile_locations(
+pub async fn get_profile_locations(
 	State(pool): State<DbPool>,
 	Query(includes): Query<LocationIncludes>,
 	Path(profile_id): Path<i32>,
