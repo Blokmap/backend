@@ -163,6 +163,10 @@ pub async fn delete_location_image(
 
 	let mut can_manage = false;
 
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
 	let actor_id = session.data.profile_id;
 	let actor_perms =
 		Location::get_profile_permissions(id, actor_id, &conn).await?;
@@ -291,6 +295,10 @@ pub(crate) async fn update_location(
 
 	let mut can_manage = false;
 
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
 	let actor_id = session.data.profile_id;
 	let actor_perms =
 		Location::get_profile_permissions(id, actor_id, &conn).await?;
@@ -367,6 +375,10 @@ pub(crate) async fn delete_location(
 	let conn = pool.get().await?;
 
 	let mut can_manage = false;
+
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
 
 	let actor_id = session.data.profile_id;
 	let actor_perms =
