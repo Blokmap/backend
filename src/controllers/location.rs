@@ -2,22 +2,19 @@
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufWriter, Cursor, Write};
+use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
 use axum::Json;
-use axum::body::Bytes;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
-use fast_image_resize::images::Image;
-use fast_image_resize::{IntoImageView, Resizer};
+use image::ImageEncoder;
 use image::codecs::webp::WebPEncoder;
-use image::{ColorType, ImageEncoder, ImageReader};
 use models::{
 	AuthorityPermissions,
-	Image as DbImage,
+	Image,
 	Location,
 	LocationFilter,
 	LocationIncludes,
@@ -26,8 +23,8 @@ use models::{
 	TimeFilter,
 };
 use rayon::prelude::*;
-use uuid::Uuid;
 
+use crate::image::{ImageOwner, generate_image_filepaths, resize_image};
 use crate::schemas::location::{
 	CreateLocationRequest,
 	LocationResponse,
@@ -54,52 +51,6 @@ pub(crate) async fn create_location(
 	Ok((StatusCode::CREATED, Json(response)))
 }
 
-#[inline]
-fn resize_image(
-	bytes: Bytes,
-) -> Result<(Image<'static>, u32, u32, ColorType), Error> {
-	let image_reader =
-		ImageReader::new(Cursor::new(bytes)).with_guessed_format()?;
-
-	let src_image = image_reader.decode()?;
-
-	// Set width to 1024 but scale height to preserve aspect ratio
-	#[allow(clippy::cast_precision_loss)]
-	let src_ratio = src_image.height() as f32 / src_image.width() as f32;
-	#[allow(clippy::cast_possible_truncation)]
-	#[allow(clippy::cast_sign_loss)]
-	let dst_height = (1024.0 * src_ratio) as u32;
-	let dst_width = 1024;
-
-	let mut dst_image =
-		Image::new(dst_width, dst_height, src_image.pixel_type().unwrap());
-
-	let mut resizer = Resizer::new();
-	resizer.resize(&src_image, &mut dst_image, None)?;
-
-	Ok((dst_image, dst_width, dst_height, src_image.color()))
-}
-
-/// Generate both an absolute and relative filepath for a new image
-///
-/// The absolute path is used for writing to disk, the relative path is used
-/// by the API
-#[inline]
-fn generate_image_filepaths(id: i32) -> Result<(PathBuf, PathBuf), Error> {
-	let image_uuid = Uuid::new_v4().to_string();
-	let rel_filepath =
-		PathBuf::from(id.to_string()).join(image_uuid).with_extension("webp");
-
-	let abs_filepath =
-		PathBuf::from("/mnt/files/locations").join(&rel_filepath);
-
-	// Ensure all parent directories exist
-	let prefix = abs_filepath.parent().unwrap();
-	std::fs::create_dir_all(prefix)?;
-
-	Ok((abs_filepath, rel_filepath))
-}
-
 #[instrument(skip(pool, data))]
 pub(crate) async fn upload_location_image(
 	State(pool): State<DbPool>,
@@ -123,7 +74,8 @@ pub(crate) async fn upload_location_image(
 		.map(|bytes| {
 			let (dst_image, dst_width, dst_height, dst_color) =
 				resize_image(bytes)?;
-			let (abs_filepath, rel_filepath) = generate_image_filepaths(id)?;
+			let (abs_filepath, rel_filepath) =
+				generate_image_filepaths(id, ImageOwner::Location)?;
 
 			let mut file = BufWriter::new(File::create(&abs_filepath)?);
 
@@ -156,8 +108,7 @@ pub(crate) async fn upload_location_image(
 pub async fn delete_location_image(
 	State(pool): State<DbPool>,
 	session: Session,
-	Path(id): Path<i32>,
-	Path(image_id): Path<i32>,
+	Path((l_id, img_id)): Path<(i32, i32)>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
@@ -169,7 +120,7 @@ pub async fn delete_location_image(
 
 	let actor_id = session.data.profile_id;
 	let actor_perms =
-		Location::get_profile_permissions(id, actor_id, &conn).await?;
+		Location::get_profile_permissions(l_id, actor_id, &conn).await?;
 
 	#[allow(clippy::collapsible_if)]
 	if let Some(perms) = actor_perms {
@@ -183,7 +134,8 @@ pub async fn delete_location_image(
 
 	let perm_includes =
 		LocationIncludes { created_by: true, ..Default::default() };
-	let (location, ..) = Location::get_by_id(id, perm_includes, &conn).await?;
+	let (location, ..) =
+		Location::get_by_id(l_id, perm_includes, &conn).await?;
 
 	#[allow(clippy::collapsible_if)]
 	if let Some(Some(creator)) = location.created_by {
@@ -197,8 +149,8 @@ pub async fn delete_location_image(
 	}
 
 	// Delete the image record before the file to prevent dangling
-	let image = DbImage::get_by_id(id, &conn).await?;
-	DbImage::delete_by_id(id, &conn).await?;
+	let image = Image::get_by_id(l_id, &conn).await?;
+	Image::delete_by_id(l_id, &conn).await?;
 
 	let filepath = PathBuf::from("/mnt/files/locations").join(&image.file_path);
 	std::fs::remove_file(filepath)?;

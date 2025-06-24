@@ -10,6 +10,7 @@ use lettre::message::Mailbox;
 use serde::{Deserialize, Serialize};
 
 use crate::schema::{image, profile, simple_profile};
+use crate::{Image, NewImage};
 
 diesel::joinable!(profile -> image (avatar_image_id));
 
@@ -591,5 +592,35 @@ impl Profile {
 		};
 
 		new_profile.insert(conn).await
+	}
+
+	/// Insert an [avatar](NewImage) for this [`Profile`]
+	#[instrument(skip(conn))]
+	pub async fn insert_avatar(
+		p_id: i32,
+		avatar: NewImage,
+		conn: &DbConn,
+	) -> Result<Image, Error> {
+		let image = conn
+			.interact(move |conn| {
+				conn.transaction::<Image, Error, _>(|conn| {
+					use crate::schema::image::dsl::*;
+					use crate::schema::profile::dsl::*;
+
+					let image_record = diesel::insert_into(image)
+						.values(avatar)
+						.returning(Image::as_returning())
+						.get_result(conn)?;
+
+					diesel::update(profile)
+						.set(avatar_image_id.eq(image_record.id))
+						.execute(conn)?;
+
+					Ok(image_record)
+				})
+			})
+			.await??;
+
+		Ok(image)
 	}
 }

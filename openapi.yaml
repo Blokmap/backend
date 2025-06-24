@@ -266,7 +266,69 @@ paths:
                         items:
                           $ref: "#/components/schemas/profile"
 
-  /profiles/{id}:
+  /profiles/me ✅:
+    get:
+      tags:
+        - profiles
+      description: Get the current profile
+      security:
+        - access-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/simpleProfile"
+                  - type: object
+                    properties:
+                      institutionName:
+                        type: [string, "null"]
+                        example: UGent
+                  - type: object
+                    properties:
+                      authorities:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/simpleAuthority"
+    patch:
+      tags:
+        - profiles
+      description: |
+        Update a profile
+
+        *Only for non-SSO profiles*
+      security:
+        - access-token: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/patchProfile"
+                - $ref: "#/components/schemas/patchProfileAdmin"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/simpleProfile"
+                  - type: object
+                    properties:
+                      institutionName:
+                        type: [string, "null"]
+                        example: UGent
+                  - type: object
+                    properties:
+                      authorities:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/simpleAuthority"
+
+  /profiles/{id} ✅:
     parameters:
       - name: id
         in: path
@@ -337,7 +399,7 @@ paths:
                         items:
                           $ref: "#/components/schemas/simpleAuthority"
 
-  /profiles/{id}/avatar:
+  /profiles/{id}/avatar ✅:
     parameters:
       - name: id
         in: path
