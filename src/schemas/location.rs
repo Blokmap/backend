@@ -1,6 +1,6 @@
 use chrono::NaiveDateTime;
 use models::{
-	Location,
+	FullLocationData,
 	LocationUpdate,
 	NewLocation,
 	PrimitiveAuthority,
@@ -52,48 +52,9 @@ pub struct LocationResponse {
 	pub tags:          Vec<TagResponse>,
 }
 
-impl From<Location> for LocationResponse {
-	fn from(value: Location) -> Self {
-		Self {
-			id:                     value.location.id,
-			name:                   value.location.name,
-			authority:              value.authority,
-			description:            None,
-			excerpt:                None,
-			seat_count:             value.location.seat_count,
-			is_reservable:          value.location.is_reservable,
-			reservation_block_size: value.location.reservation_block_size,
-			min_reservation_length: value.location.min_reservation_length,
-			max_reservation_length: value.location.max_reservation_length,
-			is_visible:             value.location.is_visible,
-			street:                 value.location.street,
-			number:                 value.location.number,
-			zip:                    value.location.zip,
-			city:                   value.location.city,
-			province:               value.location.province,
-			country:                value.location.country,
-			latitude:               value.location.latitude,
-			longitude:              value.location.longitude,
-			approved_at:            value.location.approved_at,
-			approved_by:            value.approved_by,
-			rejected_at:            value.location.rejected_at,
-			rejected_by:            value.rejected_by,
-			rejected_reason:        value.location.rejected_reason,
-			created_at:             value.location.created_at,
-			created_by:             value.created_by,
-			updated_at:             value.location.updated_at,
-			updated_by:             value.updated_by,
-
-			images:        vec![],
-			opening_times: vec![],
-			tags:          vec![],
-		}
-	}
-}
-
-impl From<(Location, Vec<PrimitiveOpeningTime>)> for LocationResponse {
+impl From<FullLocationData> for LocationResponse {
 	fn from(
-		(location, opening_times): (Location, Vec<PrimitiveOpeningTime>),
+		(location, (opening_times, tags, images)): FullLocationData,
 	) -> Self {
 		Self {
 			id: location.location.id,
@@ -125,9 +86,9 @@ impl From<(Location, Vec<PrimitiveOpeningTime>)> for LocationResponse {
 			updated_at: location.location.updated_at,
 			updated_by: location.updated_by,
 
-			images: vec![],
 			opening_times,
-			tags: vec![],
+			tags: tags.into_iter().map(Into::into).collect(),
+			images: images.into_iter().map(Into::into).collect(),
 		}
 	}
 }

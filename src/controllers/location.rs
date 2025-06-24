@@ -1,6 +1,5 @@
 //! Controllers for [`Location`]s
 
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
@@ -19,7 +18,8 @@ use models::{
 	LocationFilter,
 	LocationIncludes,
 	NewImage,
-	OpeningTime,
+	PrimitiveOpeningTime,
+	Tag,
 	TimeFilter,
 };
 use rayon::prelude::*;
@@ -204,25 +204,19 @@ pub(crate) async fn search_locations(
 	)
 	.await?;
 
-	let location_ids =
-		locations.iter().map(|l| l.location.id).collect::<Vec<_>>();
+	let l_ids = locations.iter().map(|l| l.location.id).collect::<Vec<_>>();
 
-	let times = OpeningTime::get_by_ids(location_ids, &conn).await?;
+	let (times, tags, imgs) = tokio::join!(
+		PrimitiveOpeningTime::get_for_locations(l_ids.clone(), &conn),
+		Tag::get_for_locations(l_ids.clone(), &conn),
+		Image::get_for_locations(l_ids, &conn),
+	);
 
-	let mut id_map = HashMap::new();
+	let times = times?;
+	let tags = tags?;
+	let imgs = imgs?;
 
-	for loc in locations {
-		let loc_id = loc.location.id;
-		let entry = id_map.entry(loc).or_insert(vec![]);
-
-		for time in &times {
-			if time.location_id == loc_id {
-				entry.push(time.clone());
-			}
-		}
-	}
-
-	let locations = id_map.into_iter().collect::<Vec<_>>();
+	let locations = Location::group(locations, &times, &tags, &imgs);
 
 	let locations: Vec<LocationResponse> =
 		locations.into_iter().map(Into::into).collect();

@@ -140,6 +140,46 @@ impl PrimitiveOpeningTime {
 
 		Ok(opening_time)
 	}
+
+	/// Get all the [`PrimitiveOpeningTimes`] for a specific location
+	#[instrument(skip(conn))]
+	pub async fn get_for_location(
+		l_id: i32,
+		conn: &DbConn,
+	) -> Result<Vec<Self>, Error> {
+		let times = conn
+			.interact(move |conn| {
+				use self::opening_time::dsl::*;
+
+				opening_time
+					.filter(location_id.eq(l_id))
+					.select(Self::as_select())
+					.get_results(conn)
+			})
+			.await??;
+
+		Ok(times)
+	}
+
+	/// Get all the [`PrimitiveOpeningTimes`] for a list of locations
+	#[instrument(skip(conn))]
+	pub async fn get_for_locations(
+		l_ids: Vec<i32>,
+		conn: &DbConn,
+	) -> Result<Vec<(i32, Self)>, Error> {
+		let times = conn
+			.interact(move |conn| {
+				use self::opening_time::dsl::*;
+
+				opening_time
+					.filter(location_id.eq_any(l_ids))
+					.select((location_id, Self::as_select()))
+					.get_results(conn)
+			})
+			.await??;
+
+		Ok(times)
+	}
 }
 
 impl OpeningTime {
@@ -250,26 +290,6 @@ impl OpeningTime {
 			.collect();
 
 		Ok(times)
-	}
-
-	/// Get a list of [`PrimitiveOpeningTime`] from a list of ids
-	#[instrument(skip(ids, conn))]
-	pub async fn get_by_ids(
-		ids: Vec<i32>,
-		conn: &DbConn,
-	) -> Result<Vec<PrimitiveOpeningTime>, Error> {
-		let results = conn
-			.interact(move |conn| {
-				use crate::schema::opening_time::dsl::*;
-
-				opening_time
-					.filter(id.eq_any(ids))
-					.select(PrimitiveOpeningTime::as_select())
-					.get_results(conn)
-			})
-			.await??;
-
-		Ok(results)
 	}
 
 	/// Search through all [`OpeningTime`]s

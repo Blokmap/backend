@@ -169,6 +169,79 @@ impl Tag {
 
 		Ok(())
 	}
+
+	/// Get all tags for a location with the given id
+	#[instrument(skip(conn))]
+	pub async fn get_for_location(
+		l_id: i32,
+		conn: &DbConn,
+	) -> Result<Vec<Self>, Error> {
+		let tags = conn
+			.interact(move |conn| {
+				use crate::schema::location;
+				use crate::schema::location_tag::dsl::*;
+				use crate::schema::tag::dsl::*;
+
+				location::table
+					.find(l_id)
+					.inner_join(location_tag.on(location_id.eq(location::id)))
+					.inner_join(tag.on(tag_id.eq(id)))
+					.inner_join(
+						translation::table
+							.on(name_translation_id.eq(translation::id)),
+					)
+					.select((
+						PrimitiveTag::as_select(),
+						PrimitiveTranslation::as_select(),
+					))
+					.get_results(conn)
+			})
+			.await??
+			.into_iter()
+			.map(|(tag, name)| {
+				Tag { tag, name, created_by: None, updated_by: None }
+			})
+			.collect();
+
+		Ok(tags)
+	}
+
+	/// Get all tags for a list of locations
+	#[instrument(skip(conn))]
+	pub async fn get_for_locations(
+		l_ids: Vec<i32>,
+		conn: &DbConn,
+	) -> Result<Vec<(i32, Self)>, Error> {
+		let tags = conn
+			.interact(move |conn| {
+				use crate::schema::location;
+				use crate::schema::location_tag::dsl::*;
+				use crate::schema::tag::dsl::*;
+
+				location::table
+					.filter(location::id.eq_any(l_ids))
+					.inner_join(location_tag.on(location_id.eq(location::id)))
+					.inner_join(tag.on(tag_id.eq(id)))
+					.inner_join(
+						translation::table
+							.on(name_translation_id.eq(translation::id)),
+					)
+					.select((
+						location::id,
+						PrimitiveTag::as_select(),
+						PrimitiveTranslation::as_select(),
+					))
+					.get_results(conn)
+			})
+			.await??
+			.into_iter()
+			.map(|(id, tag, name)| {
+				(id, Tag { tag, name, created_by: None, updated_by: None })
+			})
+			.collect();
+
+		Ok(tags)
+	}
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
