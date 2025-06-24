@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use axum::Router;
-use axum::routing::{delete, get, patch, post};
+use axum::routing::{delete, get, patch, post, put};
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tower_http::timeout::TimeoutLayer;
@@ -17,6 +17,19 @@ use crate::controllers::auth::{
 	request_password_reset,
 	resend_confirmation_email,
 	reset_password,
+};
+use crate::controllers::authority::{
+	add_authority_location,
+	add_authority_member,
+	create_authority,
+	delete_authority_member,
+	get_all_authorities,
+	get_all_authority_permissions,
+	get_authority,
+	get_authority_locations,
+	get_authority_members,
+	update_authority,
+	update_authority_member,
 };
 use crate::controllers::healthcheck;
 use crate::controllers::location::{
@@ -41,6 +54,7 @@ use crate::controllers::profile::{
 	disable_profile,
 	get_all_profiles,
 	get_current_profile,
+	get_profile_authorities,
 	get_profile_locations,
 	get_profile_reservations,
 	update_current_profile,
@@ -71,6 +85,7 @@ pub fn get_app_router(state: AppState) -> Router {
 		.route("/healthcheck", get(healthcheck))
 		.nest("/auth", auth_routes(&state))
 		.nest("/profiles", profile_routes(&state))
+		.nest("/authorities", authority_routes(&state))
 		.nest("/locations", location_routes(&state))
 		.nest("/translations", translation_routes(&state))
 		.nest("/tags", tag_routes(&state));
@@ -111,10 +126,11 @@ fn profile_routes(state: &AppState) -> Router<AppState> {
 	Router::new()
 		.route("/", get(get_all_profiles))
 		.route("/me", get(get_current_profile).patch(update_current_profile))
-		.route("/{profile_id}/locations", get(get_profile_locations))
-		.route("/{profile_id}/reservations", get(get_profile_reservations))
 		.route("/{profile_id}/block", post(disable_profile))
 		.route("/{profile_id}/unblock", post(activate_profile))
+		.route("/{profile_id}/authorities", get(get_profile_authorities))
+		.route("/{profile_id}/locations", get(get_profile_locations))
+		.route("/{profile_id}/reservations", get(get_profile_reservations))
 		.route_layer(AuthLayer::new(state.clone()))
 }
 
@@ -150,6 +166,27 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 		.route("/", get(search_locations))
 		.route("/{id}", get(get_location))
 		.merge(protected)
+}
+
+fn authority_routes(state: &AppState) -> Router<AppState> {
+	Router::new()
+		.route("/", get(get_all_authorities).post(create_authority))
+		.route("/permissions", get(get_all_authority_permissions))
+		.route("/{id}", get(get_authority).patch(update_authority))
+		.route(
+			"/{id}/locations",
+			get(get_authority_locations).post(add_authority_location),
+		)
+		.route(
+			"/{id}/members",
+			get(get_authority_members).post(add_authority_member),
+		)
+		.route("/{a_id}/members/{p_id}", delete(delete_authority_member))
+		.route(
+			"/{a_id}/members/{p_id}/permissions",
+			put(update_authority_member),
+		)
+		.route_layer(AuthLayer::new(state.clone()))
 }
 
 /// Translation routes with auth protection

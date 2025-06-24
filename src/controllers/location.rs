@@ -16,6 +16,7 @@ use fast_image_resize::{IntoImageView, Resizer};
 use image::codecs::webp::WebPEncoder;
 use image::{ColorType, ImageEncoder, ImageReader};
 use models::{
+	AuthorityPermissions,
 	Image as DbImage,
 	Location,
 	LocationFilter,
@@ -160,7 +161,40 @@ pub async fn delete_location_image(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	// TODO: check permission
+	let mut can_manage = false;
+
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
+	let actor_id = session.data.profile_id;
+	let actor_perms =
+		Location::get_profile_permissions(id, actor_id, &conn).await?;
+
+	#[allow(clippy::collapsible_if)]
+	if let Some(perms) = actor_perms {
+		if perms.intersects(
+			AuthorityPermissions::Administrator
+				| AuthorityPermissions::ManageLocation,
+		) {
+			can_manage = true;
+		}
+	}
+
+	let perm_includes =
+		LocationIncludes { created_by: true, ..Default::default() };
+	let (location, ..) = Location::get_by_id(id, perm_includes, &conn).await?;
+
+	#[allow(clippy::collapsible_if)]
+	if let Some(Some(creator)) = location.created_by {
+		if creator.id == actor_id {
+			can_manage = true;
+		}
+	}
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
 
 	// Delete the image record before the file to prevent dangling
 	let image = DbImage::get_by_id(id, &conn).await?;
@@ -259,20 +293,42 @@ pub(crate) async fn update_location(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
+	let mut can_manage = false;
+
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
+	let actor_id = session.data.profile_id;
+	let actor_perms =
+		Location::get_profile_permissions(id, actor_id, &conn).await?;
+
+	#[allow(clippy::collapsible_if)]
+	if let Some(perms) = actor_perms {
+		if perms.intersects(
+			AuthorityPermissions::Administrator
+				| AuthorityPermissions::ManageLocation,
+		) {
+			can_manage = true;
+		}
+	}
+
 	let perm_includes =
 		LocationIncludes { created_by: true, ..Default::default() };
 	let (location, ..) = Location::get_by_id(id, perm_includes, &conn).await?;
 
-	// TODO: check permissions properly
-
 	#[allow(clippy::collapsible_if)]
 	if let Some(Some(creator)) = location.created_by {
-		if creator.id != session.data.profile_id {
-			return Err(Error::Forbidden);
+		if creator.id == actor_id {
+			can_manage = true;
 		}
 	}
 
-	let loc_update = request.to_insertable(session.data.profile_id);
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
+
+	let loc_update = request.to_insertable(actor_id);
 	let updated_loc = loc_update.apply_to(id, includes, &conn).await?;
 	let response = LocationResponse::from(updated_loc);
 
@@ -313,11 +369,46 @@ pub(crate) async fn reject_location(
 #[instrument(skip(pool))]
 pub(crate) async fn delete_location(
 	State(pool): State<DbPool>,
+	session: Session,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	// TODO: check permissions
+	let mut can_manage = false;
+
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
+	let actor_id = session.data.profile_id;
+	let actor_perms =
+		Location::get_profile_permissions(id, actor_id, &conn).await?;
+
+	#[allow(clippy::collapsible_if)]
+	if let Some(perms) = actor_perms {
+		if perms.intersects(
+			AuthorityPermissions::Administrator
+				| AuthorityPermissions::ManageLocation
+				| AuthorityPermissions::DeleteLocation,
+		) {
+			can_manage = true;
+		}
+	}
+
+	let perm_includes =
+		LocationIncludes { created_by: true, ..Default::default() };
+	let (location, ..) = Location::get_by_id(id, perm_includes, &conn).await?;
+
+	#[allow(clippy::collapsible_if)]
+	if let Some(Some(creator)) = location.created_by {
+		if creator.id == actor_id {
+			can_manage = true;
+		}
+	}
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
 
 	Location::delete_by_id(id, &conn).await?;
 

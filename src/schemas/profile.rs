@@ -1,5 +1,11 @@
 use chrono::NaiveDateTime;
-use models::{Profile, UpdateProfile};
+use models::{
+	AuthorityPermissions,
+	Profile,
+	ProfileState,
+	SimpleProfile,
+	UpdateProfile,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -26,6 +32,36 @@ impl From<Profile> for ProfileResponse {
 			is_admin:      profile.is_admin,
 			created_at:    profile.created_at,
 			last_login_at: profile.last_login_at,
+		}
+	}
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfilePermissionsResponse {
+	pub id:          i32,
+	pub username:    String,
+	pub avatar_url:  Option<String>,
+	pub email:       Option<String>,
+	pub first_name:  Option<String>,
+	pub last_name:   Option<String>,
+	pub state:       ProfileState,
+	pub permissions: AuthorityPermissions,
+}
+
+impl From<(SimpleProfile, AuthorityPermissions)>
+	for ProfilePermissionsResponse
+{
+	fn from(value: (SimpleProfile, AuthorityPermissions)) -> Self {
+		Self {
+			id:          value.0.id,
+			username:    value.0.username,
+			avatar_url:  value.0.avatar_url,
+			email:       value.0.email,
+			first_name:  value.0.first_name,
+			last_name:   value.0.last_name,
+			state:       value.0.state,
+			permissions: value.1,
 		}
 	}
 }

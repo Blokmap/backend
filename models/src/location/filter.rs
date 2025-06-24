@@ -16,13 +16,13 @@ use crate::schema::{
 	opening_time,
 	rejecter,
 	simple_profile,
-	translation,
 	updater,
 };
 use crate::{
 	BoxedCondition,
 	Location,
 	LocationIncludes,
+	PrimitiveAuthority,
 	PrimitiveLocation,
 	PrimitiveTranslation,
 	TimeBoundsFilter,
@@ -207,53 +207,7 @@ where
 	}
 }
 
-mod auto_type_helpers {
-	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
-}
-
 impl Location {
-	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
-	fn build_query(includes: LocationIncludes) -> _ {
-		let inc_approved_by: bool = includes.approved_by;
-		let inc_rejected_by: bool = includes.rejected_by;
-		let inc_created_by: bool = includes.created_by;
-		let inc_updated_by: bool = includes.updated_by;
-
-		crate::schema::location::dsl::location
-			.inner_join(
-				description.on(crate::schema::location::dsl::description_id
-					.eq(description.field(translation::id))),
-			)
-			.inner_join(
-				excerpt.on(crate::schema::location::dsl::excerpt_id
-					.eq(excerpt.field(translation::id))),
-			)
-			.left_outer_join(
-				approver.on(inc_approved_by.into_sql::<Bool>().and(
-					crate::schema::location::dsl::approved_by
-						.eq(approver.field(simple_profile::id).nullable()),
-				)),
-			)
-			.left_outer_join(
-				rejecter.on(inc_rejected_by.into_sql::<Bool>().and(
-					crate::schema::location::dsl::rejected_by
-						.eq(rejecter.field(simple_profile::id).nullable()),
-				)),
-			)
-			.left_outer_join(
-				creator.on(inc_created_by.into_sql::<Bool>().and(
-					crate::schema::location::dsl::created_by
-						.eq(creator.field(simple_profile::id).nullable()),
-				)),
-			)
-			.left_outer_join(
-				updater.on(inc_updated_by.into_sql::<Bool>().and(
-					crate::schema::location::dsl::updated_by
-						.eq(updater.field(simple_profile::id).nullable()),
-				)),
-			)
-	}
-
 	/// Search through all [`Location`]s with a given [`LocationFilter`]
 	#[instrument(skip(conn))]
 	pub async fn search(
@@ -265,7 +219,7 @@ impl Location {
 		conn: &DbConn,
 	) -> Result<(usize, Vec<Self>), Error> {
 		let filter = loc_filter.to_filter();
-		let query = Self::build_query(includes);
+		let query = Self::joined_query(includes);
 
 		let bounds_filter = if let Some(open_on_day) = time_filter.open_on_day {
 			let week = open_on_day.week(chrono::Weekday::Mon);
@@ -321,6 +275,10 @@ impl Location {
 								.fields(<PrimitiveTranslation as Selectable<
 								Pg,
 							>>::construct_selection()),
+							<
+								PrimitiveAuthority as Selectable<Pg>
+							>
+							::construct_selection().nullable(),
 							approver
 								.fields(simple_profile::all_columns)
 								.nullable(),
@@ -341,32 +299,8 @@ impl Location {
 			})
 			.await??
 			.into_iter()
-			.map(|(loc, desc, exc, a, r, c, u)| {
-				Location {
-					location:    loc,
-					description: desc,
-					excerpt:     exc,
-					approved_by: if includes.approved_by {
-						Some(a)
-					} else {
-						None
-					},
-					rejected_by: if includes.rejected_by {
-						Some(r)
-					} else {
-						None
-					},
-					created_by:  if includes.created_by {
-						Some(c)
-					} else {
-						None
-					},
-					updated_by:  if includes.updated_by {
-						Some(u)
-					} else {
-						None
-					},
-				}
+			.map(|(l, d, e, y, a, r, c, u)| {
+				Self::from_joined(includes, l, d, e, y, a, r, c, u)
 			})
 			.collect::<Vec<_>>();
 

@@ -3,13 +3,13 @@ use models::{
 	Location,
 	LocationUpdate,
 	NewLocation,
+	PrimitiveAuthority,
 	PrimitiveOpeningTime,
 	PrimitiveTranslation,
 	SimpleProfile,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::image::ImageResponse;
 use crate::schemas::tag::TagResponse;
 use crate::schemas::translation::CreateTranslationRequest;
@@ -20,7 +20,7 @@ use crate::schemas::translation::CreateTranslationRequest;
 pub struct LocationResponse {
 	pub id:                     i32,
 	pub name:                   String,
-	pub authority:              Option<AuthorityResponse>,
+	pub authority:              Option<Option<PrimitiveAuthority>>,
 	pub description:            Option<PrimitiveTranslation>,
 	pub excerpt:                Option<PrimitiveTranslation>,
 	pub seat_count:             i32,
@@ -57,7 +57,7 @@ impl From<Location> for LocationResponse {
 		Self {
 			id:                     value.location.id,
 			name:                   value.location.name,
-			authority:              None,
+			authority:              value.authority,
 			description:            None,
 			excerpt:                None,
 			seat_count:             value.location.seat_count,
@@ -98,7 +98,7 @@ impl From<(Location, Vec<PrimitiveOpeningTime>)> for LocationResponse {
 		Self {
 			id: location.location.id,
 			name: location.location.name,
-			authority: None,
+			authority: location.authority,
 			description: location.description.into(),
 			excerpt: location.excerpt.into(),
 			seat_count: location.location.seat_count,
@@ -136,7 +136,6 @@ impl From<(Location, Vec<PrimitiveOpeningTime>)> for LocationResponse {
 #[serde(rename_all = "camelCase")]
 pub struct CreateLocationRequest {
 	pub name:                   String,
-	pub authority_id:           Option<i32>,
 	pub description:            CreateTranslationRequest,
 	pub excerpt:                CreateTranslationRequest,
 	pub seat_count:             i32,
@@ -159,7 +158,35 @@ impl CreateLocationRequest {
 	pub fn to_insertable(self, created_by: i32) -> NewLocation {
 		NewLocation {
 			name: self.name,
-			authority_id: self.authority_id,
+			authority_id: None,
+			description: self.description.to_insertable(created_by),
+			excerpt: self.excerpt.to_insertable(created_by),
+			seat_count: self.seat_count,
+			is_reservable: self.is_reservable,
+			reservation_block_size: self.reservation_block_size,
+			min_reservation_length: self.min_reservation_length,
+			max_reservation_length: self.max_reservation_length,
+			street: self.street,
+			number: self.number,
+			zip: self.zip,
+			city: self.city,
+			province: self.province,
+			country: self.country,
+			latitude: self.latitude,
+			longitude: self.longitude,
+			created_by,
+		}
+	}
+
+	#[must_use]
+	pub fn to_insertable_for_authority(
+		self,
+		auth_id: i32,
+		created_by: i32,
+	) -> NewLocation {
+		NewLocation {
+			name: self.name,
+			authority_id: Some(auth_id),
 			description: self.description.to_insertable(created_by),
 			excerpt: self.excerpt.to_insertable(created_by),
 			seat_count: self.seat_count,

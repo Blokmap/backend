@@ -8,6 +8,7 @@ use diesel::{RunQueryDsl, sql_query};
 use crate::DbPool;
 
 pub mod auth;
+pub mod authority;
 pub mod location;
 pub mod opening_time;
 pub mod profile;

@@ -32,8 +32,8 @@ pub struct ReservationIncludes {
 }
 
 #[derive(Clone, Debug, Deserialize, Queryable, Serialize)]
-#[diesel(table_name = tag)]
-#[diesel(check_for_backend(reservation))]
+#[diesel(table_name = reservation)]
+#[diesel(check_for_backend(Pg))]
 pub struct Reservation {
 	pub reservation:  PrimitiveReservation,
 	pub profile:      Option<SimpleProfile>,

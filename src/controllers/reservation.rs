@@ -7,6 +7,9 @@ use axum::response::IntoResponse;
 use chrono::{NaiveDateTime, NaiveTime, Utc};
 use common::{CreateReservationError, DbPool, Error};
 use models::{
+	AuthorityPermissions,
+	Location,
+	LocationIncludes,
 	NewReservation,
 	PrimitiveLocation,
 	PrimitiveOpeningTime,
@@ -25,13 +28,49 @@ use crate::schemas::reservation::{
 #[instrument(skip(pool))]
 pub async fn get_reservation_for_location(
 	State(pool): State<DbPool>,
+	session: Session,
 	Path(loc_id): Path<i32>,
 	Query(filter): Query<ReservationFilter>,
 	Query(includes): Query<ReservationIncludes>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	// TODO: check permissions
+	let mut can_manage = false;
+
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
+	let actor_id = session.data.profile_id;
+	let actor_perms =
+		Location::get_profile_permissions(loc_id, actor_id, &conn).await?;
+
+	#[allow(clippy::collapsible_if)]
+	if let Some(perms) = actor_perms {
+		if perms.intersects(
+			AuthorityPermissions::Administrator
+				| AuthorityPermissions::ManageLocation
+				| AuthorityPermissions::ManageReservations,
+		) {
+			can_manage = true;
+		}
+	}
+
+	let perm_includes =
+		LocationIncludes { created_by: true, ..Default::default() };
+	let (location, ..) =
+		Location::get_by_id(loc_id, perm_includes, &conn).await?;
+
+	#[allow(clippy::collapsible_if)]
+	if let Some(Some(creator)) = location.created_by {
+		if creator.id == actor_id {
+			can_manage = true;
+		}
+	}
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
 
 	let reservations =
 		Reservation::for_location(loc_id, filter, includes, &conn).await?;
@@ -44,12 +83,48 @@ pub async fn get_reservation_for_location(
 #[instrument(skip(pool))]
 pub async fn get_reservation_for_opening_time(
 	State(pool): State<DbPool>,
+	session: Session,
 	Path((l_id, t_id)): Path<(i32, i32)>,
 	Query(includes): Query<ReservationIncludes>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	// TODO: check permissions
+	let mut can_manage = false;
+
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
+	let actor_id = session.data.profile_id;
+	let actor_perms =
+		Location::get_profile_permissions(l_id, actor_id, &conn).await?;
+
+	#[allow(clippy::collapsible_if)]
+	if let Some(perms) = actor_perms {
+		if perms.intersects(
+			AuthorityPermissions::Administrator
+				| AuthorityPermissions::ManageLocation
+				| AuthorityPermissions::DeleteLocation,
+		) {
+			can_manage = true;
+		}
+	}
+
+	let perm_includes =
+		LocationIncludes { created_by: true, ..Default::default() };
+	let (location, ..) =
+		Location::get_by_id(l_id, perm_includes, &conn).await?;
+
+	#[allow(clippy::collapsible_if)]
+	if let Some(Some(creator)) = location.created_by {
+		if creator.id == actor_id {
+			can_manage = true;
+		}
+	}
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
 
 	let loc = PrimitiveLocation::get_by_id(l_id, &conn).await?;
 
@@ -232,7 +307,42 @@ pub async fn delete_reservation(
 
 	let reservation = PrimitiveReservation::get_by_id(r_id, &conn).await?;
 
-	// TODO: check permissions (managers)
+	let mut can_manage = false;
+
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
+	let actor_id = session.data.profile_id;
+	let actor_perms =
+		Location::get_profile_permissions(l_id, actor_id, &conn).await?;
+
+	#[allow(clippy::collapsible_if)]
+	if let Some(perms) = actor_perms {
+		if perms.intersects(
+			AuthorityPermissions::Administrator
+				| AuthorityPermissions::ManageLocation
+				| AuthorityPermissions::DeleteLocation,
+		) {
+			can_manage = true;
+		}
+	}
+
+	let perm_includes =
+		LocationIncludes { created_by: true, ..Default::default() };
+	let (location, ..) =
+		Location::get_by_id(l_id, perm_includes, &conn).await?;
+
+	#[allow(clippy::collapsible_if)]
+	if let Some(Some(creator)) = location.created_by {
+		if creator.id == actor_id {
+			can_manage = true;
+		}
+	}
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
 
 	if reservation.profile_id != session.data.profile_id
 		&& !session.data.profile_is_admin
