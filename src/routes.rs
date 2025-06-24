@@ -51,6 +51,7 @@ use crate::controllers::opening_time::{
 };
 use crate::controllers::profile::{
 	activate_profile,
+	delete_profile_avatar,
 	disable_profile,
 	get_all_profiles,
 	get_current_profile,
@@ -60,6 +61,7 @@ use crate::controllers::profile::{
 	get_profile_reservations,
 	update_current_profile,
 	update_profile,
+	upload_profile_avatar,
 };
 use crate::controllers::reservation::{
 	create_reservation,
@@ -129,6 +131,10 @@ fn profile_routes(state: &AppState) -> Router<AppState> {
 		.route("/", get(get_all_profiles))
 		.route("/me", get(get_current_profile).patch(update_current_profile))
 		.route("/{profile_id}", get(get_profile).patch(update_profile))
+		.route(
+			"/{profile_id}/avatar",
+			post(upload_profile_avatar).delete(delete_profile_avatar),
+		)
 		.route("/{profile_id}/block", post(disable_profile))
 		.route("/{profile_id}/unblock", post(activate_profile))
 		.route("/{profile_id}/authorities", get(get_profile_authorities))

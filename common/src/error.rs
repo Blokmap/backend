@@ -35,6 +35,9 @@ pub enum Error {
 	/// Any error related to logging in
 	#[error(transparent)]
 	LoginError(#[from] LoginError),
+	/// Some data in the request was missing
+	#[error("{0}")]
+	MissingRequestData(String),
 	/// Any error related to parsing multipart data
 	#[error(transparent)]
 	MultipartError(#[from] MultipartError),
@@ -114,6 +117,7 @@ impl Error {
 					PaginationError::OffsetTooLarge => 28,
 				}
 			},
+			Self::MissingRequestData(_) => 29,
 		}
 	}
 
@@ -181,7 +185,9 @@ impl IntoResponse for Error {
 			| Self::CreateReservationError(_)
 			| Self::PaginationError(_) => StatusCode::BAD_REQUEST,
 			Self::NotFound(_) => StatusCode::NOT_FOUND,
-			Self::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
+			Self::ValidationError(_) | Self::MissingRequestData(_) => {
+				StatusCode::UNPROCESSABLE_ENTITY
+			},
 		};
 
 		(status, axum::Json(data)).into_response()

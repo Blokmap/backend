@@ -1,15 +1,23 @@
 //! Controllers for [`Profile`]s
 
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::path::PathBuf;
+
 use axum::Json;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
+use image::ImageEncoder;
+use image::codecs::webp::WebPEncoder;
 use models::{
 	Authority,
 	AuthorityIncludes,
+	Image,
 	Location,
 	LocationIncludes,
+	NewImage,
 	Profile,
 	ProfileState,
 	Reservation,
@@ -18,6 +26,7 @@ use models::{
 };
 use uuid::Uuid;
 
+use crate::image::{ImageOwner, generate_image_filepaths, resize_image};
 use crate::mailer::Mailer;
 use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::location::LocationResponse;
@@ -158,6 +167,88 @@ pub async fn update_profile(
 	}
 
 	Ok(Json(updated_profile.into()))
+}
+
+#[instrument(skip(pool))]
+pub async fn upload_profile_avatar(
+	State(pool): State<DbPool>,
+	session: Session,
+	Path(p_id): Path<i32>,
+	mut data: Multipart,
+) -> Result<impl IntoResponse, Error> {
+	if session.data.profile_id != p_id {
+		return Err(Error::Forbidden);
+	}
+
+	let conn = pool.get().await?;
+
+	let mut image_bytes = None;
+
+	while let Some(field) = data.next_field().await? {
+		if field.name().unwrap_or_default() != "image" {
+			continue;
+		}
+
+		image_bytes = Some(field.bytes().await?);
+
+		break;
+	}
+
+	let Some(image_bytes) = image_bytes else {
+		return Err(Error::MissingRequestData("image".into()));
+	};
+
+	let (dst_image, dst_width, dst_height, dst_color) =
+		resize_image(image_bytes)?;
+	let (abs_filepath, rel_filepath) =
+		generate_image_filepaths(p_id, ImageOwner::Profile)?;
+
+	let mut file = BufWriter::new(File::create(&abs_filepath)?);
+
+	WebPEncoder::new_lossless(&mut file).write_image(
+		dst_image.buffer(),
+		dst_width,
+		dst_height,
+		dst_color.into(),
+	)?;
+
+	file.flush()?;
+
+	let new_image = NewImage {
+		file_path:   rel_filepath.to_string_lossy().into_owned(),
+		uploaded_by: session.data.profile_id,
+	};
+
+	let image = Profile::insert_avatar(p_id, new_image, &conn).await?;
+
+	Ok((StatusCode::CREATED, Json(image)))
+}
+
+#[instrument(skip(pool))]
+pub async fn delete_profile_avatar(
+	State(pool): State<DbPool>,
+	session: Session,
+	Path(p_id): Path<i32>,
+) -> Result<impl IntoResponse, Error> {
+	if session.data.profile_id != p_id && !session.data.profile_is_admin {
+		return Err(Error::Forbidden);
+	}
+
+	let conn = pool.get().await?;
+
+	let profile = Profile::get(p_id, &conn).await?;
+	let Some(img_id) = profile.avatar_image_id else {
+		return Ok((StatusCode::NO_CONTENT, NoContent));
+	};
+
+	// Delete the image record before the file to prevent dangling
+	let image = Image::get_by_id(img_id, &conn).await?;
+	Image::delete_by_id(img_id, &conn).await?;
+
+	let filepath = PathBuf::from("/mnt/files").join(&image.file_path);
+	std::fs::remove_file(filepath)?;
+
+	Ok((StatusCode::NO_CONTENT, NoContent))
 }
 
 #[instrument(skip(pool))]

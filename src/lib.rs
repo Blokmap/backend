@@ -15,6 +15,7 @@ mod seeder;
 mod session;
 
 pub mod controllers;
+pub mod image;
 pub mod mailer;
 pub mod middleware;
 pub mod routes;
