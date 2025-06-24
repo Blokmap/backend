@@ -328,7 +328,7 @@ paths:
                         items:
                           $ref: "#/components/schemas/simpleAuthority"
 
-  /profiles/{id}:
+  /profiles/{id} ✅:
     parameters:
       - name: id
         in: path
