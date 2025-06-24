@@ -22,6 +22,7 @@ use crate::schema::{
 	updater,
 };
 use crate::{
+	AuthorityPermissions,
 	Image,
 	NewImage,
 	NewLocationImage,
@@ -225,7 +226,44 @@ impl Location {
 		id_map.into_iter().collect()
 	}
 
+	/// Get the permissions for a given user for this location
+	#[instrument(skip(conn))]
+	pub async fn get_profile_permissions(
+		l_id: i32,
+		p_id: i32,
+		conn: &DbConn,
+	) -> Result<Option<AuthorityPermissions>, Error> {
+		let auth_perms: Option<i64> = conn
+			.interact(move |conn| {
+				use crate::schema::{authority, authority_profile};
+
+				location::table
+					.find(l_id)
+					.left_outer_join(authority::table.on(
+						location::authority_id.eq(authority::id.nullable()),
+					))
+					.left_outer_join(
+						authority_profile::table.on(
+							authority_profile::authority_id
+								.eq(authority::id)
+								.and(authority_profile::profile_id.eq(p_id)),
+						),
+					)
+					.select(authority_profile::permissions.nullable())
+					.get_result(conn)
+			})
+			.await??;
+
+		let auth_perms =
+			auth_perms.map(AuthorityPermissions::from_bits_truncate);
+
+		// TODO: get location_profile permissions as well
+
+		Ok(auth_perms)
+	}
+
 	/// Get a [`Location`] by its id
+	#[instrument(skip(conn))]
 	pub async fn get_by_id(
 		loc_id: i32,
 		includes: LocationIncludes,
@@ -283,6 +321,7 @@ impl Location {
 	}
 
 	/// Get all locations created by a given profile
+	#[instrument(skip(conn))]
 	pub async fn get_by_profile_id(
 		profile_id: i32,
 		includes: LocationIncludes,
@@ -337,6 +376,7 @@ impl Location {
 	}
 
 	/// Get all simple locations belonging to an authority
+	#[instrument(skip(conn))]
 	pub async fn get_simple_by_authority_id(
 		auth_id: i32,
 		includes: LocationIncludes,
@@ -384,6 +424,7 @@ impl Location {
 	}
 
 	/// Get all locations belonging to an authority
+	#[instrument(skip(conn))]
 	pub async fn get_by_authority_id(
 		auth_id: i32,
 		includes: LocationIncludes,
@@ -437,9 +478,8 @@ impl Location {
 		Ok(Self::group_by_id(locations))
 	}
 
-	/// Delete a [`Location`] by its id.
-	///
-	/// # Errors
+	/// Delete a [`Location`] by its id
+	#[instrument(skip(conn))]
 	pub async fn delete_by_id(loc_id: i32, conn: &DbConn) -> Result<(), Error> {
 		conn.interact(move |conn| {
 			use self::location::dsl::*;
@@ -451,9 +491,8 @@ impl Location {
 		Ok(())
 	}
 
-	/// Approve a [`Location`] by its id and profile id.
-	///
-	/// # Errors
+	/// Approve a [`Location`] by its id and profile id
+	#[instrument(skip(conn))]
 	pub async fn approve_by(
 		loc_id: i32,
 		profile_id: i32,
@@ -477,9 +516,8 @@ impl Location {
 		Ok(())
 	}
 
-	/// Reject a [`Location`] by its id and profile id.
-	///
-	/// # Errors
+	/// Reject a [`Location`] by its id and profile id
+	#[instrument(skip(conn))]
 	pub async fn reject_by(
 		loc_id: i32,
 		profile_id: i32,
@@ -505,8 +543,7 @@ impl Location {
 	}
 
 	/// Bulk insert a list of [`NewImage`]s for a specific [`Location`]
-	///
-	/// # Errors
+	#[instrument(skip(images, conn))]
 	pub async fn insert_images(
 		loc_id: i32,
 		images: Vec<NewImage>,
@@ -593,6 +630,7 @@ pub struct InsertableNewLocation {
 
 impl NewLocation {
 	/// Create a new [`Location`]
+	#[instrument(skip(conn))]
 	pub async fn insert(
 		self,
 		includes: LocationIncludes,
@@ -672,6 +710,7 @@ pub struct LocationUpdate {
 
 impl LocationUpdate {
 	/// Update this [`Location`] in the database.
+	#[instrument(skip(conn))]
 	pub async fn apply_to(
 		self,
 		loc_id: i32,

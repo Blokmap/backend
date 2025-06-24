@@ -29,20 +29,22 @@ bitflags! {
 	pub struct AuthorityPermissions: i64 {
 		/// Admin privileges, member can do everything
 		const Administrator = 1 << 0;
-		/// Member can submit new locations
-		const AddLocation = 1 << 1;
-		/// Member can approve/reject locations
-		const ApproveLocation = 1 << 2;
-		/// Member can delete locations
-		const DeleteLocation = 1 << 3;
-		/// Member can manage opening times for locations
-		const ManageOpeningTimes = 1 << 4;
-		/// Member can manage reservations on the authorities locations
-		const ManageReservations = 1 << 5;
-		/// Member can manage authority members
-		const ManageMembers = 1 << 6;
 		/// Member can manage the authority itself
-		const ManageAuthority = 1 << 7;
+		const ManageAuthority = 1 << 1;
+		/// Member can manage locations
+		const ManageLocation = 1 << 2;
+		/// Member can submit new locations
+		const AddLocation = 1 << 3;
+		/// Member can approve/reject locations
+		const ApproveLocation = 1 << 4;
+		/// Member can delete locations
+		const DeleteLocation = 1 << 5;
+		/// Member can manage opening times for locations
+		const ManageOpeningTimes = 1 << 6;
+		/// Member can manage reservations on the authorities locations
+		const ManageReservations = 1 << 7;
+		/// Member can manage authority members
+		const ManageMembers = 1 << 8;
 	}
 }
 
