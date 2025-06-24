@@ -57,6 +57,23 @@ pub async fn get_current_profile(
 	Ok(Json(profile.into()))
 }
 
+#[instrument(skip(pool))]
+pub async fn get_profile(
+	State(pool): State<DbPool>,
+	session: Session,
+	Path(p_id): Path<i32>,
+) -> Result<Json<ProfileResponse>, Error> {
+	let conn = pool.get().await?;
+
+	if !session.data.profile_is_admin && p_id != session.data.profile_id {
+		return Err(Error::Forbidden);
+	}
+
+	let profile = Profile::get(p_id, &conn).await?;
+
+	Ok(Json(profile.into()))
+}
+
 #[instrument(skip(pool, config, mailer))]
 pub async fn update_current_profile(
 	State(pool): State<DbPool>,
@@ -72,6 +89,51 @@ pub async fn update_current_profile(
 	let mut updated_profile = UpdateProfile::from(update)
 		.apply_to(session.data.profile_id, &conn)
 		.await?;
+
+	if old_profile.pending_email != updated_profile.pending_email {
+		let email_confirmation_token = Uuid::new_v4().to_string();
+
+		updated_profile = updated_profile
+			.set_email_confirmation_token(
+				&email_confirmation_token,
+				config.email_confirmation_token_lifetime,
+				&conn,
+			)
+			.await?;
+
+		mailer
+			.send_confirm_email(
+				&updated_profile,
+				&email_confirmation_token,
+				&config.frontend_url,
+			)
+			.await?;
+
+		info!("set new pending email for profile {}", updated_profile.id);
+	}
+
+	Ok(Json(updated_profile.into()))
+}
+
+#[instrument(skip(pool, config, mailer))]
+pub async fn update_profile(
+	State(pool): State<DbPool>,
+	State(config): State<Config>,
+	State(mailer): State<Mailer>,
+	session: Session,
+	Path(p_id): Path<i32>,
+	Json(update): Json<UpdateProfileRequest>,
+) -> Result<Json<ProfileResponse>, Error> {
+	let conn = pool.get().await?;
+
+	if !session.data.profile_is_admin && p_id != session.data.profile_id {
+		return Err(Error::Forbidden);
+	}
+
+	let old_profile = Profile::get(p_id, &conn).await?;
+
+	let mut updated_profile =
+		UpdateProfile::from(update).apply_to(p_id, &conn).await?;
 
 	if old_profile.pending_email != updated_profile.pending_email {
 		let email_confirmation_token = Uuid::new_v4().to_string();

@@ -54,10 +54,12 @@ use crate::controllers::profile::{
 	disable_profile,
 	get_all_profiles,
 	get_current_profile,
+	get_profile,
 	get_profile_authorities,
 	get_profile_locations,
 	get_profile_reservations,
 	update_current_profile,
+	update_profile,
 };
 use crate::controllers::reservation::{
 	create_reservation,
@@ -126,6 +128,7 @@ fn profile_routes(state: &AppState) -> Router<AppState> {
 	Router::new()
 		.route("/", get(get_all_profiles))
 		.route("/me", get(get_current_profile).patch(update_current_profile))
+		.route("/{profile_id}", get(get_profile).patch(update_profile))
 		.route("/{profile_id}/block", post(disable_profile))
 		.route("/{profile_id}/unblock", post(activate_profile))
 		.route("/{profile_id}/authorities", get(get_profile_authorities))
