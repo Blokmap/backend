@@ -6,6 +6,8 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
 use models::{
+	Authority,
+	AuthorityIncludes,
 	Location,
 	LocationIncludes,
 	Profile,
@@ -17,6 +19,7 @@ use models::{
 use uuid::Uuid;
 
 use crate::mailer::Mailer;
+use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::location::LocationResponse;
 use crate::schemas::pagination::{PaginationOptions, PaginationResponse};
 use crate::schemas::profile::{ProfileResponse, UpdateProfileRequest};
@@ -145,6 +148,7 @@ pub(crate) async fn get_profile_locations(
 	Ok((StatusCode::OK, Json(response)))
 }
 
+#[instrument(skip(pool))]
 pub async fn get_profile_reservations(
 	State(pool): State<DbPool>,
 	Query(includes): Query<ReservationIncludes>,
@@ -156,6 +160,21 @@ pub async fn get_profile_reservations(
 		Reservation::for_profile(profile_id, includes, &conn).await?;
 	let response: Vec<ReservationResponse> =
 		reservations.into_iter().map(Into::into).collect();
+
+	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn get_profile_authorities(
+	State(pool): State<DbPool>,
+	Query(includes): Query<AuthorityIncludes>,
+	Path(p_id): Path<i32>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let authorities = Authority::for_profile(p_id, includes, &conn).await?;
+	let response: Vec<AuthorityResponse> =
+		authorities.into_iter().map(Into::into).collect();
 
 	Ok((StatusCode::OK, Json(response)))
 }

@@ -4,10 +4,17 @@ use chrono::NaiveDateTime;
 use common::{DbConn, Error};
 use diesel::pg::Pg;
 use diesel::prelude::*;
+use diesel::sql_types::Bool;
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{authority_profile, simple_profile};
-use crate::{Authority, SimpleProfile};
+use crate::schema::{
+	authority,
+	authority_profile,
+	creator,
+	simple_profile,
+	updater,
+};
+use crate::{Authority, AuthorityIncludes, PrimitiveAuthority, SimpleProfile};
 
 #[derive(
 	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
@@ -149,6 +156,65 @@ impl Authority {
 		info!("deleted profile {prof_id} from authority {auth_id}");
 
 		Ok(())
+	}
+
+	/// Get all [`Authorities`](Authority) for a given profile
+	#[instrument(skip(conn))]
+	pub async fn for_profile(
+		p_id: i32,
+		includes: AuthorityIncludes,
+		conn: &DbConn,
+	) -> Result<Vec<Self>, Error> {
+		let authorities = conn
+			.interact(move |conn| {
+				use crate::schema::authority_profile::dsl::*;
+
+				authority_profile
+					.filter(profile_id.eq(p_id))
+					.inner_join(
+						authority::table.on(authority_id.eq(authority::id)),
+					)
+					.left_outer_join(creator.on(
+						includes.created_by.into_sql::<Bool>().and(
+							authority::created_by.eq(
+								creator.field(simple_profile::id).nullable(),
+							),
+						),
+					))
+					.left_outer_join(updater.on(
+						includes.updated_by.into_sql::<Bool>().and(
+							authority::updated_by.eq(
+								updater.field(simple_profile::id).nullable(),
+							),
+						),
+					))
+					.select((
+						PrimitiveAuthority::as_select(),
+						creator.fields(simple_profile::all_columns).nullable(),
+						updater.fields(simple_profile::all_columns).nullable(),
+					))
+					.get_results(conn)
+			})
+			.await??
+			.into_iter()
+			.map(|(authority, cr, up)| {
+				Authority {
+					authority,
+					created_by: if includes.created_by {
+						Some(cr)
+					} else {
+						None
+					},
+					updated_by: if includes.updated_by {
+						Some(up)
+					} else {
+						None
+					},
+				}
+			})
+			.collect();
+
+		Ok(authorities)
 	}
 }
 
