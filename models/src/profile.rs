@@ -10,7 +10,7 @@ use lettre::message::Mailbox;
 use serde::{Deserialize, Serialize};
 
 use crate::schema::{image, profile, simple_profile};
-use crate::{Image, NewImage};
+use crate::{Image, NewImage, QUERY_HARD_LIMIT, manual_pagination};
 
 diesel::joinable!(profile -> image (avatar_image_id));
 
@@ -287,31 +287,19 @@ impl Profile {
 	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
 	pub async fn get_all(
-		limit: i64,
-		offset: i64,
+		limit: usize,
+		offset: usize,
 		conn: &DbConn,
-	) -> Result<(i64, Vec<Self>), Error> {
+	) -> Result<(usize, bool, Vec<Self>), Error> {
 		use self::profile::dsl::*;
-
-		let total: i64 = conn
-			.interact(|conn| {
-				use diesel::dsl::count;
-
-				profile.select(count(id)).first(conn)
-			})
-			.await??;
 
 		let profiles = conn
 			.interact(move |conn| {
-				profile
-					.order_by(id)
-					.limit(limit)
-					.offset(offset)
-					.get_results(conn)
+				profile.order_by(id).limit(QUERY_HARD_LIMIT).get_results(conn)
 			})
 			.await??;
 
-		Ok((total, profiles))
+		manual_pagination(profiles, limit, offset)
 	}
 
 	/// Check if a [`Profile`] with a given id exists

@@ -1,6 +1,6 @@
 use std::f64;
 
-use common::{DbConn, Error, PaginationError};
+use common::{DbConn, Error};
 use diesel::dsl::sql;
 use diesel::pg::Pg;
 use diesel::prelude::*;
@@ -25,9 +25,11 @@ use crate::{
 	PrimitiveAuthority,
 	PrimitiveLocation,
 	PrimitiveTranslation,
+	QUERY_HARD_LIMIT,
 	TimeBoundsFilter,
 	TimeFilter,
 	ToFilter,
+	manual_pagination,
 };
 
 #[derive(Clone, Debug, Deserialize, Queryable, Selectable, Serialize)]
@@ -217,7 +219,7 @@ impl Location {
 		limit: usize,
 		offset: usize,
 		conn: &DbConn,
-	) -> Result<(usize, Vec<Self>), Error> {
+	) -> Result<(usize, bool, Vec<Self>), Error> {
 		let filter = loc_filter.to_filter();
 		let query = Self::joined_query(includes);
 
@@ -294,7 +296,7 @@ impl Location {
 						),
 					)
 					.order(id)
-					.limit(1000)
+					.limit(QUERY_HARD_LIMIT)
 					.get_results(conn)
 			})
 			.await??
@@ -304,20 +306,6 @@ impl Location {
 			})
 			.collect::<Vec<_>>();
 
-		let total = locations.len();
-
-		if offset >= total {
-			return Err(PaginationError::OffsetTooLarge.into());
-		}
-
-		let limit = if limit > locations[offset..].len() {
-			locations[offset..].len() - offset
-		} else {
-			limit
-		};
-
-		let locations = locations[offset..offset + limit].to_vec();
-
-		Ok((total, locations))
+		manual_pagination(locations, limit, offset)
 	}
 }

@@ -21,15 +21,13 @@ pub async fn get_location_reviews(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let reviews =
+	let (total, truncated, reviews) =
 		Review::for_location(id, p_opts.limit(), p_opts.offset(), &conn)
 			.await?;
 	let response: Vec<_> =
 		reviews.into_iter().map(ReviewResponse::from).collect();
 
-	#[allow(clippy::cast_possible_wrap)]
-	let total = response.len() as i64;
-	let response = p_opts.paginate(total, response);
+	let response = p_opts.paginate(total, truncated, response);
 
 	Ok((StatusCode::OK, Json(response)))
 }
