@@ -1932,7 +1932,7 @@ paths:
         "204":
           description: No content
 
-  /locations/{id}/review:
+  /locations/{id}/reviews ✅:
     parameters:
       - name: id
         in: path
@@ -1991,7 +1991,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/partialReview"
 
-  /locations/{id}/review/{reviewId}:
+  /locations/{id}/reviews/{reviewId} ✅:
     parameters:
       - name: id
         in: path

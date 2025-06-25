@@ -75,6 +75,11 @@ use crate::controllers::reservation::{
 	get_reservation_for_location,
 	get_reservation_for_opening_time,
 };
+use crate::controllers::review::{
+	create_location_review,
+	get_location_reviews,
+	update_location_review,
+};
 use crate::controllers::tag::{
 	create_tag,
 	delete_tag,
@@ -186,6 +191,11 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 			"/{l_id}/opening-times/{t_id}/reservations/{r_id}",
 			delete(delete_reservation),
 		)
+		.route(
+			"/{id}/reviews",
+			get(get_location_reviews).post(create_location_review),
+		)
+		.route("/{id}/reviews/{review_id}", patch(update_location_review))
 		.route_layer(AuthLayer::new(state.clone()));
 
 	Router::new()
