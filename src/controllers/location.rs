@@ -32,6 +32,7 @@ use crate::schemas::location::{
 	UpdateLocationRequest,
 };
 use crate::schemas::pagination::PaginationOptions;
+use crate::schemas::tag::SetLocationTagsRequest;
 use crate::{AdminSession, Session};
 
 /// Create a new location in the database.
@@ -290,6 +291,8 @@ pub(crate) async fn approve_location(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
+	// TODO: check permissions for locations in authorities
+
 	Location::approve_by(id, session.data.profile_id, &conn).await?;
 
 	Ok((StatusCode::NO_CONTENT, NoContent))
@@ -305,8 +308,41 @@ pub(crate) async fn reject_location(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
+	// TODO: check permissions for locations in authorities
+
 	Location::reject_by(id, session.data.profile_id, request.reason, &conn)
 		.await?;
+
+	Ok((StatusCode::NO_CONTENT, NoContent))
+}
+
+pub async fn set_location_tags(
+	State(pool): State<DbPool>,
+	session: Session,
+	Path(id): Path<i32>,
+	Json(data): Json<SetLocationTagsRequest>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let mut can_manage = false;
+
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
+	can_manage |= AuthorityPermissions::location_admin_or(
+		session.data.profile_id,
+		id,
+		AuthorityPermissions::ManageLocation,
+		&conn,
+	)
+	.await?;
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
+
+	Tag::bulk_set(id, data.tags, &conn).await?;
 
 	Ok((StatusCode::NO_CONTENT, NoContent))
 }

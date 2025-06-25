@@ -5,7 +5,14 @@ use diesel::prelude::*;
 use diesel::sql_types::Bool;
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{creator, simple_profile, tag, translation, updater};
+use crate::schema::{
+	creator,
+	location_tag,
+	simple_profile,
+	tag,
+	translation,
+	updater,
+};
 use crate::{
 	NewTranslation,
 	PrimitiveTranslation,
@@ -241,6 +248,45 @@ impl Tag {
 			.collect();
 
 		Ok(tags)
+	}
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Insertable, Serialize)]
+#[diesel(table_name = location_tag)]
+#[diesel(check_for_backend(Pg))]
+pub struct NewLocationTag {
+	pub tag_id:      i32,
+	pub location_id: i32,
+}
+
+impl Tag {
+	/// Set a list of location-tag crossovers
+	///
+	/// This removes the previous list of location tags for this location
+	#[instrument(skip(conn))]
+	pub async fn bulk_set(
+		l_id: i32,
+		t_ids: Vec<i32>,
+		conn: &DbConn,
+	) -> Result<(), Error> {
+		let new_tags: Vec<_> = t_ids
+			.into_iter()
+			.map(|tag_id| NewLocationTag { tag_id, location_id: l_id })
+			.collect();
+
+		conn.interact(move |conn| {
+			conn.transaction(|conn| {
+				use crate::schema::location_tag::dsl::*;
+
+				diesel::delete(location_tag.filter(location_id.eq(l_id)))
+					.execute(conn)?;
+
+				diesel::insert_into(location_tag).values(new_tags).execute(conn)
+			})
+		})
+		.await??;
+
+		Ok(())
 	}
 }
 

@@ -1329,7 +1329,7 @@ paths:
         "204":
           description: No content
 
-  /locations/{id}/tags:
+  /locations/{id}/tags ✅:
     parameters:
       - name: id
         in: path
@@ -1346,6 +1346,7 @@ paths:
       security:
         - manager-token: []
       requestBody:
+        description: A list of the IDs of the tags to set
         content:
           application/json:
             schema:
@@ -1354,8 +1355,9 @@ paths:
                 tags:
                   type: array
                   items:
-                    type: string
-                  example: ["Free WiFi", "Quiet"]
+                    type: integer
+                    format: int32
+                  example: [1, 8, 23]
       responses:
         "204":
           description: No content

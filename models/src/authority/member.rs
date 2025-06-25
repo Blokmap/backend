@@ -14,7 +14,14 @@ use crate::schema::{
 	simple_profile,
 	updater,
 };
-use crate::{Authority, AuthorityIncludes, PrimitiveAuthority, SimpleProfile};
+use crate::{
+	Authority,
+	AuthorityIncludes,
+	Location,
+	LocationIncludes,
+	PrimitiveAuthority,
+	SimpleProfile,
+};
 
 #[derive(
 	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
@@ -61,6 +68,47 @@ impl AuthorityPermissions {
 	#[must_use]
 	pub fn names() -> HashMap<&'static str, i64> {
 		Self::all().iter_names().map(|(n, v)| (n, v.bits())).collect()
+	}
+
+	/// Check if the given profile is an admin/owner of the given location or
+	/// if they meet the given permissions
+	#[instrument(skip(conn))]
+	pub async fn location_admin_or(
+		p_id: i32,
+		l_id: i32,
+		other: Self,
+		conn: &DbConn,
+	) -> Result<bool, Error> {
+		let mut can_manage = false;
+
+		let perm_includes =
+			LocationIncludes { created_by: true, ..Default::default() };
+		let (location, ..) =
+			Location::get_by_id(l_id, perm_includes, conn).await?;
+
+		#[allow(clippy::collapsible_if)]
+		if let Some(Some(cr)) = location.created_by {
+			if cr.id == p_id {
+				can_manage = true;
+			}
+		}
+
+		let actor_perms =
+			Location::get_profile_permissions(l_id, p_id, conn).await?;
+
+		#[allow(clippy::collapsible_if)]
+		if let Some(perms) = actor_perms {
+			if perms.intersects(Self::Administrator | other) {
+				can_manage = true;
+			} else {
+				// If the given profile is the owner of the location but they
+				// don't have the necessary permissions in this authority they
+				// should not be allowed to manage this location
+				can_manage = false;
+			}
+		}
+
+		Ok(can_manage)
 	}
 }
 
