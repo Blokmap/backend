@@ -14,6 +14,7 @@ resolver = "3"
 
 [workspace.dependencies]
 argon2 = "0.5.3"
+askama = "0.14.0"
 axum = { version = "0.8.1", features = ["macros", "multipart"] }
 axum-extra = { version = "0.10.0", features = ["cookie", "cookie-private"] }
 deadpool-diesel = { version = "0.6.1", features = ["postgres", "tracing"] }
@@ -67,6 +68,7 @@ common = { path = "./common" }
 models = { path = "./models" }
 
 argon2 = { workspace = true }
+askama = { workspace = true }
 axum = { workspace = true }
 axum-extra = { workspace = true }
 chrono = { workspace = true }

@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use common::Error;
-use lettre::message::Mailbox;
+use lettre::message::{Mailbox, MultiPart, SinglePart, header};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Address, Message, SmtpTransport, Transport};
-use models::Profile;
 use parking_lot::{Condvar, Mutex};
 use tokio::sync::mpsc;
 
 use crate::Config;
+
+mod templates;
 
 /// A basic interface to send email messages
 #[derive(Clone, Debug)]
@@ -64,7 +65,13 @@ impl Mailer {
 			.from(Mailbox::new(None, self.from.clone()))
 			.to(receiver.try_into().map_err(Into::into)?)
 			.subject(subject)
-			.body(body.to_string())?)
+			.multipart(
+				MultiPart::alternative().singlepart(
+					SinglePart::builder()
+						.header(header::ContentType::TEXT_HTML)
+						.body(body.to_string()),
+				),
+			)?)
 	}
 
 	/// Try to send a message
@@ -137,54 +144,5 @@ impl Mailer {
 
 			tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 		}
-	}
-
-	/// Send out an email confirmation email
-	#[instrument(skip(self))]
-	pub(crate) async fn send_confirm_email(
-		&self,
-		profile: &Profile,
-		confirmation_token: &str,
-		frontend_url: &str,
-	) -> Result<(), Error> {
-		let confirmation_url =
-			format!("{frontend_url}/confirm_email/{confirmation_token}");
-
-		let mail = self.try_build_message(
-			profile,
-			"Confirm your email",
-			&format!(
-				"Please confirm your email by going to {confirmation_url}"
-			),
-		)?;
-
-		self.send(mail).await?;
-
-		info!("sent new email confirmation email for profile {}", profile.id);
-
-		Ok(())
-	}
-
-	/// Send out a password reset email
-	#[instrument(skip(self))]
-	pub(crate) async fn send_reset_password(
-		&self,
-		profile: &Profile,
-		reset_token: &str,
-		frontend_url: &str,
-	) -> Result<(), Error> {
-		let reset_url = format!("{frontend_url}/reset_password/{reset_token}",);
-
-		let mail = self.try_build_message(
-			profile,
-			"Reset your password",
-			&format!("You can reset your password by going to {reset_url}"),
-		)?;
-
-		self.send(mail).await?;
-
-		info!("sent password reset email for profile {}", profile.id,);
-
-		Ok(())
 	}
 }

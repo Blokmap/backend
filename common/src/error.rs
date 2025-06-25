@@ -315,6 +315,9 @@ pub enum InternalServerError {
 	/// authorized
 	#[error("attempted to extract session without checking authorization")]
 	SessionWithoutAuthError,
+	/// Any error related to askama templates
+	#[error(transparent)]
+	TemplateError(#[from] askama::Error),
 }
 
 // Map internal server errors to application errors
@@ -463,5 +466,11 @@ impl From<image::ImageError> for Error {
 impl From<fast_image_resize::ResizeError> for Error {
 	fn from(value: fast_image_resize::ResizeError) -> Self {
 		Self::InvalidImage(value.to_string())
+	}
+}
+
+impl From<askama::Error> for Error {
+	fn from(value: askama::Error) -> Self {
+		InternalServerError::TemplateError(value).into()
 	}
 }
