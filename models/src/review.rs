@@ -34,6 +34,8 @@ impl Review {
 	#[instrument(skip(conn))]
 	pub async fn for_location(
 		l_id: i32,
+		limit: i64,
+		offset: i64,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
 		let reviews = conn
@@ -50,6 +52,8 @@ impl Review {
 						PrimitiveReview::as_select(),
 						SimpleProfile::as_select(),
 					))
+					.limit(limit)
+					.offset(offset)
 					.get_results(conn)
 			})
 			.await??
