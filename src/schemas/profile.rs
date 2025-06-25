@@ -1,6 +1,7 @@
 use chrono::NaiveDateTime;
 use models::{
 	AuthorityPermissions,
+	LocationPermissions,
 	Profile,
 	ProfileState,
 	SimpleProfile,
@@ -46,7 +47,7 @@ pub struct ProfilePermissionsResponse {
 	pub first_name:  Option<String>,
 	pub last_name:   Option<String>,
 	pub state:       ProfileState,
-	pub permissions: AuthorityPermissions,
+	pub permissions: i64,
 }
 
 impl From<(SimpleProfile, AuthorityPermissions)>
@@ -61,7 +62,22 @@ impl From<(SimpleProfile, AuthorityPermissions)>
 			first_name:  value.0.first_name,
 			last_name:   value.0.last_name,
 			state:       value.0.state,
-			permissions: value.1,
+			permissions: value.1.bits(),
+		}
+	}
+}
+
+impl From<(SimpleProfile, LocationPermissions)> for ProfilePermissionsResponse {
+	fn from(value: (SimpleProfile, LocationPermissions)) -> Self {
+		Self {
+			id:          value.0.id,
+			username:    value.0.username,
+			avatar_url:  value.0.avatar_url,
+			email:       value.0.email,
+			first_name:  value.0.first_name,
+			last_name:   value.0.last_name,
+			state:       value.0.state,
+			permissions: value.1.bits(),
 		}
 	}
 }

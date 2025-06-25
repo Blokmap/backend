@@ -35,8 +35,10 @@ use crate::{
 };
 
 mod filter;
+mod member;
 
 pub use filter::*;
+pub use member::*;
 
 pub type UnjoinedLocationData = (
 	PrimitiveLocation,
@@ -262,7 +264,10 @@ impl Location {
 		l_id: i32,
 		p_id: i32,
 		conn: &DbConn,
-	) -> Result<Option<AuthorityPermissions>, Error> {
+	) -> Result<
+		(Option<AuthorityPermissions>, Option<LocationPermissions>),
+		Error,
+	> {
 		let auth_perms: Option<i64> = conn
 			.interact(move |conn| {
 				use crate::schema::{authority, authority_profile};
@@ -287,9 +292,25 @@ impl Location {
 		let auth_perms =
 			auth_perms.map(AuthorityPermissions::from_bits_truncate);
 
-		// TODO: get location_profile permissions as well
+		let loc_perms: Option<i64> = conn
+			.interact(move |conn| {
+				use crate::schema::location::dsl::*;
+				use crate::schema::location_profile::dsl::*;
 
-		Ok(auth_perms)
+				location
+					.find(l_id)
+					.left_outer_join(
+						location_profile
+							.on(location_id.eq(id).and(profile_id.eq(p_id))),
+					)
+					.select(permissions.nullable())
+					.get_result(conn)
+			})
+			.await??;
+
+		let loc_perms = loc_perms.map(LocationPermissions::from_bits_truncate);
+
+		Ok((auth_perms, loc_perms))
 	}
 
 	/// Get a [`Location`] by its id
