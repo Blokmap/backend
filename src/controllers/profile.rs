@@ -45,13 +45,13 @@ pub async fn get_all_profiles(
 ) -> Result<Json<PaginationResponse<Vec<ProfileResponse>>>, Error> {
 	let conn = pool.get().await?;
 
-	let (total, profiles) =
+	let (total, truncated, profiles) =
 		Profile::get_all(p_opts.limit(), p_opts.offset(), &conn).await?;
 
 	let profiles: Vec<ProfileResponse> =
 		profiles.into_iter().map(Into::into).collect();
 
-	let paginated = p_opts.paginate(total, profiles);
+	let paginated = p_opts.paginate(total, truncated, profiles);
 
 	Ok(Json(paginated))
 }

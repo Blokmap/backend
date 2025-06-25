@@ -22,10 +22,11 @@ pub struct PaginationOptions {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PaginationResponse<T> {
-	pub page:     u32,
-	pub per_page: u32,
-	pub total:    i64,
-	pub data:     T,
+	pub page:      u32,
+	pub per_page:  u32,
+	pub total:     usize,
+	pub truncated: bool,
+	pub data:      T,
 }
 
 impl Default for PaginationOptions {
@@ -35,11 +36,17 @@ impl Default for PaginationOptions {
 impl PaginationOptions {
 	/// Create a new [`Paginated`] struct based on the current parameters with
 	/// the given data
-	pub fn paginate<T>(&self, total: i64, data: T) -> PaginationResponse<T> {
+	pub fn paginate<T>(
+		&self,
+		total: usize,
+		truncated: bool,
+		data: T,
+	) -> PaginationResponse<T> {
 		PaginationResponse {
 			page: self.page,
 			per_page: self.per_page,
 			total,
+			truncated,
 			data,
 		}
 	}
@@ -47,12 +54,12 @@ impl PaginationOptions {
 	/// Calculate the SQL LIMIT value of these parameters
 	#[inline]
 	#[must_use]
-	pub fn limit(&self) -> i64 { self.per_page.into() }
+	pub fn limit(&self) -> usize { self.per_page as usize }
 
 	/// Calculate the SQL OFFSET value of these parameters
 	#[inline]
 	#[must_use]
-	pub fn offset(&self) -> i64 { ((self.page - 1) * self.per_page).into() }
+	pub fn offset(&self) -> usize { ((self.page - 1) * self.per_page) as usize }
 }
 
 /// Deserialization visitor for `page` bounds.

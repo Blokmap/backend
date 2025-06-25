@@ -5,7 +5,14 @@ use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::schema::{review, simple_profile};
-use crate::{FullLocationData, Location, LocationIncludes, SimpleProfile};
+use crate::{
+	FullLocationData,
+	Location,
+	LocationIncludes,
+	QUERY_HARD_LIMIT,
+	SimpleProfile,
+	manual_pagination,
+};
 
 #[derive(Clone, Debug, Deserialize, Queryable, Serialize)]
 #[diesel(table_name = review)]
@@ -34,10 +41,10 @@ impl Review {
 	#[instrument(skip(conn))]
 	pub async fn for_location(
 		l_id: i32,
-		limit: i64,
-		offset: i64,
+		limit: usize,
+		offset: usize,
 		conn: &DbConn,
-	) -> Result<Vec<Self>, Error> {
+	) -> Result<(usize, bool, Vec<Self>), Error> {
 		let reviews = conn
 			.interact(move |conn| {
 				use crate::schema::review::dsl::*;
@@ -52,8 +59,7 @@ impl Review {
 						PrimitiveReview::as_select(),
 						SimpleProfile::as_select(),
 					))
-					.limit(limit)
-					.offset(offset)
+					.limit(QUERY_HARD_LIMIT)
 					.get_results(conn)
 			})
 			.await??
@@ -61,7 +67,7 @@ impl Review {
 			.map(|(review, created_by)| Review { review, created_by })
 			.collect();
 
-		Ok(reviews)
+		manual_pagination(reviews, limit, offset)
 	}
 
 	/// Get all [`Review`]s for a profile with the given ID

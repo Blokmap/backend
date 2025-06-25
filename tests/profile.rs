@@ -172,7 +172,7 @@ async fn activate_profile() {
 	let test = Profile::get_all(pagination.limit(), pagination.offset(), &conn)
 		.await
 		.unwrap()
-		.1
+		.2
 		.into_iter()
 		.find(|p| p.username == "test-disabled")
 		.unwrap();
@@ -198,7 +198,7 @@ async fn activate_profile_not_admin() {
 	let test = Profile::get_all(pagination.limit(), pagination.offset(), &conn)
 		.await
 		.unwrap()
-		.1
+		.2
 		.into_iter()
 		.find(|p| p.username == "test-disabled")
 		.unwrap();
