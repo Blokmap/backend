@@ -17,6 +17,7 @@ use models::{
 	Location,
 	LocationFilter,
 	LocationIncludes,
+	LocationPermissions,
 	NewImage,
 	PrimitiveOpeningTime,
 	Tag,
@@ -26,12 +27,15 @@ use rayon::prelude::*;
 
 use crate::image::{ImageOwner, generate_image_filepaths, resize_image};
 use crate::schemas::location::{
+	CreateLocationMemberRequest,
 	CreateLocationRequest,
 	LocationResponse,
 	RejectLocationRequest,
+	UpdateLocationMemberRequest,
 	UpdateLocationRequest,
 };
 use crate::schemas::pagination::PaginationOptions;
+use crate::schemas::profile::ProfilePermissionsResponse;
 use crate::schemas::tag::SetLocationTagsRequest;
 use crate::{AdminSession, Session};
 
@@ -119,10 +123,11 @@ pub async fn delete_location_image(
 		can_manage = true;
 	}
 
-	can_manage |= AuthorityPermissions::location_admin_or(
+	can_manage |= Location::admin_or(
 		session.data.profile_id,
 		l_id,
 		AuthorityPermissions::ManageLocation,
+		LocationPermissions::ManageLocation,
 		&conn,
 	)
 	.await?;
@@ -228,10 +233,11 @@ pub(crate) async fn update_location(
 		can_manage = true;
 	}
 
-	can_manage |= AuthorityPermissions::location_admin_or(
+	can_manage |= Location::admin_or(
 		session.data.profile_id,
 		id,
 		AuthorityPermissions::ManageLocation,
+		LocationPermissions::ManageLocation,
 		&conn,
 	)
 	.await?;
@@ -262,11 +268,12 @@ pub(crate) async fn approve_location(
 		can_manage = true;
 	}
 
-	can_manage |= AuthorityPermissions::location_admin_or(
+	can_manage |= Location::admin_or(
 		session.data.profile_id,
 		id,
 		AuthorityPermissions::ManageLocation
 			| AuthorityPermissions::ApproveLocation,
+		LocationPermissions::ManageLocation,
 		&conn,
 	)
 	.await?;
@@ -296,11 +303,12 @@ pub(crate) async fn reject_location(
 		can_manage = true;
 	}
 
-	can_manage |= AuthorityPermissions::location_admin_or(
+	can_manage |= Location::admin_or(
 		session.data.profile_id,
 		id,
 		AuthorityPermissions::ManageLocation
 			| AuthorityPermissions::ApproveLocation,
+		LocationPermissions::ManageLocation,
 		&conn,
 	)
 	.await?;
@@ -315,6 +323,7 @@ pub(crate) async fn reject_location(
 	Ok((StatusCode::NO_CONTENT, NoContent))
 }
 
+#[instrument(skip(pool))]
 pub async fn set_location_tags(
 	State(pool): State<DbPool>,
 	session: Session,
@@ -329,10 +338,11 @@ pub async fn set_location_tags(
 		can_manage = true;
 	}
 
-	can_manage |= AuthorityPermissions::location_admin_or(
+	can_manage |= Location::admin_or(
 		session.data.profile_id,
 		id,
 		AuthorityPermissions::ManageLocation,
+		LocationPermissions::ManageLocation,
 		&conn,
 	)
 	.await?;
@@ -344,6 +354,127 @@ pub async fn set_location_tags(
 	Tag::bulk_set(id, data.tags, &conn).await?;
 
 	Ok((StatusCode::NO_CONTENT, NoContent))
+}
+
+#[instrument]
+pub async fn get_all_location_permissions() -> impl IntoResponse {
+	let perms = LocationPermissions::names();
+
+	(StatusCode::OK, Json(perms))
+}
+
+#[instrument(skip(pool))]
+pub async fn get_location_members(
+	State(pool): State<DbPool>,
+	session: Session,
+	Path(id): Path<i32>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let can_manage = Location::admin_or(
+		session.data.profile_id,
+		id,
+		AuthorityPermissions::ManageLocation,
+		LocationPermissions::ManageLocation,
+		&conn,
+	)
+	.await?;
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
+
+	let members = Location::get_members(id, &conn).await?;
+	let response: Vec<_> =
+		members.into_iter().map(ProfilePermissionsResponse::from).collect();
+
+	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn add_location_member(
+	State(pool): State<DbPool>,
+	session: Session,
+	Path(id): Path<i32>,
+	Json(request): Json<CreateLocationMemberRequest>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let can_manage = Location::admin_or(
+		session.data.profile_id,
+		id,
+		AuthorityPermissions::ManageLocation,
+		LocationPermissions::ManageLocation,
+		&conn,
+	)
+	.await?;
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
+
+	let new_loc_profile = request.to_insertable(id, session.data.profile_id);
+	let member = new_loc_profile.insert(&conn).await?;
+	let response = ProfilePermissionsResponse::from(member);
+
+	Ok((StatusCode::CREATED, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn delete_location_member(
+	State(pool): State<DbPool>,
+	session: Session,
+	Path((l_id, p_id)): Path<(i32, i32)>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let can_manage = Location::admin_or(
+		session.data.profile_id,
+		l_id,
+		AuthorityPermissions::ManageLocation,
+		LocationPermissions::ManageLocation
+			| LocationPermissions::ManageMembers,
+		&conn,
+	)
+	.await?;
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
+
+	Location::delete_member(l_id, p_id, &conn).await?;
+
+	Ok((StatusCode::NO_CONTENT, NoContent))
+}
+
+#[instrument(skip(pool))]
+pub async fn update_location_member(
+	State(pool): State<DbPool>,
+	session: Session,
+	Path((l_id, p_id)): Path<(i32, i32)>,
+	Json(request): Json<UpdateLocationMemberRequest>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let can_manage = Location::admin_or(
+		session.data.profile_id,
+		l_id,
+		AuthorityPermissions::ManageLocation,
+		LocationPermissions::ManageLocation
+			| LocationPermissions::ManageMembers,
+		&conn,
+	)
+	.await?;
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
+
+	let loc_update = request.to_insertable(session.data.profile_id);
+	let updated_member = loc_update.apply_to(l_id, p_id, &conn).await?;
+	let response: ProfilePermissionsResponse = updated_member.into();
+
+	Ok((StatusCode::OK, Json(response)))
 }
 
 /// Delete a location from the database.
@@ -361,18 +492,16 @@ pub(crate) async fn delete_location(
 		can_manage = true;
 	}
 
-	can_manage |= AuthorityPermissions::location_admin_or(
+	can_manage |= Location::admin_or(
 		session.data.profile_id,
 		id,
 		AuthorityPermissions::ManageLocation
 			| AuthorityPermissions::DeleteLocation,
+		LocationPermissions::ManageLocation
+			| LocationPermissions::DeleteLocation,
 		&conn,
 	)
 	.await?;
-
-	if !can_manage {
-		return Err(Error::Forbidden);
-	}
 
 	if !can_manage {
 		return Err(Error::Forbidden);

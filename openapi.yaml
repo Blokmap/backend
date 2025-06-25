@@ -1100,7 +1100,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/location"
 
-  /locations/permissions:
+  /locations/permissions ✅:
     get:
       tags:
         - locations
@@ -1362,7 +1362,7 @@ paths:
         "204":
           description: No content
 
-  /locations/{id}/members:
+  /locations/{id}/members ✅:
     parameters:
       - name: id
         in: path
@@ -1413,7 +1413,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/profileWithPermissions"
 
-  /locations/{id}/members/{profileId}:
+  /locations/{id}/members/{profileId} ✅:
     parameters:
       - name: id
         in: path
@@ -1441,7 +1441,7 @@ paths:
         "204":
           description: No content
 
-  /locations/{id}/members/{profileId}/permissions:
+  /locations/{id}/members/{profileId}/permissions ✅:
     parameters:
       - name: id
         in: path

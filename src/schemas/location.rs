@@ -1,8 +1,10 @@
 use chrono::NaiveDateTime;
 use models::{
 	FullLocationData,
+	LocationProfileUpdate,
 	LocationUpdate,
 	NewLocation,
+	NewLocationProfile,
 	PrimitiveAuthority,
 	PrimitiveOpeningTime,
 	PrimitiveTranslation,
@@ -168,6 +170,29 @@ impl CreateLocationRequest {
 	}
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateLocationMemberRequest {
+	pub profile_id:  i32,
+	pub permissions: i64,
+}
+
+impl CreateLocationMemberRequest {
+	#[must_use]
+	pub fn to_insertable(
+		self,
+		location_id: i32,
+		added_by: i32,
+	) -> NewLocationProfile {
+		NewLocationProfile {
+			location_id,
+			profile_id: self.profile_id,
+			added_by,
+			permissions: self.permissions,
+		}
+	}
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateLocationRequest {
@@ -201,6 +226,19 @@ impl UpdateLocationRequest {
 			longitude: self.longitude,
 			updated_by,
 		}
+	}
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateLocationMemberRequest {
+	pub permissions: i64,
+}
+
+impl UpdateLocationMemberRequest {
+	#[must_use]
+	pub fn to_insertable(self, updated_by: i32) -> LocationProfileUpdate {
+		LocationProfileUpdate { updated_by, permissions: self.permissions }
 	}
 }
 

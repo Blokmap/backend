@@ -33,15 +33,20 @@ use crate::controllers::authority::{
 };
 use crate::controllers::healthcheck;
 use crate::controllers::location::{
+	add_location_member,
 	approve_location,
 	create_location,
 	delete_location,
 	delete_location_image,
+	delete_location_member,
+	get_all_location_permissions,
 	get_location,
+	get_location_members,
 	reject_location,
 	search_locations,
 	set_location_tags,
 	update_location,
+	update_location_member,
 	upload_location_image,
 };
 use crate::controllers::opening_time::{
@@ -148,10 +153,20 @@ fn profile_routes(state: &AppState) -> Router<AppState> {
 fn location_routes(state: &AppState) -> Router<AppState> {
 	let protected = Router::new()
 		.route("/", post(create_location))
+		.route("/permissions", get(get_all_location_permissions))
 		.route("/{id}", patch(update_location).delete(delete_location))
 		.route("/{id}/approve", post(approve_location))
 		.route("/{id}/reject", post(reject_location))
 		.route("/{id}/tags", post(set_location_tags))
+		.route(
+			"/{id}/members",
+			get(get_location_members).post(add_location_member),
+		)
+		.route("/{id}/members/{profile_id}", delete(delete_location_member))
+		.route(
+			"/{id}/members/{profile_id}/permissions",
+			post(update_location_member),
+		)
 		.route("/{id}/images", post(upload_location_image))
 		.route("/{id}/images/{image_id}", delete(delete_location_image))
 		.route(
