@@ -233,6 +233,16 @@ diesel::table! {
 	}
 }
 
+diesel::table! {
+	notification (id) {
+		id -> Int4,
+		profile_id -> Int4,
+		body_id -> Int4,
+		created_at -> Timestamp,
+		read_at -> Nullable<Timestamp>,
+	}
+}
+
 diesel::alias!(
 	translation as description: DescriptionAlias,
 	translation as excerpt: ExcerptAlias,
@@ -257,6 +267,7 @@ diesel::joinable!(reservation -> opening_time (opening_time_id));
 diesel::joinable!(review -> location (location_id));
 diesel::joinable!(review -> profile (profile_id));
 diesel::joinable!(tag -> translation (name_translation_id));
+diesel::joinable!(notification -> translation (body_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
 	authority,
@@ -274,4 +285,5 @@ diesel::allow_tables_to_appear_in_same_query!(
 	tag,
 	translation,
 	simple_profile,
+	notification,
 );

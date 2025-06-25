@@ -18,6 +18,7 @@ pub mod controllers;
 pub mod image;
 pub mod mailer;
 pub mod middleware;
+pub mod notification;
 pub mod routes;
 pub mod schemas;
 

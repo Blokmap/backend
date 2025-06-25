@@ -49,6 +49,11 @@ use crate::controllers::location::{
 	update_location_member,
 	upload_location_image,
 };
+use crate::controllers::notifications::{
+	delete_notification,
+	read_notification,
+	unread_notification,
+};
 use crate::controllers::opening_time::{
 	create_location_time,
 	delete_location_time,
@@ -64,6 +69,7 @@ use crate::controllers::profile::{
 	get_profile,
 	get_profile_authorities,
 	get_profile_locations,
+	get_profile_notifications,
 	get_profile_reservations,
 	get_profile_reviews,
 	update_current_profile,
@@ -101,6 +107,7 @@ pub fn get_app_router(state: AppState) -> Router {
 		.route("/healthcheck", get(healthcheck))
 		.nest("/auth", auth_routes(&state))
 		.nest("/profiles", profile_routes(&state))
+		.nest("/notifications", notification_router(&state))
 		.nest("/authorities", authority_routes(&state))
 		.nest("/locations", location_routes(&state))
 		.nest("/translations", translation_routes(&state))
@@ -153,6 +160,15 @@ fn profile_routes(state: &AppState) -> Router<AppState> {
 		.route("/{profile_id}/locations", get(get_profile_locations))
 		.route("/{profile_id}/reservations", get(get_profile_reservations))
 		.route("/{profile_id}/reviews", get(get_profile_reviews))
+		.route("/{profile_id}/notifications", get(get_profile_notifications))
+		.route_layer(AuthLayer::new(state.clone()))
+}
+
+fn notification_router(state: &AppState) -> Router<AppState> {
+	Router::new()
+		.route("/{id}", delete(delete_notification))
+		.route("/{id}/read", post(read_notification))
+		.route("/{id}/unread", post(unread_notification))
 		.route_layer(AuthLayer::new(state.clone()))
 }
 

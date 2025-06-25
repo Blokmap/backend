@@ -18,6 +18,7 @@ use models::{
 	Location,
 	LocationIncludes,
 	NewImage,
+	Notification,
 	Profile,
 	ProfileState,
 	Reservation,
@@ -31,6 +32,7 @@ use crate::image::{ImageOwner, generate_image_filepaths, resize_image};
 use crate::mailer::Mailer;
 use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::location::LocationResponse;
+use crate::schemas::notification::NotificationResponse;
 use crate::schemas::pagination::{PaginationOptions, PaginationResponse};
 use crate::schemas::profile::{ProfileResponse, UpdateProfileRequest};
 use crate::schemas::reservation::ReservationResponse;
@@ -343,6 +345,20 @@ pub async fn get_profile_reviews(
 	let reviews = Review::for_profile(p_id, &conn).await?;
 	let response: Vec<ReviewLocationResponse> =
 		reviews.into_iter().map(Into::into).collect();
+
+	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn get_profile_notifications(
+	State(pool): State<DbPool>,
+	Path(p_id): Path<i32>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let notifs = Notification::for_profile(p_id, &conn).await?;
+	let response: Vec<NotificationResponse> =
+		notifs.into_iter().map(Into::into).collect();
 
 	Ok((StatusCode::OK, Json(response)))
 }

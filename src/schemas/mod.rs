@@ -4,6 +4,7 @@ pub mod auth;
 pub mod authority;
 pub mod image;
 pub mod location;
+pub mod notification;
 pub mod opening_time;
 pub mod pagination;
 pub mod profile;

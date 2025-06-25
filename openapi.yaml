@@ -592,6 +592,96 @@ paths:
                       format: int64
                       example: 929839
 
+  /profiles/{id}/notifications:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the profile to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    get:
+      tags:
+        - profiles
+      description: Get all of this profiles notifications
+      security:
+        - access-token: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      example: 0
+                    body:
+                      $ref: "#/components/schemas/translation"
+                    created_at:
+                      type: string
+                      format: date-time
+                    read_at:
+                      type: string
+                      format: date-time
+
+  /notifications/{id}:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the notification to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    delete:
+      tags:
+        - notifications
+      description: Delete this notification
+      responses:
+        "204":
+          description: No content
+  /notifications/{id}/read:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the notification to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    post:
+      tags:
+        - notifications
+      description: mark this notification as read
+      responses:
+        "204":
+          description: No content
+  /notifications/{id}/unread:
+    parameters:
+      - name: id
+        in: path
+        description: The ID of the notification to use
+        required: true
+        schema:
+          type: number
+          format: int32
+          example: 0
+    post:
+      tags:
+        - notifications
+      description: mark this notification as unread
+      responses:
+        "204":
+          description: No content
+
   /authorities ✅:
     get:
       tags:
