@@ -119,31 +119,13 @@ pub async fn delete_location_image(
 		can_manage = true;
 	}
 
-	let actor_id = session.data.profile_id;
-	let actor_perms =
-		Location::get_profile_permissions(l_id, actor_id, &conn).await?;
-
-	#[allow(clippy::collapsible_if)]
-	if let Some(perms) = actor_perms {
-		if perms.intersects(
-			AuthorityPermissions::Administrator
-				| AuthorityPermissions::ManageLocation,
-		) {
-			can_manage = true;
-		}
-	}
-
-	let perm_includes =
-		LocationIncludes { created_by: true, ..Default::default() };
-	let (location, ..) =
-		Location::get_by_id(l_id, perm_includes, &conn).await?;
-
-	#[allow(clippy::collapsible_if)]
-	if let Some(Some(creator)) = location.created_by {
-		if creator.id == actor_id {
-			can_manage = true;
-		}
-	}
+	can_manage |= AuthorityPermissions::location_admin_or(
+		session.data.profile_id,
+		l_id,
+		AuthorityPermissions::ManageLocation,
+		&conn,
+	)
+	.await?;
 
 	if !can_manage {
 		return Err(Error::Forbidden);
@@ -246,36 +228,19 @@ pub(crate) async fn update_location(
 		can_manage = true;
 	}
 
-	let actor_id = session.data.profile_id;
-	let actor_perms =
-		Location::get_profile_permissions(id, actor_id, &conn).await?;
-
-	#[allow(clippy::collapsible_if)]
-	if let Some(perms) = actor_perms {
-		if perms.intersects(
-			AuthorityPermissions::Administrator
-				| AuthorityPermissions::ManageLocation,
-		) {
-			can_manage = true;
-		}
-	}
-
-	let perm_includes =
-		LocationIncludes { created_by: true, ..Default::default() };
-	let (location, ..) = Location::get_by_id(id, perm_includes, &conn).await?;
-
-	#[allow(clippy::collapsible_if)]
-	if let Some(Some(creator)) = location.created_by {
-		if creator.id == actor_id {
-			can_manage = true;
-		}
-	}
+	can_manage |= AuthorityPermissions::location_admin_or(
+		session.data.profile_id,
+		id,
+		AuthorityPermissions::ManageLocation,
+		&conn,
+	)
+	.await?;
 
 	if !can_manage {
 		return Err(Error::Forbidden);
 	}
 
-	let loc_update = request.to_insertable(actor_id);
+	let loc_update = request.to_insertable(session.data.profile_id);
 	let updated_loc = loc_update.apply_to(id, includes, &conn).await?;
 	let response = LocationResponse::from(updated_loc);
 
@@ -362,30 +327,17 @@ pub(crate) async fn delete_location(
 		can_manage = true;
 	}
 
-	let actor_id = session.data.profile_id;
-	let actor_perms =
-		Location::get_profile_permissions(id, actor_id, &conn).await?;
+	can_manage |= AuthorityPermissions::location_admin_or(
+		session.data.profile_id,
+		id,
+		AuthorityPermissions::ManageLocation
+			| AuthorityPermissions::DeleteLocation,
+		&conn,
+	)
+	.await?;
 
-	#[allow(clippy::collapsible_if)]
-	if let Some(perms) = actor_perms {
-		if perms.intersects(
-			AuthorityPermissions::Administrator
-				| AuthorityPermissions::ManageLocation
-				| AuthorityPermissions::DeleteLocation,
-		) {
-			can_manage = true;
-		}
-	}
-
-	let perm_includes =
-		LocationIncludes { created_by: true, ..Default::default() };
-	let (location, ..) = Location::get_by_id(id, perm_includes, &conn).await?;
-
-	#[allow(clippy::collapsible_if)]
-	if let Some(Some(creator)) = location.created_by {
-		if creator.id == actor_id {
-			can_manage = true;
-		}
+	if !can_manage {
+		return Err(Error::Forbidden);
 	}
 
 	if !can_manage {
