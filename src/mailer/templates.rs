@@ -5,13 +5,13 @@ use models::Profile;
 use crate::mailer::Mailer;
 
 #[derive(Clone, Debug, Template)]
-#[template(path = "confirm_email.html")]
+#[template(path = "confirm_email/email.html")]
 struct ConfirmEmailTemplate {
 	confirmation_url: String,
 }
 
 #[derive(Clone, Debug, Template)]
-#[template(path = "reset_password.html")]
+#[template(path = "reset_password/email.html")]
 struct ResetPasswordTemplate {
 	reset_url: String,
 }
