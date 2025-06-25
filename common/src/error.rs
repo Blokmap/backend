@@ -163,6 +163,8 @@ impl Error {
 /// Convert an error into a [`Response`]
 impl IntoResponse for Error {
 	fn into_response(self) -> Response {
+		error!("{self:?}");
+
 		let message = self.to_string();
 
 		let data = serde_json::json!({

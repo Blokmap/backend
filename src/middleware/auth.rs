@@ -11,7 +11,6 @@ use axum::response::IntoResponse;
 use axum_extra::extract::PrivateCookieJar;
 use common::{Error, TokenError};
 use tower::{Layer, Service};
-use uuid::Uuid;
 
 use crate::AppState;
 use crate::session::Session;
@@ -94,10 +93,10 @@ where
 				);
 			};
 
-			// Unwrap is safe as correctly signed access tokens are always Uuids
-			let session_id = access_token.value().parse::<Uuid>().unwrap();
+			// Unwrap is safe as correctly signed access tokens are always i32
+			let session_id = access_token.value().parse::<i32>().unwrap();
 
-			let exists = match Session::exists(&session_id, &mut r_conn).await {
+			let exists = match Session::exists(session_id, &mut r_conn).await {
 				Ok(s) => s,
 				Err(e) => return Ok(e.into_response()),
 			};

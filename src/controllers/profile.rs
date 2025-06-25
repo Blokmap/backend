@@ -8,7 +8,7 @@ use axum::Json;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
-use common::{DbPool, Error};
+use common::{DbPool, Error, RedisConn};
 use image::ImageEncoder;
 use image::codecs::webp::WebPEncoder;
 use models::{
@@ -256,6 +256,7 @@ pub async fn delete_profile_avatar(
 #[instrument(skip(pool))]
 pub async fn disable_profile(
 	State(pool): State<DbPool>,
+	State(mut r_conn): State<RedisConn>,
 	session: AdminSession,
 	Path(profile_id): Path<i32>,
 ) -> Result<NoContent, Error> {
@@ -264,6 +265,8 @@ pub async fn disable_profile(
 
 	profile.state = ProfileState::Disabled;
 	profile.update(&conn).await?;
+
+	Session::delete(profile_id, &mut r_conn).await?;
 
 	info!("disabled profile {profile_id}");
 
