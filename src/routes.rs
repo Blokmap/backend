@@ -39,6 +39,7 @@ use crate::controllers::location::{
 	delete_location,
 	delete_location_image,
 	delete_location_member,
+	get_all_location_permissions,
 	get_location,
 	get_location_members,
 	reject_location,
@@ -152,6 +153,7 @@ fn profile_routes(state: &AppState) -> Router<AppState> {
 fn location_routes(state: &AppState) -> Router<AppState> {
 	let protected = Router::new()
 		.route("/", post(create_location))
+		.route("/permissions", get(get_all_location_permissions))
 		.route("/{id}", patch(update_location).delete(delete_location))
 		.route("/{id}/approve", post(approve_location))
 		.route("/{id}/reject", post(reject_location))

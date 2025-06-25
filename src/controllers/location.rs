@@ -356,6 +356,13 @@ pub async fn set_location_tags(
 	Ok((StatusCode::NO_CONTENT, NoContent))
 }
 
+#[instrument]
+pub async fn get_all_location_permissions() -> impl IntoResponse {
+	let perms = LocationPermissions::names();
+
+	(StatusCode::OK, Json(perms))
+}
+
 #[instrument(skip(pool))]
 pub async fn get_location_members(
 	State(pool): State<DbPool>,

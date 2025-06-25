@@ -1100,7 +1100,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/location"
 
-  /locations/permissions:
+  /locations/permissions ✅:
     get:
       tags:
         - locations
