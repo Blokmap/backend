@@ -28,6 +28,8 @@ DROP TABLE authority;
 ALTER TABLE profile DROP CONSTRAINT fk__profile__institution_id;
 DROP TABLE institution;
 
+DROP TABLE notification;
+
 DROP TABLE translation;
 
 DROP TABLE profile;
