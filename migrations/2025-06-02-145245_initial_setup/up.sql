@@ -275,13 +275,15 @@ SELECT diesel_manage_updated_at('location_profile');
 
 
 CREATE TABLE review (
-	id          SERIAL    PRIMARY KEY,
 	profile_id  INTEGER   NOT NULL,
 	location_id INTEGER   NOT NULL,
 	rating      INTEGER   NOT NULL CHECK (0 <= rating AND rating <= 5),
 	body        TEXT,
 	created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
 	updated_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+
+	CONSTRAINT unq__review
+	UNIQUE (profile_id, location_id),
 
 	CONSTRAINT fk__review__profile_id
 	FOREIGN KEY (profile_id)

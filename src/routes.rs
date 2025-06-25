@@ -65,6 +65,7 @@ use crate::controllers::profile::{
 	get_profile_authorities,
 	get_profile_locations,
 	get_profile_reservations,
+	get_profile_reviews,
 	update_current_profile,
 	update_profile,
 	upload_profile_avatar,
@@ -151,6 +152,7 @@ fn profile_routes(state: &AppState) -> Router<AppState> {
 		.route("/{profile_id}/authorities", get(get_profile_authorities))
 		.route("/{profile_id}/locations", get(get_profile_locations))
 		.route("/{profile_id}/reservations", get(get_profile_reservations))
+		.route("/{profile_id}/reviews", get(get_profile_reviews))
 		.route_layer(AuthLayer::new(state.clone()))
 }
 

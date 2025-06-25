@@ -533,7 +533,7 @@ paths:
                 items:
                   $ref: "#/components/schemas/reservation"
 
-  /profiles/{id}/reviews:
+  /profiles/{id}/reviews ✅:
     parameters:
       - name: id
         in: path

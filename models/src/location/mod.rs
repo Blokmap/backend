@@ -369,6 +369,66 @@ impl Location {
 		Ok((location, (times, tags, imgs)))
 	}
 
+	/// Get a list of [`Location`]s given a list of IDs
+	#[instrument(skip(conn))]
+	pub async fn get_by_ids(
+		loc_ids: Vec<i32>,
+		includes: LocationIncludes,
+		conn: &DbConn,
+	) -> Result<Vec<FullLocationData>, Error> {
+		let query = Self::joined_query(includes);
+
+		let locations: Vec<Location> = conn
+			.interact(move |conn| {
+				use crate::schema::location::dsl::*;
+
+				query
+					.filter(id.eq_any(loc_ids))
+					.select((
+						PrimitiveLocation::as_select(),
+						description.fields(
+							<
+								PrimitiveTranslation as Selectable<Pg>
+							>::construct_selection()
+						),
+						excerpt.fields(
+							<
+								PrimitiveTranslation as Selectable<Pg>
+							>::construct_selection()
+						),
+						<
+							PrimitiveAuthority as Selectable<Pg>
+						>
+						::construct_selection().nullable(),
+						approver.fields(simple_profile::all_columns).nullable(),
+						rejecter.fields(simple_profile::all_columns).nullable(),
+						creator.fields(simple_profile::all_columns).nullable(),
+						updater.fields(simple_profile::all_columns).nullable(),
+					))
+					.get_results(conn)
+			})
+			.await??
+			.into_iter()
+			.map(|(l, d, e, y, a, r, c, u)| {
+				Self::from_joined(includes, (l, d, e, y, a, r, c, u))
+			})
+			.collect();
+
+		let l_ids: Vec<i32> = locations.iter().map(|l| l.location.id).collect();
+
+		let (times, tags, imgs) = tokio::join!(
+			PrimitiveOpeningTime::get_for_locations(l_ids.clone(), conn),
+			Tag::get_for_locations(l_ids.clone(), conn),
+			Image::get_for_locations(l_ids, conn),
+		);
+
+		let times = times?;
+		let tags = tags?;
+		let imgs = imgs?;
+
+		Ok(Self::group(locations, &times, &tags, &imgs))
+	}
+
 	/// Get all locations created by a given profile
 	#[instrument(skip(conn))]
 	pub async fn get_by_profile_id(

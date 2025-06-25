@@ -22,6 +22,7 @@ use models::{
 	ProfileState,
 	Reservation,
 	ReservationIncludes,
+	Review,
 	UpdateProfile,
 };
 use uuid::Uuid;
@@ -33,6 +34,7 @@ use crate::schemas::location::LocationResponse;
 use crate::schemas::pagination::{PaginationOptions, PaginationResponse};
 use crate::schemas::profile::{ProfileResponse, UpdateProfileRequest};
 use crate::schemas::reservation::ReservationResponse;
+use crate::schemas::review::ReviewLocationResponse;
 use crate::{AdminSession, Config, Session};
 
 /// Get all [`Profile`]s
@@ -327,6 +329,20 @@ pub async fn get_profile_authorities(
 	let authorities = Authority::for_profile(p_id, includes, &conn).await?;
 	let response: Vec<AuthorityResponse> =
 		authorities.into_iter().map(Into::into).collect();
+
+	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn get_profile_reviews(
+	State(pool): State<DbPool>,
+	Path(p_id): Path<i32>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let reviews = Review::for_profile(p_id, &conn).await?;
+	let response: Vec<ReviewLocationResponse> =
+		reviews.into_iter().map(Into::into).collect();
 
 	Ok((StatusCode::OK, Json(response)))
 }
