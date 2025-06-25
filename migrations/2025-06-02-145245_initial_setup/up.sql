@@ -61,11 +61,12 @@ SELECT diesel_manage_updated_at('translation');
 
 
 CREATE TABLE notification (
-	id SERIAL PRIMARY KEY,
+	id         SERIAL PRIMARY KEY,
 	profile_id INTEGER NOT NULL,
-	body_id INTEGER NOT NULL,
+	title_id   INTEGER NOT NULL,
+	body_id    INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL DEFAULT now(),
-	read_at TIMESTAMP,
+	read_at    TIMESTAMP,
 
 	CONSTRAINT fk__notification__body_id
 	FOREIGN KEY (body_id)
