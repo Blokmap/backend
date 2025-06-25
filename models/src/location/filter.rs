@@ -300,7 +300,7 @@ impl Location {
 			.await??
 			.into_iter()
 			.map(|(l, d, e, y, a, r, c, u)| {
-				Self::from_joined(includes, l, d, e, y, a, r, c, u)
+				Self::from_joined(includes, (l, d, e, y, a, r, c, u))
 			})
 			.collect::<Vec<_>>();
 

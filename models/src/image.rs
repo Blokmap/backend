@@ -42,6 +42,54 @@ impl Image {
 
 		Ok(())
 	}
+
+	/// Get all [`Image`]s for a location with the given id
+	#[instrument(skip(conn))]
+	pub async fn get_for_location(
+		l_id: i32,
+		conn: &DbConn,
+	) -> Result<Vec<Self>, Error> {
+		let imgs = conn
+			.interact(move |conn| {
+				use crate::schema::image::dsl::*;
+				use crate::schema::location;
+				use crate::schema::location_image::dsl::*;
+
+				location::table
+					.find(l_id)
+					.inner_join(location_image.on(location_id.eq(location::id)))
+					.inner_join(image.on(image_id.eq(id)))
+					.select(Self::as_select())
+					.get_results(conn)
+			})
+			.await??;
+
+		Ok(imgs)
+	}
+
+	/// Get all [`Image`]s for the locations with the given ids
+	#[instrument(skip(l_ids, conn))]
+	pub async fn get_for_locations(
+		l_ids: Vec<i32>,
+		conn: &DbConn,
+	) -> Result<Vec<(i32, Self)>, Error> {
+		let imgs = conn
+			.interact(move |conn| {
+				use crate::schema::image::dsl::*;
+				use crate::schema::location;
+				use crate::schema::location_image::dsl::*;
+
+				location::table
+					.filter(location::id.eq_any(l_ids))
+					.inner_join(location_image.on(location_id.eq(location::id)))
+					.inner_join(image.on(image_id.eq(id)))
+					.select((location::id, Self::as_select()))
+					.get_results(conn)
+			})
+			.await??;
+
+		Ok(imgs)
+	}
 }
 
 #[derive(Clone, Debug, Deserialize, Insertable, Serialize)]

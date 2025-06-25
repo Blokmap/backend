@@ -40,6 +40,7 @@ use crate::controllers::location::{
 	get_location,
 	reject_location,
 	search_locations,
+	set_location_tags,
 	update_location,
 	upload_location_image,
 };
@@ -150,6 +151,7 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 		.route("/{id}", patch(update_location).delete(delete_location))
 		.route("/{id}/approve", post(approve_location))
 		.route("/{id}/reject", post(reject_location))
+		.route("/{id}/tags", post(set_location_tags))
 		.route("/{id}/images", post(upload_location_image))
 		.route("/{id}/images/{image_id}", delete(delete_location_image))
 		.route(

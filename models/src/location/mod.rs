@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::hash::Hash;
 
 use chrono::{NaiveDateTime, Utc};
@@ -7,6 +6,7 @@ use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
 use diesel::{Identifiable, Queryable, Selectable};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::schema::{
@@ -31,15 +31,33 @@ use crate::{
 	PrimitiveOpeningTime,
 	PrimitiveTranslation,
 	SimpleProfile,
+	Tag,
 };
 
 mod filter;
 
 pub use filter::*;
 
-pub type LocationBackfill = (Location, Option<PrimitiveOpeningTime>);
+pub type UnjoinedLocationData = (
+	PrimitiveLocation,
+	PrimitiveTranslation,
+	PrimitiveTranslation,
+	Option<PrimitiveAuthority>,
+	Option<SimpleProfile>,
+	Option<SimpleProfile>,
+	Option<SimpleProfile>,
+	Option<SimpleProfile>,
+);
 
-pub type FullLocationData = (Location, Vec<PrimitiveOpeningTime>);
+pub type LocationBackfill = (
+	Vec<Location>,
+	Vec<(i32, PrimitiveOpeningTime)>,
+	Vec<(i32, Tag)>,
+	Vec<(i32, Image)>,
+);
+
+pub type FullLocationData =
+	(Location, (Vec<PrimitiveOpeningTime>, Vec<Tag>, Vec<Image>));
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[allow(clippy::struct_excessive_bools)]
@@ -56,7 +74,7 @@ pub struct LocationIncludes {
 	pub updated_by:  bool,
 }
 
-#[derive(Clone, Debug, Deserialize, Queryable, Serialize)]
+#[derive(Clone, Debug, Queryable, Serialize)]
 #[diesel(table_name = location)]
 #[diesel(check_for_backend(Pg))]
 pub struct Location {
@@ -191,39 +209,51 @@ impl Location {
 	#[allow(clippy::too_many_arguments)]
 	fn from_joined(
 		includes: LocationIncludes,
-		l: PrimitiveLocation,
-		d: PrimitiveTranslation,
-		e: PrimitiveTranslation,
-		y: Option<PrimitiveAuthority>,
-		a: Option<SimpleProfile>,
-		r: Option<SimpleProfile>,
-		c: Option<SimpleProfile>,
-		u: Option<SimpleProfile>,
+		data: UnjoinedLocationData,
 	) -> Self {
 		Self {
-			location:    l,
-			description: d,
-			excerpt:     e,
-			authority:   if includes.authority { Some(y) } else { None },
-			approved_by: if includes.approved_by { Some(a) } else { None },
-			rejected_by: if includes.rejected_by { Some(r) } else { None },
-			created_by:  if includes.created_by { Some(c) } else { None },
-			updated_by:  if includes.updated_by { Some(u) } else { None },
+			location:    data.0,
+			description: data.1,
+			excerpt:     data.2,
+			authority:   if includes.authority { Some(data.3) } else { None },
+			approved_by: if includes.approved_by { Some(data.4) } else { None },
+			rejected_by: if includes.rejected_by { Some(data.5) } else { None },
+			created_by:  if includes.created_by { Some(data.6) } else { None },
+			updated_by:  if includes.updated_by { Some(data.7) } else { None },
 		}
 	}
 
-	fn group_by_id(data: Vec<LocationBackfill>) -> Vec<FullLocationData> {
-		let mut id_map = HashMap::new();
+	/// Group a locations and their related data together
+	#[must_use]
+	pub fn group(
+		locs: Vec<Location>,
+		times: &[(i32, PrimitiveOpeningTime)],
+		tags: &[(i32, Tag)],
+		imgs: &[(i32, Image)],
+	) -> Vec<FullLocationData> {
+		locs.into_par_iter()
+			.map(|l| {
+				let l_id = l.location.id;
 
-		for (loc, times) in data {
-			let entry = id_map.entry(loc).or_insert(vec![]);
+				let times = times
+					.iter()
+					.filter(|(i, _)| *i == l_id)
+					.map(|(_, d)| d.to_owned())
+					.collect();
+				let tags = tags
+					.iter()
+					.filter(|(i, _)| *i == l_id)
+					.map(|(_, d)| d.to_owned())
+					.collect();
+				let imgs = imgs
+					.iter()
+					.filter(|(i, _)| *i == l_id)
+					.map(|(_, d)| d.to_owned())
+					.collect();
 
-			if let Some(times) = times {
-				entry.push(times);
-			}
-		}
-
-		id_map.into_iter().collect()
+				(l, (times, tags, imgs))
+			})
+			.collect()
 	}
 
 	/// Get the permissions for a given user for this location
@@ -271,13 +301,12 @@ impl Location {
 	) -> Result<FullLocationData, Error> {
 		let query = Self::joined_query(includes);
 
-		let locations: Vec<LocationBackfill> = conn
+		let location_data = conn
 			.interact(move |conn| {
 				use crate::schema::location::dsl::*;
 
 				query
 					.filter(id.eq(loc_id))
-					.left_outer_join(opening_time::table)
 					.select((
 						PrimitiveLocation::as_select(),
 						description.fields(
@@ -298,26 +327,25 @@ impl Location {
 						rejecter.fields(simple_profile::all_columns).nullable(),
 						creator.fields(simple_profile::all_columns).nullable(),
 						updater.fields(simple_profile::all_columns).nullable(),
-						<
-							PrimitiveOpeningTime as Selectable<Pg>
-						>
-						::construct_selection().nullable(),
 					))
-					.get_results(conn)
+					.get_result(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|(l, d, e, y, a, r, c, u, t)| {
-				let loc = Self::from_joined(includes, l, d, e, y, a, r, c, u);
+			.await??;
 
-				(loc, t)
-			})
-			.collect();
+		let location = Self::from_joined(includes, location_data);
+		let l_id = location.location.id;
 
-		match Self::group_by_id(locations).first() {
-			Some(r) => Ok(r.clone()),
-			None => Err(Error::NotFound(String::new())),
-		}
+		let (times, tags, imgs) = tokio::join!(
+			PrimitiveOpeningTime::get_for_location(l_id, conn),
+			Tag::get_for_location(l_id, conn),
+			Image::get_for_location(l_id, conn),
+		);
+
+		let times = times?;
+		let tags = tags?;
+		let imgs = imgs?;
+
+		Ok((location, (times, tags, imgs)))
 	}
 
 	/// Get all locations created by a given profile
@@ -329,13 +357,12 @@ impl Location {
 	) -> Result<Vec<FullLocationData>, Error> {
 		let query = Self::joined_query(includes);
 
-		let locations = conn
+		let locations: Vec<_> = conn
 			.interact(move |conn| {
 				use self::location::dsl::*;
 
 				query
 					.filter(created_by.eq(profile_id))
-					.left_outer_join(opening_time::table)
 					.select((
 						PrimitiveLocation::as_select(),
 						description.fields(
@@ -356,23 +383,29 @@ impl Location {
 						rejecter.fields(simple_profile::all_columns).nullable(),
 						creator.fields(simple_profile::all_columns).nullable(),
 						updater.fields(simple_profile::all_columns).nullable(),
-						<
-							PrimitiveOpeningTime as Selectable<Pg>
-						>
-						::construct_selection().nullable(),
 					))
 					.load(conn)
 			})
 			.await??
 			.into_iter()
-			.map(|(l, d, e, y, a, r, c, u, t)| {
-				let loc = Self::from_joined(includes, l, d, e, y, a, r, c, u);
-
-				(loc, t)
+			.map(|(l, d, e, y, a, r, c, u)| {
+				Self::from_joined(includes, (l, d, e, y, a, r, c, u))
 			})
 			.collect();
 
-		Ok(Self::group_by_id(locations))
+		let l_ids: Vec<i32> = locations.iter().map(|l| l.location.id).collect();
+
+		let (times, tags, imgs) = tokio::join!(
+			PrimitiveOpeningTime::get_for_locations(l_ids.clone(), conn),
+			Tag::get_for_locations(l_ids.clone(), conn),
+			Image::get_for_locations(l_ids, conn),
+		);
+
+		let times = times?;
+		let tags = tags?;
+		let imgs = imgs?;
+
+		Ok(Self::group(locations, &times, &tags, &imgs))
 	}
 
 	/// Get all simple locations belonging to an authority
@@ -416,7 +449,7 @@ impl Location {
 			.await??
 			.into_iter()
 			.map(|(l, d, e, y, a, r, c, u)| {
-				Self::from_joined(includes, l, d, e, y, a, r, c, u)
+				Self::from_joined(includes, (l, d, e, y, a, r, c, u))
 			})
 			.collect();
 
@@ -432,7 +465,7 @@ impl Location {
 	) -> Result<Vec<FullLocationData>, Error> {
 		let query = Self::joined_query(includes);
 
-		let locations = conn
+		let locations: Vec<_> = conn
 			.interact(move |conn| {
 				use self::location::dsl::*;
 
@@ -459,23 +492,29 @@ impl Location {
 						rejecter.fields(simple_profile::all_columns).nullable(),
 						creator.fields(simple_profile::all_columns).nullable(),
 						updater.fields(simple_profile::all_columns).nullable(),
-						<
-							PrimitiveOpeningTime as Selectable<Pg>
-						>
-						::construct_selection().nullable(),
 					))
 					.load(conn)
 			})
 			.await??
 			.into_iter()
-			.map(|(l, d, e, y, a, r, c, u, t)| {
-				let loc = Self::from_joined(includes, l, d, e, y, a, r, c, u);
-
-				(loc, t)
+			.map(|(l, d, e, y, a, r, c, u)| {
+				Self::from_joined(includes, (l, d, e, y, a, r, c, u))
 			})
 			.collect();
 
-		Ok(Self::group_by_id(locations))
+		let l_ids: Vec<i32> = locations.iter().map(|l| l.location.id).collect();
+
+		let (times, tags, imgs) = tokio::join!(
+			PrimitiveOpeningTime::get_for_locations(l_ids.clone(), conn),
+			Tag::get_for_locations(l_ids.clone(), conn),
+			Image::get_for_locations(l_ids, conn),
+		);
+
+		let times = times?;
+		let tags = tags?;
+		let imgs = imgs?;
+
+		Ok(Self::group(locations, &times, &tags, &imgs))
 	}
 
 	/// Delete a [`Location`] by its id

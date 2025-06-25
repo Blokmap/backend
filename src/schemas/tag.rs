@@ -33,6 +33,12 @@ impl From<Tag> for TagResponse {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SetLocationTagsRequest {
+	pub tags: Vec<i32>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateTagRequest {
 	pub name: CreateTranslationRequest,
 }

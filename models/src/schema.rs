@@ -236,6 +236,7 @@ diesel::table! {
 diesel::alias!(
 	translation as description: DescriptionAlias,
 	translation as excerpt: ExcerptAlias,
+	translation as tag_name: TagNameAlias,
 	simple_profile as approver: ApproverAlias,
 	simple_profile as rejecter: RejecterAlias,
 	simple_profile as creator: CreatorAlias,

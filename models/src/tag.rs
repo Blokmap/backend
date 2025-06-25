@@ -5,7 +5,14 @@ use diesel::prelude::*;
 use diesel::sql_types::Bool;
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{creator, simple_profile, tag, translation, updater};
+use crate::schema::{
+	creator,
+	location_tag,
+	simple_profile,
+	tag,
+	translation,
+	updater,
+};
 use crate::{
 	NewTranslation,
 	PrimitiveTranslation,
@@ -166,6 +173,118 @@ impl Tag {
 		.await??;
 
 		info!("deleted tag with id {tag_id}");
+
+		Ok(())
+	}
+
+	/// Get all tags for a location with the given id
+	#[instrument(skip(conn))]
+	pub async fn get_for_location(
+		l_id: i32,
+		conn: &DbConn,
+	) -> Result<Vec<Self>, Error> {
+		let tags = conn
+			.interact(move |conn| {
+				use crate::schema::location;
+				use crate::schema::location_tag::dsl::*;
+				use crate::schema::tag::dsl::*;
+
+				location::table
+					.find(l_id)
+					.inner_join(location_tag.on(location_id.eq(location::id)))
+					.inner_join(tag.on(tag_id.eq(id)))
+					.inner_join(
+						translation::table
+							.on(name_translation_id.eq(translation::id)),
+					)
+					.select((
+						PrimitiveTag::as_select(),
+						PrimitiveTranslation::as_select(),
+					))
+					.get_results(conn)
+			})
+			.await??
+			.into_iter()
+			.map(|(tag, name)| {
+				Tag { tag, name, created_by: None, updated_by: None }
+			})
+			.collect();
+
+		Ok(tags)
+	}
+
+	/// Get all tags for a list of locations
+	#[instrument(skip(conn))]
+	pub async fn get_for_locations(
+		l_ids: Vec<i32>,
+		conn: &DbConn,
+	) -> Result<Vec<(i32, Self)>, Error> {
+		let tags = conn
+			.interact(move |conn| {
+				use crate::schema::location;
+				use crate::schema::location_tag::dsl::*;
+				use crate::schema::tag::dsl::*;
+
+				location::table
+					.filter(location::id.eq_any(l_ids))
+					.inner_join(location_tag.on(location_id.eq(location::id)))
+					.inner_join(tag.on(tag_id.eq(id)))
+					.inner_join(
+						translation::table
+							.on(name_translation_id.eq(translation::id)),
+					)
+					.select((
+						location::id,
+						PrimitiveTag::as_select(),
+						PrimitiveTranslation::as_select(),
+					))
+					.get_results(conn)
+			})
+			.await??
+			.into_iter()
+			.map(|(id, tag, name)| {
+				(id, Tag { tag, name, created_by: None, updated_by: None })
+			})
+			.collect();
+
+		Ok(tags)
+	}
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Insertable, Serialize)]
+#[diesel(table_name = location_tag)]
+#[diesel(check_for_backend(Pg))]
+pub struct NewLocationTag {
+	pub tag_id:      i32,
+	pub location_id: i32,
+}
+
+impl Tag {
+	/// Set a list of location-tag crossovers
+	///
+	/// This removes the previous list of location tags for this location
+	#[instrument(skip(conn))]
+	pub async fn bulk_set(
+		l_id: i32,
+		t_ids: Vec<i32>,
+		conn: &DbConn,
+	) -> Result<(), Error> {
+		let new_tags: Vec<_> = t_ids
+			.into_iter()
+			.map(|tag_id| NewLocationTag { tag_id, location_id: l_id })
+			.collect();
+
+		conn.interact(move |conn| {
+			conn.transaction(|conn| {
+				use crate::schema::location_tag::dsl::*;
+
+				diesel::delete(location_tag.filter(location_id.eq(l_id)))
+					.execute(conn)?;
+
+				diesel::insert_into(location_tag).values(new_tags).execute(conn)
+			})
+		})
+		.await??;
 
 		Ok(())
 	}

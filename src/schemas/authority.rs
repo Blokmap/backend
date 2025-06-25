@@ -38,7 +38,7 @@ impl From<Authority> for AuthorityResponse {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FullAuthorityResponse {
 	pub id:          i32,

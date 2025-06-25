@@ -1,6 +1,5 @@
 //! Controllers for [`Location`]s
 
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
@@ -19,7 +18,8 @@ use models::{
 	LocationFilter,
 	LocationIncludes,
 	NewImage,
-	OpeningTime,
+	PrimitiveOpeningTime,
+	Tag,
 	TimeFilter,
 };
 use rayon::prelude::*;
@@ -32,6 +32,7 @@ use crate::schemas::location::{
 	UpdateLocationRequest,
 };
 use crate::schemas::pagination::PaginationOptions;
+use crate::schemas::tag::SetLocationTagsRequest;
 use crate::{AdminSession, Session};
 
 /// Create a new location in the database.
@@ -118,31 +119,13 @@ pub async fn delete_location_image(
 		can_manage = true;
 	}
 
-	let actor_id = session.data.profile_id;
-	let actor_perms =
-		Location::get_profile_permissions(l_id, actor_id, &conn).await?;
-
-	#[allow(clippy::collapsible_if)]
-	if let Some(perms) = actor_perms {
-		if perms.intersects(
-			AuthorityPermissions::Administrator
-				| AuthorityPermissions::ManageLocation,
-		) {
-			can_manage = true;
-		}
-	}
-
-	let perm_includes =
-		LocationIncludes { created_by: true, ..Default::default() };
-	let (location, ..) =
-		Location::get_by_id(l_id, perm_includes, &conn).await?;
-
-	#[allow(clippy::collapsible_if)]
-	if let Some(Some(creator)) = location.created_by {
-		if creator.id == actor_id {
-			can_manage = true;
-		}
-	}
+	can_manage |= AuthorityPermissions::location_admin_or(
+		session.data.profile_id,
+		l_id,
+		AuthorityPermissions::ManageLocation,
+		&conn,
+	)
+	.await?;
 
 	if !can_manage {
 		return Err(Error::Forbidden);
@@ -204,25 +187,19 @@ pub(crate) async fn search_locations(
 	)
 	.await?;
 
-	let location_ids =
-		locations.iter().map(|l| l.location.id).collect::<Vec<_>>();
+	let l_ids = locations.iter().map(|l| l.location.id).collect::<Vec<_>>();
 
-	let times = OpeningTime::get_by_ids(location_ids, &conn).await?;
+	let (times, tags, imgs) = tokio::join!(
+		PrimitiveOpeningTime::get_for_locations(l_ids.clone(), &conn),
+		Tag::get_for_locations(l_ids.clone(), &conn),
+		Image::get_for_locations(l_ids, &conn),
+	);
 
-	let mut id_map = HashMap::new();
+	let times = times?;
+	let tags = tags?;
+	let imgs = imgs?;
 
-	for loc in locations {
-		let loc_id = loc.location.id;
-		let entry = id_map.entry(loc).or_insert(vec![]);
-
-		for time in &times {
-			if time.location_id == loc_id {
-				entry.push(time.clone());
-			}
-		}
-	}
-
-	let locations = id_map.into_iter().collect::<Vec<_>>();
+	let locations = Location::group(locations, &times, &tags, &imgs);
 
 	let locations: Vec<LocationResponse> =
 		locations.into_iter().map(Into::into).collect();
@@ -251,36 +228,19 @@ pub(crate) async fn update_location(
 		can_manage = true;
 	}
 
-	let actor_id = session.data.profile_id;
-	let actor_perms =
-		Location::get_profile_permissions(id, actor_id, &conn).await?;
-
-	#[allow(clippy::collapsible_if)]
-	if let Some(perms) = actor_perms {
-		if perms.intersects(
-			AuthorityPermissions::Administrator
-				| AuthorityPermissions::ManageLocation,
-		) {
-			can_manage = true;
-		}
-	}
-
-	let perm_includes =
-		LocationIncludes { created_by: true, ..Default::default() };
-	let (location, ..) = Location::get_by_id(id, perm_includes, &conn).await?;
-
-	#[allow(clippy::collapsible_if)]
-	if let Some(Some(creator)) = location.created_by {
-		if creator.id == actor_id {
-			can_manage = true;
-		}
-	}
+	can_manage |= AuthorityPermissions::location_admin_or(
+		session.data.profile_id,
+		id,
+		AuthorityPermissions::ManageLocation,
+		&conn,
+	)
+	.await?;
 
 	if !can_manage {
 		return Err(Error::Forbidden);
 	}
 
-	let loc_update = request.to_insertable(actor_id);
+	let loc_update = request.to_insertable(session.data.profile_id);
 	let updated_loc = loc_update.apply_to(id, includes, &conn).await?;
 	let response = LocationResponse::from(updated_loc);
 
@@ -295,6 +255,25 @@ pub(crate) async fn approve_location(
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
+
+	let mut can_manage = false;
+
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
+	can_manage |= AuthorityPermissions::location_admin_or(
+		session.data.profile_id,
+		id,
+		AuthorityPermissions::ManageLocation
+			| AuthorityPermissions::ApproveLocation,
+		&conn,
+	)
+	.await?;
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
 
 	Location::approve_by(id, session.data.profile_id, &conn).await?;
 
@@ -311,8 +290,58 @@ pub(crate) async fn reject_location(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
+	let mut can_manage = false;
+
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
+	can_manage |= AuthorityPermissions::location_admin_or(
+		session.data.profile_id,
+		id,
+		AuthorityPermissions::ManageLocation
+			| AuthorityPermissions::ApproveLocation,
+		&conn,
+	)
+	.await?;
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
+
 	Location::reject_by(id, session.data.profile_id, request.reason, &conn)
 		.await?;
+
+	Ok((StatusCode::NO_CONTENT, NoContent))
+}
+
+pub async fn set_location_tags(
+	State(pool): State<DbPool>,
+	session: Session,
+	Path(id): Path<i32>,
+	Json(data): Json<SetLocationTagsRequest>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let mut can_manage = false;
+
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
+	can_manage |= AuthorityPermissions::location_admin_or(
+		session.data.profile_id,
+		id,
+		AuthorityPermissions::ManageLocation,
+		&conn,
+	)
+	.await?;
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
+
+	Tag::bulk_set(id, data.tags, &conn).await?;
 
 	Ok((StatusCode::NO_CONTENT, NoContent))
 }
@@ -332,30 +361,17 @@ pub(crate) async fn delete_location(
 		can_manage = true;
 	}
 
-	let actor_id = session.data.profile_id;
-	let actor_perms =
-		Location::get_profile_permissions(id, actor_id, &conn).await?;
+	can_manage |= AuthorityPermissions::location_admin_or(
+		session.data.profile_id,
+		id,
+		AuthorityPermissions::ManageLocation
+			| AuthorityPermissions::DeleteLocation,
+		&conn,
+	)
+	.await?;
 
-	#[allow(clippy::collapsible_if)]
-	if let Some(perms) = actor_perms {
-		if perms.intersects(
-			AuthorityPermissions::Administrator
-				| AuthorityPermissions::ManageLocation
-				| AuthorityPermissions::DeleteLocation,
-		) {
-			can_manage = true;
-		}
-	}
-
-	let perm_includes =
-		LocationIncludes { created_by: true, ..Default::default() };
-	let (location, ..) = Location::get_by_id(id, perm_includes, &conn).await?;
-
-	#[allow(clippy::collapsible_if)]
-	if let Some(Some(creator)) = location.created_by {
-		if creator.id == actor_id {
-			can_manage = true;
-		}
+	if !can_manage {
+		return Err(Error::Forbidden);
 	}
 
 	if !can_manage {
