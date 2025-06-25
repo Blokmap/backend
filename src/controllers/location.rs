@@ -256,7 +256,24 @@ pub(crate) async fn approve_location(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	// TODO: check permissions for locations in authorities
+	let mut can_manage = false;
+
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
+	can_manage |= AuthorityPermissions::location_admin_or(
+		session.data.profile_id,
+		id,
+		AuthorityPermissions::ManageLocation
+			| AuthorityPermissions::ApproveLocation,
+		&conn,
+	)
+	.await?;
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
 
 	Location::approve_by(id, session.data.profile_id, &conn).await?;
 
@@ -273,7 +290,24 @@ pub(crate) async fn reject_location(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	// TODO: check permissions for locations in authorities
+	let mut can_manage = false;
+
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
+	can_manage |= AuthorityPermissions::location_admin_or(
+		session.data.profile_id,
+		id,
+		AuthorityPermissions::ManageLocation
+			| AuthorityPermissions::ApproveLocation,
+		&conn,
+	)
+	.await?;
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
 
 	Location::reject_by(id, session.data.profile_id, request.reason, &conn)
 		.await?;
