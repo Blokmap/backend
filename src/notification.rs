@@ -32,20 +32,19 @@ mod macro_test {
 /// ==============
 ///
 /// impl Notification {
-/// 	fn fire_for<T>(self, profile: Profile) -> Result<Box<dyn
-/// SendableNotifcation>, Error> { 		match self {
+/// 	fn fire_for<T>(self, profile: Profile) -> Result<Box<dyn SendableNotifcation>, Error> {
+/// 		match self {
 /// 			Self::ConfirmEmail { confirmation_url } => {
 /// 				let email = ConfirmEmailTemplate::Email { confirmation_url }.render()?;
-/// 				let markdown = ConfirmEmailTemplate::Markdown { confirmation_url
-/// }.render()?; 				let text = ConfirmEmailTemplate::Text { confirmation_url
-/// }.render()?;
+/// 				let markdown = ConfirmEmailTemplate::Markdown { confirmation_url }.render()?;
+///  				let text = ConfirmEmailTemplate::Text { confirmation_url }.render()?;
 ///
-/// 				Ok(Box::new(ConfirmEmail { email, markdown, text }))
+/// 				Ok(Box::new(ConfirmEmailMultiTemplate { email, markdown, text }))
 /// 			},
 /// 			Self::ResetPassword { reset_url } => {
 /// 				let email = ResetPasswordTemplate::Email { reset_url }.render()?;
 ///
-/// 				Ok(Box::new(ResetPassword { email }))
+/// 				Ok(Box::new(ResetPasswordMultiTemplate { email }))
 /// 			},
 /// 		}
 /// 	}
@@ -59,7 +58,11 @@ mod macro_test {
 ///
 /// impl SendableNotification for ConfirmEmailMultiTemplate {
 /// 	fn send_for(self, profile: Profile) -> Result<(), Error> {
+/// 		profile.send_email(self.email, todo!("subject"))?;
+/// 		profile.send_sms(self.markdown)?;
+/// 		profile.send_website_notification(self.text, todo!("subject"))?;
 ///
+/// 		Ok(())
 /// 	}
 /// }
 ///
