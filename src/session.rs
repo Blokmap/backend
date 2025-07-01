@@ -9,7 +9,6 @@ use models::Profile;
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use time::Duration;
-use uuid::Uuid;
 
 use crate::AppState;
 
@@ -24,7 +23,7 @@ use crate::AppState;
 /// ```
 #[derive(Clone, Copy, Debug)]
 pub struct Session {
-	pub id:   Uuid,
+	pub id:   i32,
 	pub data: SessionData,
 }
 
@@ -39,7 +38,7 @@ pub struct Session {
 /// ```
 #[derive(Clone, Copy, Debug)]
 pub struct AdminSession {
-	pub id:   Uuid,
+	pub id:   i32,
 	pub data: SessionData,
 }
 
@@ -56,7 +55,7 @@ impl FromRequestParts<AppState> for Session {
 		parts: &mut Parts,
 		state: &AppState,
 	) -> Result<Self, Self::Rejection> {
-		let session_id = match parts.extensions.get::<Uuid>() {
+		let session_id = match parts.extensions.get::<i32>() {
 			Some(id) => *id,
 			None => {
 				return Err(InternalServerError::SessionWithoutAuthError.into());
@@ -68,7 +67,7 @@ impl FromRequestParts<AppState> for Session {
 			.await
 			.map_err(|_| Error::InternalServerError)?;
 
-		let session = Self::get(&session_id, &mut conn).await?;
+		let session = Self::get(session_id, &mut conn).await?;
 
 		let Some(session) = session else {
 			return Err(Error::Infallible(
@@ -109,7 +108,7 @@ impl Session {
 		profile: &Profile,
 		conn: &mut RedisConn,
 	) -> Result<Self, Error> {
-		let id = Uuid::new_v4();
+		let id = profile.id;
 		let profile_id = profile.id;
 
 		let data =
@@ -135,7 +134,7 @@ impl Session {
 	/// Get a session from the cache
 	#[instrument(skip(conn))]
 	pub async fn get(
-		id: &Uuid,
+		id: i32,
 		conn: &mut RedisConn,
 	) -> Result<Option<Self>, Error> {
 		let data_string: Option<String> = conn.get(id).await?;
@@ -147,31 +146,22 @@ impl Session {
 		let data: SessionData = serde_json::from_str(data_string)
 			.map_err(InternalServerError::SerdeJsonError)?;
 
-		let session = Self { id: *id, data };
+		let session = Self { id, data };
 
 		Ok(Some(session))
 	}
 
 	/// Remove a session given its id
 	#[instrument(skip(conn))]
-	pub async fn delete(id: &Uuid, conn: &mut RedisConn) -> Result<(), Error> {
-		let n: i32 = conn.del(id).await?;
-
-		if n != 1 {
-			return Err(Error::Infallible(
-				"tried to delete non existant session".to_string(),
-			));
-		}
+	pub async fn delete(id: i32, conn: &mut RedisConn) -> Result<(), Error> {
+		let _: i32 = conn.del(id).await?;
 
 		Ok(())
 	}
 
 	/// Check if a session with this id exists
 	#[instrument(skip(conn))]
-	pub async fn exists(
-		id: &Uuid,
-		conn: &mut RedisConn,
-	) -> Result<bool, Error> {
+	pub async fn exists(id: i32, conn: &mut RedisConn) -> Result<bool, Error> {
 		let exists: i32 = conn.exists(id).await?;
 
 		Ok(exists == 1)

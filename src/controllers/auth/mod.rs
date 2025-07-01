@@ -295,7 +295,7 @@ pub(crate) async fn logout_profile(
 	let access_token = Cookie::build(config.access_token_name).path("/");
 	let jar = jar.remove(access_token);
 
-	Session::delete(&session.id, &mut r_conn).await?;
+	Session::delete(session.id, &mut r_conn).await?;
 
 	info!("logged out profile {}", session.data.profile_id);
 

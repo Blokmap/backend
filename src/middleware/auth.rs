@@ -11,7 +11,6 @@ use axum::response::IntoResponse;
 use axum_extra::extract::PrivateCookieJar;
 use common::{Error, TokenError};
 use tower::{Layer, Service};
-use uuid::Uuid;
 
 use crate::AppState;
 use crate::session::Session;
@@ -78,34 +77,6 @@ where
 		let state = self.state.clone();
 
 		Box::pin(async move {
-			// // Skip authorization in the development environment
-			// // with the Skip-Auth header in the request.
-			// if !state.config.production
-			// 	&& req.headers().contains_key("Skip-Auth")
-			// {
-			// 	// In development, we can just query the first admin user.
-			// 	// We assume that the seeder has created an admin user.
-			// 	let profile = conn
-			// 		.interact(|conn| {
-			// 			use diesel::prelude::*;
-			// 			use models::schema::profile::dsl::*;
-
-			// 			profile.filter(is_admin.eq(true)).first::<Profile>(conn)
-			// 		})
-			// 		.await
-			// 		.unwrap();
-
-			// 	let profile = match profile {
-			// 		Ok(p) => p,
-			// 		Err(e) => return Ok(Error::from(e).into_response()),
-			// 	};
-
-			// 	req.extensions_mut().insert(ProfileId(profile.id));
-
-			// 	info!("skipping auth in development mode");
-			// 	return inner.call(req).await;
-			// }
-
 			let jar = req
 				.extract_parts_with_state::<PrivateCookieJar, _>(&state)
 				.await
@@ -122,10 +93,10 @@ where
 				);
 			};
 
-			// Unwrap is safe as correctly signed access tokens are always Uuids
-			let session_id = access_token.value().parse::<Uuid>().unwrap();
+			// Unwrap is safe as correctly signed access tokens are always i32
+			let session_id = access_token.value().parse::<i32>().unwrap();
 
-			let exists = match Session::exists(&session_id, &mut r_conn).await {
+			let exists = match Session::exists(session_id, &mut r_conn).await {
 				Ok(s) => s,
 				Err(e) => return Ok(e.into_response()),
 			};

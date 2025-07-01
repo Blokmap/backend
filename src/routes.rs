@@ -4,6 +4,7 @@ use axum::Router;
 use axum::routing::{delete, get, patch, post, put};
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
+use tower_http::cors::CorsLayer;
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
@@ -119,7 +120,8 @@ pub fn get_app_router(state: AppState) -> Router {
 			ServiceBuilder::new()
 				.layer(TraceLayer::new_for_http())
 				.layer(TimeoutLayer::new(Duration::from_secs(10)))
-				.layer(CompressionLayer::new()),
+				.layer(CompressionLayer::new())
+				.layer(CorsLayer::permissive()),
 		)
 		.with_state(state)
 }
