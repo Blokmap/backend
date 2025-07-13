@@ -6,6 +6,7 @@ use models::{
 	Location,
 	NewAuthority,
 	NewAuthorityProfile,
+	PrimitiveAuthority,
 	SimpleProfile,
 };
 use serde::{Deserialize, Serialize};
@@ -33,6 +34,20 @@ impl From<Authority> for AuthorityResponse {
 			created_by:  value.created_by,
 			updated_at:  value.authority.updated_at,
 			updated_by:  value.updated_by,
+		}
+	}
+}
+
+impl From<PrimitiveAuthority> for AuthorityResponse {
+	fn from(value: PrimitiveAuthority) -> Self {
+		Self {
+			id:          value.id,
+			name:        value.name,
+			description: value.description,
+			created_at:  value.created_at,
+			created_by:  None,
+			updated_at:  value.updated_at,
+			updated_by:  None,
 		}
 	}
 }

@@ -1,5 +1,11 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-use models::{NewOpeningTime, OpeningTime, OpeningTimeUpdate, SimpleProfile};
+use models::{
+	NewOpeningTime,
+	OpeningTime,
+	OpeningTimeUpdate,
+	PrimitiveOpeningTime,
+	SimpleProfile,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -32,6 +38,24 @@ impl From<OpeningTime> for OpeningTimeResponse {
 			created_by:       value.created_by,
 			updated_at:       value.opening_time.updated_at,
 			updated_by:       value.updated_by,
+		}
+	}
+}
+
+impl From<PrimitiveOpeningTime> for OpeningTimeResponse {
+	fn from(value: PrimitiveOpeningTime) -> Self {
+		Self {
+			id:               value.id,
+			day:              value.day,
+			start_time:       value.start_time,
+			end_time:         value.end_time,
+			seat_count:       value.seat_count,
+			reservable_from:  value.reservable_from,
+			reservable_until: value.reservable_until,
+			created_at:       value.created_at,
+			created_by:       None,
+			updated_at:       value.updated_at,
+			updated_by:       None,
 		}
 	}
 }

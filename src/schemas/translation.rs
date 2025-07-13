@@ -1,5 +1,11 @@
 use chrono::NaiveDateTime;
-use models::{NewTranslation, SimpleProfile, Translation, TranslationUpdate};
+use models::{
+	NewTranslation,
+	PrimitiveTranslation,
+	SimpleProfile,
+	Translation,
+	TranslationUpdate,
+};
 use serde::{Deserialize, Serialize};
 
 /// The data returned when making a new [`Translation`]
@@ -29,6 +35,22 @@ impl From<Translation> for TranslationResponse {
 			created_by: value.created_by,
 			updated_at: value.translation.updated_at,
 			updated_by: value.updated_by,
+		}
+	}
+}
+
+impl From<PrimitiveTranslation> for TranslationResponse {
+	fn from(value: PrimitiveTranslation) -> Self {
+		Self {
+			id:         value.id,
+			nl:         value.nl,
+			en:         value.en,
+			fr:         value.fr,
+			de:         value.de,
+			created_at: value.created_at,
+			created_by: None,
+			updated_at: value.updated_at,
+			updated_by: None,
 		}
 	}
 }

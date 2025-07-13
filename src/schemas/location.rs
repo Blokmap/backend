@@ -5,16 +5,18 @@ use models::{
 	LocationUpdate,
 	NewLocation,
 	NewLocationProfile,
-	PrimitiveAuthority,
-	PrimitiveOpeningTime,
-	PrimitiveTranslation,
 	SimpleProfile,
 };
 use serde::{Deserialize, Serialize};
 
+use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::image::ImageResponse;
+use crate::schemas::opening_time::OpeningTimeResponse;
 use crate::schemas::tag::TagResponse;
-use crate::schemas::translation::CreateTranslationRequest;
+use crate::schemas::translation::{
+	CreateTranslationRequest,
+	TranslationResponse,
+};
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -22,9 +24,9 @@ use crate::schemas::translation::CreateTranslationRequest;
 pub struct LocationResponse {
 	pub id:                     i32,
 	pub name:                   String,
-	pub authority:              Option<Option<PrimitiveAuthority>>,
-	pub description:            Option<PrimitiveTranslation>,
-	pub excerpt:                Option<PrimitiveTranslation>,
+	pub authority:              Option<Option<AuthorityResponse>>,
+	pub description:            Option<TranslationResponse>,
+	pub excerpt:                Option<TranslationResponse>,
 	pub seat_count:             i32,
 	pub is_reservable:          bool,
 	pub reservation_block_size: i32,
@@ -50,7 +52,7 @@ pub struct LocationResponse {
 	pub updated_by:             Option<Option<SimpleProfile>>,
 
 	pub images:        Vec<ImageResponse>,
-	pub opening_times: Vec<PrimitiveOpeningTime>,
+	pub opening_times: Vec<OpeningTimeResponse>,
 	pub tags:          Vec<TagResponse>,
 }
 
@@ -59,38 +61,40 @@ impl From<FullLocationData> for LocationResponse {
 		(location, (opening_times, tags, images)): FullLocationData,
 	) -> Self {
 		Self {
-			id: location.location.id,
-			name: location.location.name,
-			authority: location.authority,
-			description: location.description.into(),
-			excerpt: location.excerpt.into(),
-			seat_count: location.location.seat_count,
-			is_reservable: location.location.is_reservable,
+			id:                     location.location.id,
+			name:                   location.location.name,
+			authority:              location
+				.authority
+				.map(|inner| inner.map(Into::into)),
+			description:            Some(location.description.into()),
+			excerpt:                Some(location.excerpt.into()),
+			seat_count:             location.location.seat_count,
+			is_reservable:          location.location.is_reservable,
 			reservation_block_size: location.location.reservation_block_size,
 			min_reservation_length: location.location.min_reservation_length,
 			max_reservation_length: location.location.max_reservation_length,
-			is_visible: location.location.is_visible,
-			street: location.location.street,
-			number: location.location.number,
-			zip: location.location.zip,
-			city: location.location.city,
-			province: location.location.province,
-			country: location.location.country,
-			latitude: location.location.latitude,
-			longitude: location.location.longitude,
-			approved_at: location.location.approved_at,
-			approved_by: location.approved_by,
-			rejected_at: location.location.rejected_at,
-			rejected_by: location.rejected_by,
-			rejected_reason: location.location.rejected_reason,
-			created_at: location.location.created_at,
-			created_by: location.created_by,
-			updated_at: location.location.updated_at,
-			updated_by: location.updated_by,
+			is_visible:             location.location.is_visible,
+			street:                 location.location.street,
+			number:                 location.location.number,
+			zip:                    location.location.zip,
+			city:                   location.location.city,
+			province:               location.location.province,
+			country:                location.location.country,
+			latitude:               location.location.latitude,
+			longitude:              location.location.longitude,
+			approved_at:            location.location.approved_at,
+			approved_by:            location.approved_by,
+			rejected_at:            location.location.rejected_at,
+			rejected_by:            location.rejected_by,
+			rejected_reason:        location.location.rejected_reason,
+			created_at:             location.location.created_at,
+			created_by:             location.created_by,
+			updated_at:             location.location.updated_at,
+			updated_by:             location.updated_by,
 
-			opening_times,
-			tags: tags.into_iter().map(Into::into).collect(),
-			images: images.into_iter().map(Into::into).collect(),
+			opening_times: opening_times.into_iter().map(Into::into).collect(),
+			tags:          tags.into_iter().map(Into::into).collect(),
+			images:        images.into_iter().map(Into::into).collect(),
 		}
 	}
 }
