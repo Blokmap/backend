@@ -65,7 +65,7 @@ fn manual_pagination<T: Clone>(
 	let truncated = total == (QUERY_HARD_LIMIT as usize);
 
 	let limit = if limit > items[offset..].len() {
-		items[offset..].len() - offset
+		items[offset..].len()
 	} else {
 		limit
 	};
