@@ -6,30 +6,11 @@ permissions:
 
 on:
     push:
-        tags: ["v*"]
+        branches: ["main", "staging"]
 
 jobs:
     ci:
         uses: ./.github/workflows/ci.yaml
-
-    create-release-draft:
-        runs-on: self-hosted
-        needs: ci
-        permissions:
-            contents: write
-        steps:
-          - name: Parse tag
-            id: parse_tag
-            run: "echo \"version=$(echo ${{ github.ref }} | sed 's#^refs/tags/v##')\" >> $GITHUB_OUTPUT"
-
-          - uses: release-drafter/release-drafter@v6
-            with:
-                name: v${{ steps.parse_tag.outputs.version }}
-                tag: v${{ steps.parse_tag.outputs.version }}
-                version: v${{ steps.parse_tag.outputs.version }}
-                config-name: release-drafter.yaml
-            env:
-                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     release-backend-package:
         runs-on: self-hosted
@@ -42,7 +23,8 @@ jobs:
                 images: |
                     ghcr.io/blokmap/blokmap-backend
                 tags: |
-                    type=semver,pattern={{version}}
+                    type=raw,value={{sha}}
+                    type=raw,value=latest
 
           - name: Login to GHCR
             uses: docker/login-action@v3
@@ -74,7 +56,8 @@ jobs:
                 images: |
                     ghcr.io/blokmap/blokmap-migrations
                 tags: |
-                    type=semver,pattern={{version}}
+                    type=raw,value={{sha}}
+                    type=raw,value=latest
 
           - name: Login to GHCR
             uses: docker/login-action@v3
@@ -95,7 +78,35 @@ jobs:
                 cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-migrations:buildcache
                 cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-migrations:buildcache,mode=max
 
-    deploy:
+    deploy-staging:
+        if: ${{ startsWith(github.ref, 'refs/heads/staging') }}
+        runs-on: self-hosted
+        needs: [release-backend-package, release-migrations-package]
+        steps:
+          - name: Run migrations
+            uses: appleboy/ssh-action@v1.2.1
+            with:
+                host: ${{ secrets.STAGING_HOST }}
+                username: ${{ secrets.STAGING_USERNAME }}
+                key: ${{ secrets.PRODUCTION_SSH_KEY }}
+                debug: true
+                script: |
+                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml pull
+                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml up blokmap-staging-migrations
+
+          - name: Deploy backend
+            uses: appleboy/ssh-action@v1.2.1
+            with:
+                host: ${{ secrets.STAGING_HOST }}
+                username: ${{ secrets.STAGING_USERNAME }}
+                key: ${{ secrets.PRODUCTION_SSH_KEY }}
+                debug: true
+                script: |
+                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml pull
+                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml up blokmap-staging-backend -d
+
+    deploy-production:
+        if: ${{ startsWith(github.ref, 'refs/heads/main') }}
         runs-on: self-hosted
         needs: [release-backend-package, release-migrations-package]
         steps:
@@ -107,8 +118,8 @@ jobs:
                 key: ${{ secrets.PRODUCTION_SSH_KEY }}
                 debug: true
                 script: |
-                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml pull
-                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml up blokmap-staging-migrations
+                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml pull
+                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml up blokmap-prod-migrations
 
           - name: Deploy backend
             uses: appleboy/ssh-action@v1.2.1
@@ -118,5 +129,5 @@ jobs:
                 key: ${{ secrets.PRODUCTION_SSH_KEY }}
                 debug: true
                 script: |
-                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml pull
-                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml up blokmap-staging-backend -d
+                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml pull
+                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml up blokmap-prod-backend -d
