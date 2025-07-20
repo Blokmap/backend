@@ -43,6 +43,8 @@ pub(crate) async fn register_profile(
 		username: register_data.username,
 		password: register_data.password,
 		pending_email: register_data.email,
+		first_name: register_data.first_name,
+		last_name: register_data.last_name,
 		email_confirmation_token,
 		email_confirmation_token_expiry,
 	};

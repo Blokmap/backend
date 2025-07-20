@@ -129,14 +129,12 @@ impl SimpleProfile {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct NewProfile {
 	pub username:                        String,
-	#[serde(skip)]
 	pub password:                        String,
-	#[serde(skip)]
 	pub pending_email:                   String,
-	#[serde(skip)]
 	pub email_confirmation_token:        String,
-	#[serde(skip)]
 	pub email_confirmation_token_expiry: NaiveDateTime,
+	pub first_name:                      String,
+	pub last_name:                       String,
 }
 
 #[derive(Clone, Debug, Insertable)]
@@ -147,6 +145,8 @@ struct NewProfileHashed {
 	pending_email:                   String,
 	email_confirmation_token:        String,
 	email_confirmation_token_expiry: NaiveDateTime,
+	first_name:                      String,
+	last_name:                       String,
 }
 
 impl NewProfile {
@@ -162,6 +162,8 @@ impl NewProfile {
 			email_confirmation_token:        self.email_confirmation_token,
 			email_confirmation_token_expiry: self
 				.email_confirmation_token_expiry,
+			first_name:                      self.first_name,
+			last_name:                       self.last_name,
 		};
 
 		let profile = conn

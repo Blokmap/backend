@@ -22,9 +22,11 @@ async fn register() {
 			env.app
 				.post("/auth/register")
 				.json(&RegisterRequest {
-					username: "bob".to_string(),
-					password: "bobdebouwer1234!".to_string(),
-					email:    "bob@example.com".to_string(),
+					username:   "bob".to_string(),
+					password:   "bobdebouwer1234!".to_string(),
+					email:      "bob@example.com".to_string(),
+					first_name: "Bob".to_string(),
+					last_name:  "De Bouwer".to_string(),
 				})
 				.await
 		})
@@ -48,9 +50,11 @@ async fn register_invalid_username_start() {
 			env.app
 				.post("/auth/register")
 				.json(&RegisterRequest {
-					username: "123".to_string(),
-					password: "bobdebouwer1234!".to_string(),
-					email:    "bob@example.com".to_string(),
+					username:   "123".to_string(),
+					password:   "bobdebouwer1234!".to_string(),
+					email:      "bob@example.com".to_string(),
+					first_name: "Bob".to_string(),
+					last_name:  "De Bouwer".to_string(),
 				})
 				.await
 		})
@@ -68,9 +72,11 @@ async fn register_invalid_username_symbols() {
 			env.app
 				.post("/auth/register")
 				.json(&RegisterRequest {
-					username: "abc.".to_string(),
-					password: "bobdebouwer1234!".to_string(),
-					email:    "bob@example.com".to_string(),
+					username:   "abc.".to_string(),
+					password:   "bobdebouwer1234!".to_string(),
+					email:      "bob@example.com".to_string(),
+					first_name: "Bob".to_string(),
+					last_name:  "De Bouwer".to_string(),
 				})
 				.await
 		})
@@ -95,9 +101,11 @@ async fn register_username_too_short() {
 			env.app
 				.post("/auth/register")
 				.json(&RegisterRequest {
-					username: "a".to_string(),
-					password: "bobdebouwer1234!".to_string(),
-					email:    "bob@example.com".to_string(),
+					username:   "a".to_string(),
+					password:   "bobdebouwer1234!".to_string(),
+					email:      "bob@example.com".to_string(),
+					first_name: "Bob".to_string(),
+					last_name:  "De Bouwer".to_string(),
 				})
 				.await
 		})
@@ -123,6 +131,8 @@ async fn register_username_too_long() {
 						.to_string(),
 				password: "bobdebouwer1234!".to_string(),
 				email:    "bob@example.com".to_string(),
+					first_name: "Bob".to_string(),
+					last_name: "De Bouwer".to_string()
 			})
 			.await
 		})
@@ -143,9 +153,11 @@ async fn register_password_too_short() {
 			env.app
 				.post("/auth/register")
 				.json(&RegisterRequest {
-					username: "bob".to_string(),
-					password: "123".to_string(),
-					email:    "bob@example.com".to_string(),
+					username:   "bob".to_string(),
+					password:   "123".to_string(),
+					email:      "bob@example.com".to_string(),
+					first_name: "Bob".to_string(),
+					last_name:  "De Bouwer".to_string(),
 				})
 				.await
 		})
@@ -166,9 +178,11 @@ async fn register_invalid_email() {
 			env.app
 				.post("/auth/register")
 				.json(&RegisterRequest {
-					username: "bob".to_string(),
-					password: "bobdebouwer1234!".to_string(),
-					email:    "appel".to_string(),
+					username:   "bob".to_string(),
+					password:   "bobdebouwer1234!".to_string(),
+					email:      "appel".to_string(),
+					first_name: "Bob".to_string(),
+					last_name:  "De Bouwer".to_string(),
 				})
 				.await
 		})
@@ -188,9 +202,11 @@ async fn register_duplicate_email() {
 		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
-				username: "bob".to_string(),
-				password: "bobdebouwer1234!".to_string(),
-				email:    "bob@example.com".to_string(),
+				username:   "bob".to_string(),
+				password:   "bobdebouwer1234!".to_string(),
+				email:      "bob@example.com".to_string(),
+				first_name: "Bob".to_string(),
+				last_name:  "De Bouwer".to_string(),
 			})
 			.await
 	})
@@ -201,9 +217,11 @@ async fn register_duplicate_email() {
 			env.app
 				.post("/auth/register")
 				.json(&RegisterRequest {
-					username: "bob2".to_string(),
-					password: "bobdebouwer1234!".to_string(),
-					email:    "bob@example.com".to_string(),
+					username:   "bob2".to_string(),
+					password:   "bobdebouwer1234!".to_string(),
+					email:      "bob@example.com".to_string(),
+					first_name: "Bob".to_string(),
+					last_name:  "De Bouwer".to_string(),
 				})
 				.await
 		})
@@ -224,9 +242,11 @@ async fn register_duplicate_username() {
 			env.app
 				.post("/auth/register")
 				.json(&RegisterRequest {
-					username: "test".to_string(),
-					password: "fooikhebeenlangerwachtwoordnodig".to_string(),
-					email:    "test2@example.com".to_string(),
+					username:   "test".to_string(),
+					password:   "fooikhebeenlangerwachtwoordnodig".to_string(),
+					email:      "test2@example.com".to_string(),
+					first_name: "Bob".to_string(),
+					last_name:  "De Bouwer".to_string(),
 				})
 				.await
 		})
@@ -248,9 +268,11 @@ async fn confirm_email() {
 		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
-				username: "bob".to_string(),
-				password: "bobdebouwer1234!".to_string(),
-				email:    "bob@example.com".to_string(),
+				username:   "bob".to_string(),
+				password:   "bobdebouwer1234!".to_string(),
+				email:      "bob@example.com".to_string(),
+				first_name: "Bob".to_string(),
+				last_name:  "De Bouwer".to_string(),
 			})
 			.await;
 	})
@@ -301,9 +323,11 @@ async fn confirm_email_expired_token() {
 		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
-				username: "bob".to_string(),
-				password: "bobdebouwer1234!".to_string(),
-				email:    "bob@example.com".to_string(),
+				username:   "bob".to_string(),
+				password:   "bobdebouwer1234!".to_string(),
+				email:      "bob@example.com".to_string(),
+				first_name: "Bob".to_string(),
+				last_name:  "De Bouwer".to_string(),
 			})
 			.await;
 	})
@@ -357,9 +381,11 @@ async fn resend_confirmation_email() {
 		env.app
 			.post("/auth/register")
 			.json(&RegisterRequest {
-				username: "bob".to_string(),
-				password: "bobdebouwer1234!".to_string(),
-				email:    "bob@example.com".to_string(),
+				username:   "bob".to_string(),
+				password:   "bobdebouwer1234!".to_string(),
+				email:      "bob@example.com".to_string(),
+				first_name: "Bob".to_string(),
+				last_name:  "De Bouwer".to_string(),
 			})
 			.await;
 	})
@@ -389,9 +415,11 @@ async fn resend_confirmation_email() {
 				old_profile.id
 			))
 			.json(&RegisterRequest {
-				username: "bob".to_string(),
-				password: "bobdebouwer1234!".to_string(),
-				email:    "bob@example.com".to_string(),
+				username:   "bob".to_string(),
+				password:   "bobdebouwer1234!".to_string(),
+				email:      "bob@example.com".to_string(),
+				first_name: "Bob".to_string(),
+				last_name:  "De Bouwer".to_string(),
 			})
 			.await;
 	})
