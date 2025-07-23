@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::image::ImageResponse;
 use crate::schemas::opening_time::OpeningTimeResponse;
+use crate::schemas::ser_includes;
 use crate::schemas::tag::TagResponse;
 use crate::schemas::translation::{
 	CreateTranslationRequest,
@@ -24,6 +25,7 @@ use crate::schemas::translation::{
 pub struct LocationResponse {
 	pub id:                     i32,
 	pub name:                   String,
+	#[serde(serialize_with = "ser_includes")]
 	pub authority:              Option<Option<AuthorityResponse>>,
 	pub description:            Option<TranslationResponse>,
 	pub excerpt:                Option<TranslationResponse>,
@@ -42,13 +44,17 @@ pub struct LocationResponse {
 	pub latitude:               f64,
 	pub longitude:              f64,
 	pub approved_at:            Option<NaiveDateTime>,
+	#[serde(serialize_with = "ser_includes")]
 	pub approved_by:            Option<Option<SimpleProfile>>,
 	pub rejected_at:            Option<NaiveDateTime>,
+	#[serde(serialize_with = "ser_includes")]
 	pub rejected_by:            Option<Option<SimpleProfile>>,
 	pub rejected_reason:        Option<String>,
 	pub created_at:             NaiveDateTime,
+	#[serde(serialize_with = "ser_includes")]
 	pub created_by:             Option<Option<SimpleProfile>>,
 	pub updated_at:             NaiveDateTime,
+	#[serde(serialize_with = "ser_includes")]
 	pub updated_by:             Option<Option<SimpleProfile>>,
 
 	pub images:        Vec<ImageResponse>,

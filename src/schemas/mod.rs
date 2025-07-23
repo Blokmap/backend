@@ -41,3 +41,20 @@ impl Visitor<'_> for BoundedU32Visitor {
 		}
 	}
 }
+
+/// Serialize an `Option<Option<T>>` value.
+/// Used for dynamic relationship includes in the API.
+pub fn ser_includes<S, T>(
+	value: &Option<Option<T>>,
+	serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+	S: serde::Serializer,
+	T: serde::Serialize,
+{
+	match value {
+		None => serializer.serialize_none(),
+		Some(None) => serializer.serialize_some(&None::<T>),
+		Some(Some(v)) => v.serialize(serializer),
+	}
+}

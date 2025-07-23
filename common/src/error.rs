@@ -100,10 +100,7 @@ impl Error {
 			},
 			Self::CreateReservationError(e) => {
 				match e {
-					CreateReservationError::OutOfBounds {
-						start: _,
-						end: _,
-					} => 22,
+					CreateReservationError::OutOfBounds { .. } => 22,
 					CreateReservationError::NotReservableYet(_) => 23,
 					CreateReservationError::NotReservableAnymore(_) => 24,
 					CreateReservationError::ReservationTooShort(_) => 25,
@@ -121,6 +118,7 @@ impl Error {
 		}
 	}
 
+	/// Return additional information about the error
 	fn info(&self) -> Option<String> {
 		match self {
 			Self::Duplicate(m)
@@ -178,6 +176,8 @@ impl IntoResponse for Error {
 			Self::InternalServerError | Self::Infallible(_) => {
 				StatusCode::INTERNAL_SERVER_ERROR
 			},
+			Self::TokenError(TokenError::MissingAccessToken)
+			| Self::TokenError(TokenError::MissingSession) => StatusCode::UNAUTHORIZED,
 			Self::Forbidden
 			| Self::LoginError(_)
 			| Self::OAuthError(_)

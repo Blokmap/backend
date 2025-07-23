@@ -8,6 +8,8 @@ use models::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::schemas::ser_includes;
+
 /// The data returned when making a new [`Translation`]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -18,8 +20,10 @@ pub struct TranslationResponse {
 	pub fr:         Option<String>,
 	pub de:         Option<String>,
 	pub created_at: NaiveDateTime,
+	#[serde(serialize_with = "ser_includes")]
 	pub created_by: Option<Option<SimpleProfile>>,
 	pub updated_at: NaiveDateTime,
+	#[serde(serialize_with = "ser_includes")]
 	pub updated_by: Option<Option<SimpleProfile>>,
 }
 
