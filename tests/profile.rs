@@ -20,6 +20,7 @@ async fn get_all_profiles() {
 		.json(&LoginRequest {
 			username: "test".to_string(),
 			password: "foo".to_string(),
+			remember: false,
 		})
 		.await;
 
