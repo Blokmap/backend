@@ -5,13 +5,14 @@ use models::{
 	LocationUpdate,
 	NewLocation,
 	NewLocationProfile,
-	PrimitiveProfile,
+	PrimitiveLocation,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::image::ImageResponse;
 use crate::schemas::opening_time::OpeningTimeResponse;
+use crate::schemas::profile::ProfileResponse;
 use crate::schemas::ser_includes;
 use crate::schemas::tag::TagResponse;
 use crate::schemas::translation::{
@@ -45,21 +46,60 @@ pub struct LocationResponse {
 	pub longitude:              f64,
 	pub approved_at:            Option<NaiveDateTime>,
 	#[serde(serialize_with = "ser_includes")]
-	pub approved_by:            Option<Option<PrimitiveProfile>>,
+	pub approved_by:            Option<Option<ProfileResponse>>,
 	pub rejected_at:            Option<NaiveDateTime>,
 	#[serde(serialize_with = "ser_includes")]
-	pub rejected_by:            Option<Option<PrimitiveProfile>>,
+	pub rejected_by:            Option<Option<ProfileResponse>>,
 	pub rejected_reason:        Option<String>,
 	pub created_at:             NaiveDateTime,
 	#[serde(serialize_with = "ser_includes")]
-	pub created_by:             Option<Option<PrimitiveProfile>>,
+	pub created_by:             Option<Option<ProfileResponse>>,
 	pub updated_at:             NaiveDateTime,
 	#[serde(serialize_with = "ser_includes")]
-	pub updated_by:             Option<Option<PrimitiveProfile>>,
+	pub updated_by:             Option<Option<ProfileResponse>>,
 
 	pub images:        Vec<ImageResponse>,
 	pub opening_times: Vec<OpeningTimeResponse>,
 	pub tags:          Vec<TagResponse>,
+}
+
+impl From<PrimitiveLocation> for LocationResponse {
+	fn from(value: PrimitiveLocation) -> Self {
+		Self {
+			id:                     value.id,
+			name:                   value.name,
+			authority:              None,
+			description:            None,
+			excerpt:                None,
+			seat_count:             value.seat_count,
+			is_reservable:          value.is_reservable,
+			reservation_block_size: value.reservation_block_size,
+			min_reservation_length: value.min_reservation_length,
+			max_reservation_length: value.max_reservation_length,
+			is_visible:             value.is_visible,
+			street:                 value.street,
+			number:                 value.number,
+			zip:                    value.zip,
+			city:                   value.city,
+			province:               value.province,
+			country:                value.country,
+			latitude:               value.latitude,
+			longitude:              value.longitude,
+			approved_at:            value.approved_at,
+			approved_by:            None,
+			rejected_at:            value.rejected_at,
+			rejected_by:            None,
+			rejected_reason:        value.rejected_reason,
+			created_at:             value.created_at,
+			created_by:             None,
+			updated_at:             value.updated_at,
+			updated_by:             None,
+
+			opening_times: vec![],
+			tags:          vec![],
+			images:        vec![],
+		}
+	}
 }
 
 impl From<FullLocationData> for LocationResponse {
@@ -89,14 +129,22 @@ impl From<FullLocationData> for LocationResponse {
 			latitude:               location.location.latitude,
 			longitude:              location.location.longitude,
 			approved_at:            location.location.approved_at,
-			approved_by:            location.approved_by,
+			approved_by:            location
+				.approved_by
+				.map(|p| p.map(Into::into)),
 			rejected_at:            location.location.rejected_at,
-			rejected_by:            location.rejected_by,
+			rejected_by:            location
+				.rejected_by
+				.map(|p| p.map(Into::into)),
 			rejected_reason:        location.location.rejected_reason,
 			created_at:             location.location.created_at,
-			created_by:             location.created_by,
+			created_by:             location
+				.created_by
+				.map(|p| p.map(Into::into)),
 			updated_at:             location.location.updated_at,
-			updated_by:             location.updated_by,
+			updated_by:             location
+				.updated_by
+				.map(|p| p.map(Into::into)),
 
 			opening_times: opening_times.into_iter().map(Into::into).collect(),
 			tags:          tags.into_iter().map(Into::into).collect(),

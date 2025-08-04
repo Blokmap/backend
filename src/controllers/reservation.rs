@@ -100,7 +100,7 @@ pub async fn get_reservation_for_opening_time(
 		Reservation::for_opening_time(t_id, includes, &conn).await?;
 	let response: Vec<ReservationResponse> = reservations
 		.into_iter()
-		.map(|(time, res)| From::from((&loc, &time, res)))
+		.map(|(time, res)| From::from((&loc, time, res)))
 		.collect();
 
 	Ok((StatusCode::OK, Json(response)))

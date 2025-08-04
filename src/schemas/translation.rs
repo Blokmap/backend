@@ -1,13 +1,13 @@
 use chrono::NaiveDateTime;
 use models::{
 	NewTranslation,
-	PrimitiveProfile,
 	PrimitiveTranslation,
 	Translation,
 	TranslationUpdate,
 };
 use serde::{Deserialize, Serialize};
 
+use crate::schemas::profile::ProfileResponse;
 use crate::schemas::ser_includes;
 
 /// The data returned when making a new [`Translation`]
@@ -21,10 +21,10 @@ pub struct TranslationResponse {
 	pub de:         Option<String>,
 	pub created_at: NaiveDateTime,
 	#[serde(serialize_with = "ser_includes")]
-	pub created_by: Option<Option<PrimitiveProfile>>,
+	pub created_by: Option<Option<ProfileResponse>>,
 	pub updated_at: NaiveDateTime,
 	#[serde(serialize_with = "ser_includes")]
-	pub updated_by: Option<Option<PrimitiveProfile>>,
+	pub updated_by: Option<Option<ProfileResponse>>,
 }
 
 impl From<Translation> for TranslationResponse {
@@ -36,9 +36,9 @@ impl From<Translation> for TranslationResponse {
 			fr:         value.translation.fr,
 			de:         value.translation.de,
 			created_at: value.translation.created_at,
-			created_by: value.created_by,
+			created_by: value.created_by.map(|p| p.map(Into::into)),
 			updated_at: value.translation.updated_at,
-			updated_by: value.updated_by,
+			updated_by: value.updated_by.map(|p| p.map(Into::into)),
 		}
 	}
 }
