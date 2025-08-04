@@ -14,8 +14,8 @@ use crate::schema::{
 	creator,
 	location,
 	opening_time,
+	profile,
 	rejecter,
-	simple_profile,
 	updater,
 };
 use crate::{
@@ -270,16 +270,16 @@ impl Location {
 							>
 							::construct_selection().nullable(),
 							approver
-								.fields(simple_profile::all_columns)
+								.fields(profile::all_columns)
 								.nullable(),
 							rejecter
-								.fields(simple_profile::all_columns)
+								.fields(profile::all_columns)
 								.nullable(),
 							creator
-								.fields(simple_profile::all_columns)
+								.fields(profile::all_columns)
 								.nullable(),
 							updater
-								.fields(simple_profile::all_columns)
+								.fields(profile::all_columns)
 								.nullable(),
 						),
 					)

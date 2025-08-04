@@ -12,7 +12,6 @@ use models::{
 	NewAuthorityProfile,
 };
 
-use crate::Session;
 use crate::schemas::authority::{
 	AuthorityResponse,
 	CreateAuthorityMemberRequest,
@@ -23,6 +22,7 @@ use crate::schemas::authority::{
 };
 use crate::schemas::location::{CreateLocationRequest, LocationResponse};
 use crate::schemas::profile::ProfilePermissionsResponse;
+use crate::{Config, Session};
 
 #[instrument(skip(pool))]
 pub async fn get_all_authorities(
@@ -165,13 +165,22 @@ pub(crate) async fn add_authority_location(
 #[instrument(skip(pool))]
 pub async fn get_authority_members(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
 	let members = Authority::get_members_with_permissions(id, &conn).await?;
-	let response: Vec<_> =
-		members.into_iter().map(ProfilePermissionsResponse::from).collect();
+	let response: Vec<_> = members
+		.into_iter()
+		.map(|(p, img, perm)| {
+			let img =
+				img.map(|i| format!("{}{}", config.base_url, i.file_path));
+
+			(p, img, perm)
+		})
+		.map(ProfilePermissionsResponse::from)
+		.collect();
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -179,6 +188,7 @@ pub async fn get_authority_members(
 #[instrument(skip(pool))]
 pub(crate) async fn add_authority_member(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	session: Session,
 	Query(includes): Query<LocationIncludes>,
 	Path(id): Path<i32>,
@@ -198,8 +208,9 @@ pub(crate) async fn add_authority_member(
 	}
 
 	let new_auth_profile = request.to_insertable(id, actor_id);
-	let member = new_auth_profile.insert(&conn).await?;
-	let response = ProfilePermissionsResponse::from(member);
+	let (member, img, perms) = new_auth_profile.insert(&conn).await?;
+	let img = img.map(|i| format!("{}{}", config.base_url, i.file_path));
+	let response = ProfilePermissionsResponse::from((member, img, perms));
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -231,6 +242,7 @@ pub async fn delete_authority_member(
 #[instrument(skip(pool))]
 pub async fn update_authority_member(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	session: Session,
 	Path((a_id, p_id)): Path<(i32, i32)>,
 	Json(request): Json<UpdateAuthorityProfileRequest>,
@@ -249,8 +261,11 @@ pub async fn update_authority_member(
 	}
 
 	let auth_update = request.to_insertable(actor_id);
-	let updated_member = auth_update.apply_to(a_id, p_id, &conn).await?;
-	let response: ProfilePermissionsResponse = updated_member.into();
+	let (updated_member, img, perms) =
+		auth_update.apply_to(a_id, p_id, &conn).await?;
+	let img = img.map(|i| format!("{}{}", config.base_url, i.file_path));
+	let response: ProfilePermissionsResponse =
+		(updated_member, img, perms).into();
 
 	Ok((StatusCode::OK, Json(response)))
 }

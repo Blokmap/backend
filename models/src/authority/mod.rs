@@ -5,8 +5,8 @@ use diesel::prelude::*;
 use diesel::sql_types::Bool;
 use serde::{Deserialize, Serialize};
 
-use crate::SimpleProfile;
-use crate::schema::{authority, creator, simple_profile, updater};
+use crate::PrimitiveProfile;
+use crate::schema::{authority, creator, profile, updater};
 
 mod member;
 
@@ -25,8 +25,8 @@ pub struct AuthorityIncludes {
 #[diesel(check_for_backend(Pg))]
 pub struct Authority {
 	pub authority:  PrimitiveAuthority,
-	pub updated_by: Option<Option<SimpleProfile>>,
-	pub created_by: Option<Option<SimpleProfile>>,
+	pub updated_by: Option<Option<PrimitiveProfile>>,
+	pub created_by: Option<Option<PrimitiveProfile>>,
 }
 
 #[derive(
@@ -52,32 +52,30 @@ impl Authority {
 	) -> Result<Self, Error> {
 		let authority: (
 			PrimitiveAuthority,
-			Option<SimpleProfile>,
-			Option<SimpleProfile>,
+			Option<PrimitiveProfile>,
+			Option<PrimitiveProfile>,
 		) = conn
 			.interact(move |conn| {
 				use crate::schema::authority::dsl::*;
 
 				authority
-					.left_outer_join(creator.on(
-						includes.created_by.into_sql::<Bool>().and(
-							created_by.eq(
-								creator.field(simple_profile::id).nullable(),
-							),
-						),
-					))
-					.left_outer_join(updater.on(
-						includes.updated_by.into_sql::<Bool>().and(
-							updated_by.eq(
-								updater.field(simple_profile::id).nullable(),
-							),
-						),
-					))
+					.left_outer_join(
+						creator.on(includes.created_by.into_sql::<Bool>().and(
+							created_by
+								.eq(creator.field(profile::id).nullable()),
+						)),
+					)
+					.left_outer_join(
+						updater.on(includes.updated_by.into_sql::<Bool>().and(
+							updated_by
+								.eq(updater.field(profile::id).nullable()),
+						)),
+					)
 					.filter(id.eq(auth_id))
 					.select((
 						PrimitiveAuthority::as_select(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
 					))
 					.get_result(conn)
 			})
@@ -112,24 +110,22 @@ impl Authority {
 				use crate::schema::authority::dsl::*;
 
 				authority
-					.left_outer_join(creator.on(
-						includes.created_by.into_sql::<Bool>().and(
-							created_by.eq(
-								creator.field(simple_profile::id).nullable(),
-							),
-						),
-					))
-					.left_outer_join(updater.on(
-						includes.updated_by.into_sql::<Bool>().and(
-							updated_by.eq(
-								updater.field(simple_profile::id).nullable(),
-							),
-						),
-					))
+					.left_outer_join(
+						creator.on(includes.created_by.into_sql::<Bool>().and(
+							created_by
+								.eq(creator.field(profile::id).nullable()),
+						)),
+					)
+					.left_outer_join(
+						updater.on(includes.updated_by.into_sql::<Bool>().and(
+							updated_by
+								.eq(updater.field(profile::id).nullable()),
+						)),
+					)
 					.select((
 						PrimitiveAuthority::as_select(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
 					))
 					.load(c)
 			})

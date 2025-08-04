@@ -4,7 +4,7 @@ use models::{
 	OpeningTime,
 	OpeningTimeUpdate,
 	PrimitiveOpeningTime,
-	SimpleProfile,
+	PrimitiveProfile,
 };
 use serde::{Deserialize, Serialize};
 
@@ -19,9 +19,9 @@ pub struct OpeningTimeResponse {
 	pub reservable_from:  Option<NaiveDateTime>,
 	pub reservable_until: Option<NaiveDateTime>,
 	pub created_at:       NaiveDateTime,
-	pub created_by:       Option<Option<SimpleProfile>>,
+	pub created_by:       Option<Option<PrimitiveProfile>>,
 	pub updated_at:       NaiveDateTime,
-	pub updated_by:       Option<Option<SimpleProfile>>,
+	pub updated_by:       Option<Option<PrimitiveProfile>>,
 }
 
 impl From<OpeningTime> for OpeningTimeResponse {

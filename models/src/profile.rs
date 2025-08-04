@@ -9,7 +9,7 @@ use diesel_derive_enum::DbEnum;
 use lettre::message::Mailbox;
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{image, profile, simple_profile};
+use crate::schema::{image, profile};
 use crate::{Image, NewImage, QUERY_HARD_LIMIT, manual_pagination};
 
 diesel::joinable!(profile -> image (avatar_image_id));
@@ -39,7 +39,7 @@ pub enum ProfileState {
 )]
 #[diesel(table_name = profile)]
 #[diesel(check_for_backend(Pg))]
-pub struct Profile {
+pub struct PrimitiveProfile {
 	pub id:                              i32,
 	pub username:                        String,
 	pub first_name:                      Option<String>,
@@ -69,10 +69,10 @@ pub struct Profile {
 	pub last_login_at:                   NaiveDateTime,
 }
 
-impl TryFrom<&Profile> for Mailbox {
+impl TryFrom<&PrimitiveProfile> for Mailbox {
 	type Error = Error;
 
-	fn try_from(value: &Profile) -> Result<Mailbox, Error> {
+	fn try_from(value: &PrimitiveProfile) -> Result<Mailbox, Error> {
 		if value.pending_email.is_some() {
 			Ok(Mailbox::new(
 				Some(value.username.to_string()),
@@ -94,36 +94,12 @@ impl TryFrom<&Profile> for Mailbox {
 	}
 }
 
-#[derive(
-	Clone, Debug, Deserialize, Identifiable, Queryable, Serialize, Selectable,
-)]
-#[diesel(table_name = simple_profile)]
+#[derive(Clone, Debug, Queryable, Serialize)]
+#[diesel(table_name = profile)]
 #[diesel(check_for_backend(Pg))]
-pub struct SimpleProfile {
-	pub id:         i32,
-	pub username:   String,
+pub struct Profile {
+	pub profile:    PrimitiveProfile,
 	pub avatar_url: Option<String>,
-	pub email:      Option<String>,
-	pub first_name: Option<String>,
-	pub last_name:  Option<String>,
-	pub state:      ProfileState,
-}
-
-impl SimpleProfile {
-	pub async fn get_by_ids(
-		ids: Vec<i32>,
-		conn: &DbConn,
-	) -> Result<Vec<Self>, Error> {
-		let profiles = conn
-			.interact(move |conn| {
-				use self::simple_profile::dsl::*;
-
-				simple_profile.filter(id.eq_any(ids)).get_results(conn)
-			})
-			.await??;
-
-		Ok(profiles)
-	}
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -152,8 +128,11 @@ struct NewProfileHashed {
 impl NewProfile {
 	/// Insert this [`NewProfile`]
 	#[instrument(skip(conn))]
-	pub async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
-		let hash = Profile::hash_password(&self.password)?;
+	pub async fn insert(
+		self,
+		conn: &DbConn,
+	) -> Result<PrimitiveProfile, Error> {
+		let hash = PrimitiveProfile::hash_password(&self.password)?;
 
 		let insertable = NewProfileHashed {
 			username:                        self.username,
@@ -172,7 +151,7 @@ impl NewProfile {
 
 				diesel::insert_into(profile)
 					.values(insertable)
-					.returning(Profile::as_returning())
+					.returning(PrimitiveProfile::as_returning())
 					.get_result(conn)
 			})
 			.await??;
@@ -197,14 +176,17 @@ pub struct NewProfileDirect {
 impl NewProfileDirect {
 	/// Insert this [`NewProfileDirect`]
 	#[instrument(skip(conn))]
-	pub async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
+	pub async fn insert(
+		self,
+		conn: &DbConn,
+	) -> Result<PrimitiveProfile, Error> {
 		let profile = conn
 			.interact(|conn| {
 				use self::profile::dsl::*;
 
 				diesel::insert_into(profile)
 					.values(self)
-					.returning(Profile::as_returning())
+					.returning(PrimitiveProfile::as_returning())
 					.get_result(conn)
 			})
 			.await??;
@@ -229,14 +211,14 @@ impl UpdateProfile {
 		self,
 		target_id: i32,
 		conn: &DbConn,
-	) -> Result<Profile, Error> {
+	) -> Result<PrimitiveProfile, Error> {
 		let new = conn
 			.interact(move |conn| {
 				use self::profile::dsl::*;
 
 				diesel::update(profile.find(target_id))
 					.set(self)
-					.returning(Profile::as_returning())
+					.returning(PrimitiveProfile::as_returning())
 					.get_result(conn)
 			})
 			.await??;
@@ -245,7 +227,7 @@ impl UpdateProfile {
 	}
 }
 
-impl Profile {
+impl PrimitiveProfile {
 	/// Get a [`Profile`] given its id
 	///
 	/// # Errors
@@ -275,7 +257,7 @@ impl Profile {
 
 				diesel::update(profile.find(self.id))
 					.set(self)
-					.returning(Profile::as_returning())
+					.returning(PrimitiveProfile::as_returning())
 					.get_result(conn)
 			})
 			.await??;
@@ -531,7 +513,7 @@ impl Profile {
 						password_reset_token.eq(None::<String>),
 						password_reset_token_expiry.eq(None::<NaiveDateTime>),
 					))
-					.returning(Profile::as_returning())
+					.returning(PrimitiveProfile::as_returning())
 					.get_result(conn)
 			})
 			.await??;

@@ -2,9 +2,8 @@ use chrono::NaiveDateTime;
 use models::{
 	AuthorityPermissions,
 	LocationPermissions,
-	Profile,
+	PrimitiveProfile,
 	ProfileState,
-	SimpleProfile,
 	UpdateProfile,
 };
 use serde::{Deserialize, Serialize};
@@ -22,8 +21,8 @@ pub struct ProfileResponse {
 	pub last_login_at: NaiveDateTime,
 }
 
-impl From<Profile> for ProfileResponse {
-	fn from(profile: Profile) -> Self {
+impl From<PrimitiveProfile> for ProfileResponse {
+	fn from(profile: PrimitiveProfile) -> Self {
 		Self {
 			id:            profile.id,
 			username:      profile.username,
@@ -50,34 +49,40 @@ pub struct ProfilePermissionsResponse {
 	pub permissions: i64,
 }
 
-impl From<(SimpleProfile, AuthorityPermissions)>
+impl From<(PrimitiveProfile, Option<String>, AuthorityPermissions)>
 	for ProfilePermissionsResponse
 {
-	fn from(value: (SimpleProfile, AuthorityPermissions)) -> Self {
+	fn from(
+		value: (PrimitiveProfile, Option<String>, AuthorityPermissions),
+	) -> Self {
 		Self {
 			id:          value.0.id,
 			username:    value.0.username,
-			avatar_url:  value.0.avatar_url,
+			avatar_url:  value.1,
 			email:       value.0.email,
 			first_name:  value.0.first_name,
 			last_name:   value.0.last_name,
 			state:       value.0.state,
-			permissions: value.1.bits(),
+			permissions: value.2.bits(),
 		}
 	}
 }
 
-impl From<(SimpleProfile, LocationPermissions)> for ProfilePermissionsResponse {
-	fn from(value: (SimpleProfile, LocationPermissions)) -> Self {
+impl From<(PrimitiveProfile, Option<String>, LocationPermissions)>
+	for ProfilePermissionsResponse
+{
+	fn from(
+		value: (PrimitiveProfile, Option<String>, LocationPermissions),
+	) -> Self {
 		Self {
 			id:          value.0.id,
 			username:    value.0.username,
-			avatar_url:  value.0.avatar_url,
+			avatar_url:  value.1,
 			email:       value.0.email,
 			first_name:  value.0.first_name,
 			last_name:   value.0.last_name,
 			state:       value.0.state,
-			permissions: value.1.bits(),
+			permissions: value.2.bits(),
 		}
 	}
 }

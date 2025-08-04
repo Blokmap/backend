@@ -4,7 +4,7 @@ use common::Error;
 use lettre::message::Mailbox;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Address, Message, SmtpTransport, Transport};
-use models::Profile;
+use models::PrimitiveProfile;
 use parking_lot::{Condvar, Mutex};
 use tokio::sync::mpsc;
 
@@ -143,7 +143,7 @@ impl Mailer {
 	#[instrument(skip(self))]
 	pub(crate) async fn send_confirm_email(
 		&self,
-		profile: &Profile,
+		profile: &PrimitiveProfile,
 		confirmation_token: &str,
 		frontend_url: &str,
 	) -> Result<(), Error> {
@@ -169,7 +169,7 @@ impl Mailer {
 	#[instrument(skip(self))]
 	pub(crate) async fn send_reset_password(
 		&self,
-		profile: &Profile,
+		profile: &PrimitiveProfile,
 		reset_token: &str,
 		frontend_url: &str,
 	) -> Result<(), Error> {

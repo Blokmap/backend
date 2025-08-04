@@ -435,19 +435,6 @@ REFERENCES image(id) ON DELETE SET NULL;
 
 
 
-CREATE VIEW simple_profile AS
-	SELECT
-		p.id, p.username,
-		img.file_path AS avatar_url,
-		p.email, p.first_name, p.last_name,
-		p.state
-	FROM profile p
-	LEFT OUTER JOIN image img
-	ON p.avatar_image_id = img.id;
-
-
-
-
 CREATE TABLE location_image (
 	location_id INTEGER   NOT NULL,
 	image_id    INTEGER   NOT NULL,

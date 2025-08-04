@@ -5,8 +5,14 @@ use common::{DbConn, Error};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{location_profile, simple_profile};
-use crate::{AuthorityPermissions, Location, LocationIncludes, SimpleProfile};
+use crate::schema::{image, location_profile, profile};
+use crate::{
+	AuthorityPermissions,
+	Image,
+	Location,
+	LocationIncludes,
+	PrimitiveProfile,
+};
 
 bitflags! {
 	/// Possible permissions for a member of a [`Location`]
@@ -93,25 +99,35 @@ impl Location {
 	pub async fn get_members(
 		l_id: i32,
 		conn: &DbConn,
-	) -> Result<Vec<(SimpleProfile, LocationPermissions)>, Error> {
+	) -> Result<
+		Vec<(PrimitiveProfile, Option<Image>, LocationPermissions)>,
+		Error,
+	> {
 		let members = conn
 			.interact(move |conn| {
 				location_profile::table
 					.filter(location_profile::location_id.eq(l_id))
-					.inner_join(simple_profile::table.on(
-						simple_profile::id.eq(location_profile::profile_id),
-					))
+					.inner_join(
+						profile::table
+							.on(profile::id.eq(location_profile::profile_id)),
+					)
+					.left_outer_join(
+						image::table
+							.on(profile::avatar_image_id
+								.eq(image::id.nullable())),
+					)
 					.select((
-						SimpleProfile::as_select(),
+						PrimitiveProfile::as_select(),
+						image::all_columns.nullable(),
 						location_profile::permissions,
 					))
 					.get_results(conn)
 			})
 			.await??
 			.into_iter()
-			.map(|(prof, perm): (_, i64)| {
+			.map(|(prof, img, perm): (_, _, i64)| {
 				let perm = LocationPermissions::from_bits_truncate(perm);
-				(prof, perm)
+				(prof, img, perm)
 			})
 			.collect();
 
@@ -155,7 +171,8 @@ impl NewLocationProfile {
 	pub async fn insert(
 		self,
 		conn: &DbConn,
-	) -> Result<(SimpleProfile, LocationPermissions), Error> {
+	) -> Result<(PrimitiveProfile, Option<Image>, LocationPermissions), Error>
+	{
 		conn.interact(move |conn| {
 			use crate::schema::location_profile::dsl::*;
 
@@ -163,7 +180,7 @@ impl NewLocationProfile {
 		})
 		.await??;
 
-		let (profile, permissions): (SimpleProfile, i64) = conn
+		let (profile, img, permissions): (_, _, i64) = conn
 			.interact(move |conn| {
 				location_profile::table
 					.filter(
@@ -171,11 +188,18 @@ impl NewLocationProfile {
 							location_profile::profile_id.eq(self.profile_id),
 						),
 					)
-					.inner_join(simple_profile::table.on(
-						simple_profile::id.eq(location_profile::profile_id),
-					))
+					.inner_join(
+						profile::table
+							.on(profile::id.eq(location_profile::profile_id)),
+					)
+					.left_outer_join(
+						image::table
+							.on(profile::avatar_image_id
+								.eq(image::id.nullable())),
+					)
 					.select((
-						SimpleProfile::as_select(),
+						PrimitiveProfile::as_select(),
+						image::all_columns.nullable(),
 						location_profile::permissions,
 					))
 					.get_result(conn)
@@ -189,7 +213,7 @@ impl NewLocationProfile {
 			self.profile_id, self.location_id
 		);
 
-		Ok((profile, permissions))
+		Ok((profile, img, permissions))
 	}
 }
 
@@ -208,7 +232,8 @@ impl LocationProfileUpdate {
 		loc_id: i32,
 		prof_id: i32,
 		conn: &DbConn,
-	) -> Result<(SimpleProfile, LocationPermissions), Error> {
+	) -> Result<(PrimitiveProfile, Option<Image>, LocationPermissions), Error>
+	{
 		conn.interact(move |conn| {
 			use crate::schema::location_profile::dsl::*;
 
@@ -218,15 +243,22 @@ impl LocationProfileUpdate {
 		})
 		.await??;
 
-		let (profile, permissions): (SimpleProfile, i64) = conn
+		let (profile, img, permissions): (_, _, i64) = conn
 			.interact(move |conn| {
 				location_profile::table
 					.find((loc_id, prof_id))
-					.inner_join(simple_profile::table.on(
-						simple_profile::id.eq(location_profile::profile_id),
-					))
+					.inner_join(
+						profile::table
+							.on(profile::id.eq(location_profile::profile_id)),
+					)
+					.left_outer_join(
+						image::table
+							.on(profile::avatar_image_id
+								.eq(image::id.nullable())),
+					)
 					.select((
-						SimpleProfile::as_select(),
+						PrimitiveProfile::as_select(),
+						image::all_columns.nullable(),
 						location_profile::permissions,
 					))
 					.get_result(conn)
@@ -240,6 +272,6 @@ impl LocationProfileUpdate {
 			prof_id, self.permissions, loc_id
 		);
 
-		Ok((profile, permissions))
+		Ok((profile, img, permissions))
 	}
 }

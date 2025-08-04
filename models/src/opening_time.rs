@@ -5,8 +5,8 @@ use diesel::prelude::*;
 use diesel::sql_types::{Bool, Date, Time};
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{creator, opening_time, simple_profile, updater};
-use crate::{BoxedCondition, SimpleProfile, ToFilter};
+use crate::schema::{creator, opening_time, profile, updater};
+use crate::{BoxedCondition, PrimitiveProfile, ToFilter};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -94,8 +94,8 @@ pub struct OpeningTimeIncludes {
 #[diesel(check_for_backend(Pg))]
 pub struct OpeningTime {
 	pub opening_time: PrimitiveOpeningTime,
-	pub created_by:   Option<Option<SimpleProfile>>,
-	pub updated_by:   Option<Option<SimpleProfile>>,
+	pub created_by:   Option<Option<PrimitiveProfile>>,
+	pub updated_by:   Option<Option<PrimitiveProfile>>,
 }
 
 #[derive(
@@ -192,32 +192,30 @@ impl OpeningTime {
 	) -> Result<Self, Error> {
 		let time: (
 			PrimitiveOpeningTime,
-			Option<SimpleProfile>,
-			Option<SimpleProfile>,
+			Option<PrimitiveProfile>,
+			Option<PrimitiveProfile>,
 		) = conn
 			.interact(move |conn| {
 				use self::opening_time::dsl::*;
 
 				opening_time
-					.left_outer_join(creator.on(
-						includes.created_by.into_sql::<Bool>().and(
-							created_by.eq(
-								creator.field(simple_profile::id).nullable(),
-							),
-						),
-					))
-					.left_outer_join(updater.on(
-						includes.updated_by.into_sql::<Bool>().and(
-							updated_by.eq(
-								updater.field(simple_profile::id).nullable(),
-							),
-						),
-					))
+					.left_outer_join(
+						creator.on(includes.created_by.into_sql::<Bool>().and(
+							created_by
+								.eq(creator.field(profile::id).nullable()),
+						)),
+					)
+					.left_outer_join(
+						updater.on(includes.updated_by.into_sql::<Bool>().and(
+							updated_by
+								.eq(updater.field(profile::id).nullable()),
+						)),
+					)
 					.filter(id.eq(t_id))
 					.select((
 						PrimitiveOpeningTime::as_select(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
 					))
 					.get_result(conn)
 			})
@@ -247,26 +245,24 @@ impl OpeningTime {
 				use self::opening_time::dsl::*;
 
 				opening_time
-					.left_outer_join(creator.on(
-						includes.created_by.into_sql::<Bool>().and(
-							created_by.eq(
-								creator.field(simple_profile::id).nullable(),
-							),
-						),
-					))
-					.left_outer_join(updater.on(
-						includes.updated_by.into_sql::<Bool>().and(
-							updated_by.eq(
-								updater.field(simple_profile::id).nullable(),
-							),
-						),
-					))
+					.left_outer_join(
+						creator.on(includes.created_by.into_sql::<Bool>().and(
+							created_by
+								.eq(creator.field(profile::id).nullable()),
+						)),
+					)
+					.left_outer_join(
+						updater.on(includes.updated_by.into_sql::<Bool>().and(
+							updated_by
+								.eq(updater.field(profile::id).nullable()),
+						)),
+					)
 					.filter(location_id.eq(loc_id))
 					.filter(filter)
 					.select((
 						PrimitiveOpeningTime::as_select(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
 					))
 					.get_results(conn)
 			})

@@ -1,8 +1,8 @@
 use chrono::NaiveDateTime;
 use models::{
 	NewTranslation,
+	PrimitiveProfile,
 	PrimitiveTranslation,
-	SimpleProfile,
 	Translation,
 	TranslationUpdate,
 };
@@ -21,10 +21,10 @@ pub struct TranslationResponse {
 	pub de:         Option<String>,
 	pub created_at: NaiveDateTime,
 	#[serde(serialize_with = "ser_includes")]
-	pub created_by: Option<Option<SimpleProfile>>,
+	pub created_by: Option<Option<PrimitiveProfile>>,
 	pub updated_at: NaiveDateTime,
 	#[serde(serialize_with = "ser_includes")]
-	pub updated_by: Option<Option<SimpleProfile>>,
+	pub updated_by: Option<Option<PrimitiveProfile>>,
 }
 
 impl From<Translation> for TranslationResponse {

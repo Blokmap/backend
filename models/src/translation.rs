@@ -5,8 +5,8 @@ use diesel::prelude::*;
 use diesel::sql_types::Bool;
 use serde::{Deserialize, Serialize};
 
-use crate::SimpleProfile;
-use crate::schema::{creator, simple_profile, translation, updater};
+use crate::PrimitiveProfile;
+use crate::schema::{creator, profile, translation, updater};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct TranslationIncludes {
@@ -21,8 +21,8 @@ pub struct TranslationIncludes {
 #[diesel(check_for_backend(Pg))]
 pub struct Translation {
 	pub translation: PrimitiveTranslation,
-	pub created_by:  Option<Option<SimpleProfile>>,
-	pub updated_by:  Option<Option<SimpleProfile>>,
+	pub created_by:  Option<Option<PrimitiveProfile>>,
+	pub updated_by:  Option<Option<PrimitiveProfile>>,
 }
 
 #[derive(
@@ -50,32 +50,30 @@ impl Translation {
 	) -> Result<Self, Error> {
 		let translation: (
 			PrimitiveTranslation,
-			Option<SimpleProfile>,
-			Option<SimpleProfile>,
+			Option<PrimitiveProfile>,
+			Option<PrimitiveProfile>,
 		) = conn
 			.interact(move |conn| {
 				use crate::schema::translation::dsl::*;
 
 				translation
-					.left_outer_join(creator.on(
-						includes.created_by.into_sql::<Bool>().and(
-							created_by.eq(
-								creator.field(simple_profile::id).nullable(),
-							),
-						),
-					))
-					.left_outer_join(updater.on(
-						includes.updated_by.into_sql::<Bool>().and(
-							updated_by.eq(
-								updater.field(simple_profile::id).nullable(),
-							),
-						),
-					))
+					.left_outer_join(
+						creator.on(includes.created_by.into_sql::<Bool>().and(
+							created_by
+								.eq(creator.field(profile::id).nullable()),
+						)),
+					)
+					.left_outer_join(
+						updater.on(includes.updated_by.into_sql::<Bool>().and(
+							updated_by
+								.eq(updater.field(profile::id).nullable()),
+						)),
+					)
 					.filter(id.eq(tr_id))
 					.select((
 						PrimitiveTranslation::as_select(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
 					))
 					.get_result(conn)
 			})

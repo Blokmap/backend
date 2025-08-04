@@ -5,7 +5,7 @@ use axum::extract::{FromRequestParts, State};
 use axum::http::request::Parts;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use common::{Error, InternalServerError, RedisConn};
-use models::Profile;
+use models::PrimitiveProfile;
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use time::Duration;
@@ -105,7 +105,7 @@ impl Session {
 	#[instrument(skip(conn))]
 	pub async fn create(
 		lifetime: Duration,
-		profile: &Profile,
+		profile: &PrimitiveProfile,
 		conn: &mut RedisConn,
 	) -> Result<Self, Error> {
 		let id = profile.id;

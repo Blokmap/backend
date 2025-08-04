@@ -4,8 +4,8 @@ use chrono::{Duration, NaiveDateTime, NaiveTime};
 use models::{
 	PrimitiveLocation,
 	PrimitiveOpeningTime,
+	PrimitiveProfile,
 	Reservation,
-	SimpleProfile,
 };
 use serde::{Deserialize, Serialize};
 
@@ -21,7 +21,7 @@ pub struct ReservationResponse {
 	pub created_at:       NaiveDateTime,
 	pub updated_at:       NaiveDateTime,
 	pub confirmed_at:     Option<NaiveDateTime>,
-	pub confirmed_by:     Option<Option<SimpleProfile>>,
+	pub confirmed_by:     Option<Option<PrimitiveProfile>>,
 	pub location:         PrimitiveLocation,
 }
 

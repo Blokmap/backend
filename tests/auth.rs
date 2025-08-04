@@ -5,7 +5,7 @@ use blokmap::schemas::auth::{
 	PasswordResetRequest,
 	RegisterRequest,
 };
-use models::Profile;
+use models::PrimitiveProfile;
 
 mod common;
 
@@ -32,7 +32,7 @@ async fn register() {
 		})
 		.await;
 
-	let body = response.json::<Profile>();
+	let body = response.json::<PrimitiveProfile>();
 
 	assert!(response.maybe_cookie("blokmap_access_token").is_none());
 
@@ -334,7 +334,7 @@ async fn confirm_email_expired_token() {
 	.await;
 
 	let conn = env.db_guard.create_pool().get().await.unwrap();
-	let profile: Profile = conn
+	let profile: PrimitiveProfile = conn
 		.interact(|conn| {
 			use diesel::prelude::*;
 			use models::schema::profile::dsl::*;
@@ -392,7 +392,7 @@ async fn resend_confirmation_email() {
 	.await;
 
 	let conn = env.db_guard.create_pool().get().await.unwrap();
-	let old_profile: Profile = conn
+	let old_profile: PrimitiveProfile = conn
 		.interact(|conn| {
 			use diesel::prelude::*;
 			use models::schema::profile::dsl::*;
@@ -425,7 +425,7 @@ async fn resend_confirmation_email() {
 	})
 	.await;
 
-	let new_profile: Profile = conn
+	let new_profile: PrimitiveProfile = conn
 		.interact(|conn| {
 			use diesel::prelude::*;
 			use models::schema::profile::dsl::*;
@@ -535,7 +535,7 @@ async fn reset_password_expired_token() {
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
 	let conn = env.db_guard.create_pool().get().await.unwrap();
-	let profile: Profile = conn
+	let profile: PrimitiveProfile = conn
 		.interact(|conn| {
 			use diesel::prelude::*;
 			use models::schema::profile::dsl::*;
