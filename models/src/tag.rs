@@ -8,15 +8,15 @@ use serde::{Deserialize, Serialize};
 use crate::schema::{
 	creator,
 	location_tag,
-	simple_profile,
+	profile,
 	tag,
 	translation,
 	updater,
 };
 use crate::{
 	NewTranslation,
+	PrimitiveProfile,
 	PrimitiveTranslation,
-	SimpleProfile,
 	TranslationUpdate,
 };
 
@@ -34,8 +34,8 @@ pub struct TagIncludes {
 pub struct Tag {
 	pub tag:        PrimitiveTag,
 	pub name:       PrimitiveTranslation,
-	pub created_by: Option<Option<SimpleProfile>>,
-	pub updated_by: Option<Option<SimpleProfile>>,
+	pub created_by: Option<Option<PrimitiveProfile>>,
+	pub updated_by: Option<Option<PrimitiveProfile>>,
 }
 
 #[derive(
@@ -60,8 +60,8 @@ impl Tag {
 		let tag: (
 			PrimitiveTag,
 			PrimitiveTranslation,
-			Option<SimpleProfile>,
-			Option<SimpleProfile>,
+			Option<PrimitiveProfile>,
+			Option<PrimitiveProfile>,
 		) = conn
 			.interact(move |conn| {
 				use crate::schema::tag::dsl::*;
@@ -70,24 +70,22 @@ impl Tag {
 					translation::table
 						.on(name_translation_id.eq(translation::id)),
 				)
-				.left_outer_join(
-					creator.on(includes.created_by.into_sql::<Bool>().and(
-						created_by
-							.eq(creator.field(simple_profile::id).nullable()),
-					)),
-				)
-				.left_outer_join(
-					updater.on(includes.updated_by.into_sql::<Bool>().and(
-						updated_by
-							.eq(updater.field(simple_profile::id).nullable()),
-					)),
-				)
+				.left_outer_join(creator.on(
+					includes.created_by.into_sql::<Bool>().and(
+						created_by.eq(creator.field(profile::id).nullable()),
+					),
+				))
+				.left_outer_join(updater.on(
+					includes.updated_by.into_sql::<Bool>().and(
+						updated_by.eq(updater.field(profile::id).nullable()),
+					),
+				))
 				.filter(id.eq(tag_id))
 				.select((
 					PrimitiveTag::as_select(),
 					PrimitiveTranslation::as_select(),
-					creator.fields(simple_profile::all_columns).nullable(),
-					updater.fields(simple_profile::all_columns).nullable(),
+					creator.fields(profile::all_columns).nullable(),
+					updater.fields(profile::all_columns).nullable(),
 				))
 				.get_result(conn)
 			})
@@ -117,25 +115,23 @@ impl Tag {
 						translation::table
 							.on(tag::name_translation_id.eq(translation::id)),
 					)
-					.left_outer_join(creator.on(
-						includes.created_by.into_sql::<Bool>().and(
-							tag::created_by.eq(
-								creator.field(simple_profile::id).nullable(),
-							),
-						),
-					))
-					.left_outer_join(updater.on(
-						includes.updated_by.into_sql::<Bool>().and(
-							tag::updated_by.eq(
-								updater.field(simple_profile::id).nullable(),
-							),
-						),
-					))
+					.left_outer_join(
+						creator.on(includes.created_by.into_sql::<Bool>().and(
+							tag::created_by
+								.eq(creator.field(profile::id).nullable()),
+						)),
+					)
+					.left_outer_join(
+						updater.on(includes.updated_by.into_sql::<Bool>().and(
+							tag::updated_by
+								.eq(updater.field(profile::id).nullable()),
+						)),
+					)
 					.select((
 						PrimitiveTag::as_select(),
 						PrimitiveTranslation::as_select(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
 					))
 					.load(c)
 			})

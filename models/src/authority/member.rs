@@ -11,10 +11,17 @@ use crate::schema::{
 	authority,
 	authority_profile,
 	creator,
-	simple_profile,
+	image,
+	profile,
 	updater,
 };
-use crate::{Authority, AuthorityIncludes, PrimitiveAuthority, SimpleProfile};
+use crate::{
+	Authority,
+	AuthorityIncludes,
+	Image,
+	PrimitiveAuthority,
+	PrimitiveProfile,
+};
 
 #[derive(
 	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
@@ -70,15 +77,16 @@ impl Authority {
 	pub async fn get_members(
 		auth_id: i32,
 		conn: &DbConn,
-	) -> Result<Vec<SimpleProfile>, Error> {
+	) -> Result<Vec<PrimitiveProfile>, Error> {
 		let members = conn
 			.interact(move |conn| {
 				authority_profile::table
 					.filter(authority_profile::authority_id.eq(auth_id))
-					.inner_join(simple_profile::table.on(
-						simple_profile::id.eq(authority_profile::profile_id),
-					))
-					.select(SimpleProfile::as_select())
+					.inner_join(
+						profile::table
+							.on(profile::id.eq(authority_profile::profile_id)),
+					)
+					.select(PrimitiveProfile::as_select())
 					.get_results(conn)
 			})
 			.await??;
@@ -92,25 +100,35 @@ impl Authority {
 	pub async fn get_members_with_permissions(
 		auth_id: i32,
 		conn: &DbConn,
-	) -> Result<Vec<(SimpleProfile, AuthorityPermissions)>, Error> {
+	) -> Result<
+		Vec<(PrimitiveProfile, Option<Image>, AuthorityPermissions)>,
+		Error,
+	> {
 		let members = conn
 			.interact(move |conn| {
 				authority_profile::table
 					.filter(authority_profile::authority_id.eq(auth_id))
-					.inner_join(simple_profile::table.on(
-						simple_profile::id.eq(authority_profile::profile_id),
-					))
+					.inner_join(
+						profile::table
+							.on(profile::id.eq(authority_profile::profile_id)),
+					)
+					.left_outer_join(
+						image::table
+							.on(profile::avatar_image_id
+								.eq(image::id.nullable())),
+					)
 					.select((
-						SimpleProfile::as_select(),
+						PrimitiveProfile::as_select(),
+						image::all_columns.nullable(),
 						authority_profile::permissions,
 					))
 					.get_results(conn)
 			})
 			.await??
 			.into_iter()
-			.map(|(prof, perm): (_, i64)| {
+			.map(|(prof, img, perm): (_, _, i64)| {
 				let perm = AuthorityPermissions::from_bits_truncate(perm);
-				(prof, perm)
+				(prof, img, perm)
 			})
 			.collect();
 
@@ -174,24 +192,22 @@ impl Authority {
 					.inner_join(
 						authority::table.on(authority_id.eq(authority::id)),
 					)
-					.left_outer_join(creator.on(
-						includes.created_by.into_sql::<Bool>().and(
-							authority::created_by.eq(
-								creator.field(simple_profile::id).nullable(),
-							),
-						),
-					))
-					.left_outer_join(updater.on(
-						includes.updated_by.into_sql::<Bool>().and(
-							authority::updated_by.eq(
-								updater.field(simple_profile::id).nullable(),
-							),
-						),
-					))
+					.left_outer_join(
+						creator.on(includes.created_by.into_sql::<Bool>().and(
+							authority::created_by
+								.eq(creator.field(profile::id).nullable()),
+						)),
+					)
+					.left_outer_join(
+						updater.on(includes.updated_by.into_sql::<Bool>().and(
+							authority::updated_by
+								.eq(updater.field(profile::id).nullable()),
+						)),
+					)
 					.select((
 						PrimitiveAuthority::as_select(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
 					))
 					.get_results(conn)
 			})
@@ -234,7 +250,8 @@ impl NewAuthorityProfile {
 	pub async fn insert(
 		self,
 		conn: &DbConn,
-	) -> Result<(SimpleProfile, AuthorityPermissions), Error> {
+	) -> Result<(PrimitiveProfile, Option<Image>, AuthorityPermissions), Error>
+	{
 		conn.interact(move |conn| {
 			use crate::schema::authority_profile::dsl::*;
 
@@ -242,7 +259,7 @@ impl NewAuthorityProfile {
 		})
 		.await??;
 
-		let (profile, permissions): (SimpleProfile, i64) = conn
+		let (profile, img, permissions): (_, _, i64) = conn
 			.interact(move |conn| {
 				authority_profile::table
 					.filter(
@@ -253,11 +270,18 @@ impl NewAuthorityProfile {
 									.eq(self.profile_id),
 							),
 					)
-					.inner_join(simple_profile::table.on(
-						simple_profile::id.eq(authority_profile::profile_id),
-					))
+					.inner_join(
+						profile::table
+							.on(profile::id.eq(authority_profile::profile_id)),
+					)
+					.left_outer_join(
+						image::table
+							.on(profile::avatar_image_id
+								.eq(image::id.nullable())),
+					)
 					.select((
-						SimpleProfile::as_select(),
+						PrimitiveProfile::as_select(),
+						image::all_columns.nullable(),
 						authority_profile::permissions,
 					))
 					.get_result(conn)
@@ -271,7 +295,7 @@ impl NewAuthorityProfile {
 			self.profile_id, self.authority_id
 		);
 
-		Ok((profile, permissions))
+		Ok((profile, img, permissions))
 	}
 }
 
@@ -290,7 +314,8 @@ impl AuthorityProfileUpdate {
 		auth_id: i32,
 		prof_id: i32,
 		conn: &DbConn,
-	) -> Result<(SimpleProfile, AuthorityPermissions), Error> {
+	) -> Result<(PrimitiveProfile, Option<Image>, AuthorityPermissions), Error>
+	{
 		conn.interact(move |conn| {
 			use crate::schema::authority_profile::dsl::*;
 
@@ -300,15 +325,22 @@ impl AuthorityProfileUpdate {
 		})
 		.await??;
 
-		let (profile, permissions): (SimpleProfile, i64) = conn
+		let (profile, img, permissions): (_, _, i64) = conn
 			.interact(move |conn| {
 				authority_profile::table
 					.find((auth_id, prof_id))
-					.inner_join(simple_profile::table.on(
-						simple_profile::id.eq(authority_profile::profile_id),
-					))
+					.inner_join(
+						profile::table
+							.on(profile::id.eq(authority_profile::profile_id)),
+					)
+					.left_outer_join(
+						image::table
+							.on(profile::avatar_image_id
+								.eq(image::id.nullable())),
+					)
 					.select((
-						SimpleProfile::as_select(),
+						PrimitiveProfile::as_select(),
+						image::all_columns.nullable(),
 						authority_profile::permissions,
 					))
 					.get_result(conn)
@@ -322,6 +354,6 @@ impl AuthorityProfileUpdate {
 			prof_id, self.permissions, auth_id
 		);
 
-		Ok((profile, permissions))
+		Ok((profile, img, permissions))
 	}
 }

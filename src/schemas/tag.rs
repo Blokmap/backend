@@ -1,5 +1,5 @@
 use chrono::NaiveDateTime;
-use models::{NewTag, PrimitiveTranslation, SimpleProfile, Tag, TagUpdate};
+use models::{NewTag, PrimitiveProfile, PrimitiveTranslation, Tag, TagUpdate};
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::translation::{
@@ -13,9 +13,9 @@ pub struct TagResponse {
 	pub id:         i32,
 	pub name:       PrimitiveTranslation,
 	pub created_at: NaiveDateTime,
-	pub created_by: Option<Option<SimpleProfile>>,
+	pub created_by: Option<Option<PrimitiveProfile>>,
 	pub updated_at: NaiveDateTime,
-	pub updated_by: Option<Option<SimpleProfile>>,
+	pub updated_by: Option<Option<PrimitiveProfile>>,
 }
 
 impl From<Tag> for TagResponse {

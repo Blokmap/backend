@@ -4,7 +4,7 @@ use axum::response::{IntoResponse, Redirect};
 use axum_extra::extract::PrivateCookieJar;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use common::{Error, OAuthError};
-use models::Profile;
+use models::PrimitiveProfile;
 use openidconnect::core::{CoreClient, CoreProviderMetadata, CoreResponseType};
 use openidconnect::reqwest::blocking::ClientBuilder;
 use openidconnect::reqwest::redirect::Policy;
@@ -192,7 +192,7 @@ pub async fn sso_callback(
 
 	let email = email.to_string();
 	let username = id_token_claims.preferred_username().map(|n| n.to_string());
-	let profile = Profile::from_sso(email, username, &conn).await?;
+	let profile = PrimitiveProfile::from_sso(email, username, &conn).await?;
 
 	let session =
 		Session::create(config.access_token_lifetime, &profile, &mut r_conn)

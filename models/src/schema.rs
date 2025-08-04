@@ -218,30 +218,15 @@ diesel::table! {
 	}
 }
 
-diesel::table! {
-	use diesel::sql_types::*;
-	use super::sql_types::ProfileState;
-
-	simple_profile (id) {
-		id -> Int4,
-		username -> Text,
-		avatar_url -> Nullable<Text>,
-		email -> Nullable<Text>,
-		first_name -> Nullable<Text>,
-		last_name -> Nullable<Text>,
-		state -> ProfileState,
-	}
-}
-
 diesel::alias!(
 	translation as description: DescriptionAlias,
 	translation as excerpt: ExcerptAlias,
 	translation as tag_name: TagNameAlias,
-	simple_profile as approver: ApproverAlias,
-	simple_profile as rejecter: RejecterAlias,
-	simple_profile as creator: CreatorAlias,
-	simple_profile as updater: UpdaterAlias,
-	simple_profile as confirmer: ConfirmerAlias,
+	profile as approver: ApproverAlias,
+	profile as rejecter: RejecterAlias,
+	profile as creator: CreatorAlias,
+	profile as updater: UpdaterAlias,
+	profile as confirmer: ConfirmerAlias,
 );
 
 diesel::joinable!(authority_profile -> authority (authority_id));
@@ -273,5 +258,4 @@ diesel::allow_tables_to_appear_in_same_query!(
 	review,
 	tag,
 	translation,
-	simple_profile,
 );

@@ -27,6 +27,7 @@ fn get_env_default(var: &str, default: impl Into<String>) -> String {
 pub struct Config {
 	pub database_url: String,
 	pub redis_url:    String,
+	pub base_url:     String,
 
 	pub production:  bool,
 	pub skip_verify: bool,
@@ -54,6 +55,7 @@ impl Config {
 	pub fn from_env() -> Self {
 		let database_url = get_env("DATABASE_URL");
 		let redis_url = get_env("REDIS_URL");
+		let base_url = get_env("BASE_URL");
 
 		let production =
 			get_env_default("PRODUCTION", "false").parse::<bool>().unwrap();
@@ -105,6 +107,7 @@ impl Config {
 		Self {
 			database_url,
 			redis_url,
+			base_url,
 			production,
 			skip_verify,
 			frontend_url,

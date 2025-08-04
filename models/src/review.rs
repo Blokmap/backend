@@ -4,13 +4,13 @@ use diesel::pg::Pg;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{review, simple_profile};
+use crate::schema::{profile, review};
 use crate::{
 	FullLocationData,
 	Location,
 	LocationIncludes,
+	PrimitiveProfile,
 	QUERY_HARD_LIMIT,
-	SimpleProfile,
 	manual_pagination,
 };
 
@@ -19,7 +19,7 @@ use crate::{
 #[diesel(check_for_backend(Pg))]
 pub struct Review {
 	pub review:     PrimitiveReview,
-	pub created_by: SimpleProfile,
+	pub created_by: PrimitiveProfile,
 }
 
 #[derive(
@@ -51,13 +51,10 @@ impl Review {
 
 				review
 					.filter(location_id.eq(l_id))
-					.inner_join(
-						simple_profile::table
-							.on(simple_profile::id.eq(profile_id)),
-					)
+					.inner_join(profile::table.on(profile::id.eq(profile_id)))
 					.select((
 						PrimitiveReview::as_select(),
-						SimpleProfile::as_select(),
+						PrimitiveProfile::as_select(),
 					))
 					.limit(QUERY_HARD_LIMIT)
 					.get_results(conn)
@@ -82,13 +79,10 @@ impl Review {
 
 				review
 					.filter(profile_id.eq(p_id))
-					.inner_join(
-						simple_profile::table
-							.on(simple_profile::id.eq(profile_id)),
-					)
+					.inner_join(profile::table.on(profile::id.eq(profile_id)))
 					.select((
 						PrimitiveReview::as_select(),
-						SimpleProfile::as_select(),
+						PrimitiveProfile::as_select(),
 					))
 					.get_results(conn)
 			})
@@ -147,12 +141,11 @@ impl NewReview {
 					review
 						.find(r_id)
 						.inner_join(
-							simple_profile::table
-								.on(simple_profile::id.eq(profile_id)),
+							profile::table.on(profile::id.eq(profile_id)),
 						)
 						.select((
 							PrimitiveReview::as_select(),
-							SimpleProfile::as_select(),
+							PrimitiveProfile::as_select(),
 						))
 						.get_result(conn)
 				})
@@ -194,12 +187,11 @@ impl ReviewUpdate {
 					review
 						.find(r_id)
 						.inner_join(
-							simple_profile::table
-								.on(simple_profile::id.eq(profile_id)),
+							profile::table.on(profile::id.eq(profile_id)),
 						)
 						.select((
 							PrimitiveReview::as_select(),
-							SimpleProfile::as_select(),
+							PrimitiveProfile::as_select(),
 						))
 						.get_result(conn)
 				})

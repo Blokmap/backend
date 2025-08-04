@@ -10,10 +10,10 @@ use crate::schema::{
 	creator,
 	location,
 	opening_time,
+	profile,
 	reservation,
-	simple_profile,
 };
-use crate::{PrimitiveLocation, PrimitiveOpeningTime, SimpleProfile};
+use crate::{PrimitiveLocation, PrimitiveOpeningTime, PrimitiveProfile};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -36,8 +36,8 @@ pub struct ReservationIncludes {
 #[diesel(check_for_backend(Pg))]
 pub struct Reservation {
 	pub reservation:  PrimitiveReservation,
-	pub profile:      Option<SimpleProfile>,
-	pub confirmed_by: Option<Option<SimpleProfile>>,
+	pub profile:      Option<PrimitiveProfile>,
+	pub confirmed_by: Option<Option<PrimitiveProfile>>,
 }
 
 #[derive(
@@ -85,32 +85,34 @@ impl Reservation {
 	) -> Result<Self, Error> {
 		let reservation: (
 			PrimitiveReservation,
-			Option<SimpleProfile>,
-			Option<SimpleProfile>,
+			Option<PrimitiveProfile>,
+			Option<PrimitiveProfile>,
 		) = conn
 			.interact(move |conn| {
 				use crate::schema::reservation::dsl::*;
 
 				reservation
-					.left_outer_join(creator.on(
-						includes.profile.into_sql::<Bool>().and(
-							profile_id.eq(creator.field(simple_profile::id)),
-						),
-					))
-					.left_outer_join(confirmer.on(
-						includes.confirmed_by.into_sql::<Bool>().and(
-							confirmed_by.eq(
-								confirmer.field(simple_profile::id).nullable(),
-							),
-						),
-					))
+					.left_outer_join(
+						creator
+							.on(includes.profile.into_sql::<Bool>().and(
+								profile_id.eq(creator.field(profile::id)),
+							)),
+					)
+					.left_outer_join(
+						confirmer.on(includes
+							.confirmed_by
+							.into_sql::<Bool>()
+							.and(
+								confirmed_by.eq(confirmer
+									.field(profile::id)
+									.nullable()),
+							)),
+					)
 					.filter(id.eq(r_id))
 					.select((
 						PrimitiveReservation::as_select(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						confirmer
-							.fields(simple_profile::all_columns)
-							.nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						confirmer.fields(profile::all_columns).nullable(),
 					))
 					.get_result(conn)
 			})
@@ -159,26 +161,27 @@ impl Reservation {
 					.left_outer_join(
 						creator.on(includes.profile.into_sql::<Bool>().and(
 							reservation::profile_id
-								.eq(creator.field(simple_profile::id)),
+								.eq(creator.field(profile::id)),
 						)),
 					)
-					.left_outer_join(confirmer.on(
-						includes.confirmed_by.into_sql::<Bool>().and(
-							reservation::confirmed_by.eq(
-								confirmer.field(simple_profile::id).nullable(),
-							),
-						),
-					))
+					.left_outer_join(
+						confirmer.on(includes
+							.confirmed_by
+							.into_sql::<Bool>()
+							.and(
+								reservation::confirmed_by.eq(confirmer
+									.field(profile::id)
+									.nullable()),
+							)),
+					)
 					.filter(location::id.eq(loc_id))
 					.filter(date_filter)
 					.select((
 						PrimitiveLocation::as_select(),
 						PrimitiveOpeningTime::as_select(),
 						PrimitiveReservation::as_select(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						confirmer
-							.fields(simple_profile::all_columns)
-							.nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						confirmer.fields(profile::all_columns).nullable(),
 					))
 					.get_results(conn)
 			})
@@ -221,24 +224,25 @@ impl Reservation {
 					.left_outer_join(
 						creator.on(includes.profile.into_sql::<Bool>().and(
 							reservation::profile_id
-								.eq(creator.field(simple_profile::id)),
+								.eq(creator.field(profile::id)),
 						)),
 					)
-					.left_outer_join(confirmer.on(
-						includes.confirmed_by.into_sql::<Bool>().and(
-							reservation::confirmed_by.eq(
-								confirmer.field(simple_profile::id).nullable(),
-							),
-						),
-					))
+					.left_outer_join(
+						confirmer.on(includes
+							.confirmed_by
+							.into_sql::<Bool>()
+							.and(
+								reservation::confirmed_by.eq(confirmer
+									.field(profile::id)
+									.nullable()),
+							)),
+					)
 					.filter(opening_time::id.eq(t_id))
 					.select((
 						PrimitiveOpeningTime::as_select(),
 						PrimitiveReservation::as_select(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						confirmer
-							.fields(simple_profile::all_columns)
-							.nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						confirmer.fields(profile::all_columns).nullable(),
 					))
 					.get_results(conn)
 			})
@@ -281,26 +285,26 @@ impl Reservation {
 							.on(reservation::opening_time_id
 								.eq(opening_time::id)),
 					)
-					.inner_join(
-						creator.on(reservation::profile_id
-							.eq(creator.field(simple_profile::id))),
-					)
-					.left_outer_join(confirmer.on(
-						includes.confirmed_by.into_sql::<Bool>().and(
-							reservation::confirmed_by.eq(
-								confirmer.field(simple_profile::id).nullable(),
-							),
-						),
+					.inner_join(creator.on(
+						reservation::profile_id.eq(creator.field(profile::id)),
 					))
-					.filter(creator.field(simple_profile::id).eq(p_id))
+					.left_outer_join(
+						confirmer.on(includes
+							.confirmed_by
+							.into_sql::<Bool>()
+							.and(
+								reservation::confirmed_by.eq(confirmer
+									.field(profile::id)
+									.nullable()),
+							)),
+					)
+					.filter(creator.field(profile::id).eq(p_id))
 					.select((
 						PrimitiveLocation::as_select(),
 						PrimitiveOpeningTime::as_select(),
 						PrimitiveReservation::as_select(),
-						creator.fields(simple_profile::all_columns),
-						confirmer
-							.fields(simple_profile::all_columns)
-							.nullable(),
+						creator.fields(profile::all_columns),
+						confirmer.fields(profile::all_columns).nullable(),
 					))
 					.get_results(conn)
 			})

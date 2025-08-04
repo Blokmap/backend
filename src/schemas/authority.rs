@@ -7,7 +7,7 @@ use models::{
 	NewAuthority,
 	NewAuthorityProfile,
 	PrimitiveAuthority,
-	SimpleProfile,
+	PrimitiveProfile,
 };
 use serde::{Deserialize, Serialize};
 
@@ -19,9 +19,9 @@ pub struct AuthorityResponse {
 	pub name:        String,
 	pub description: Option<String>,
 	pub created_at:  NaiveDateTime,
-	pub created_by:  Option<Option<SimpleProfile>>,
+	pub created_by:  Option<Option<PrimitiveProfile>>,
 	pub updated_at:  NaiveDateTime,
-	pub updated_by:  Option<Option<SimpleProfile>>,
+	pub updated_by:  Option<Option<PrimitiveProfile>>,
 }
 
 impl From<Authority> for AuthorityResponse {
@@ -60,17 +60,17 @@ pub struct FullAuthorityResponse {
 	pub name:        String,
 	pub description: Option<String>,
 	pub created_at:  NaiveDateTime,
-	pub created_by:  Option<Option<SimpleProfile>>,
+	pub created_by:  Option<Option<PrimitiveProfile>>,
 	pub updated_at:  NaiveDateTime,
-	pub updated_by:  Option<Option<SimpleProfile>>,
-	pub members:     Vec<SimpleProfile>,
+	pub updated_by:  Option<Option<PrimitiveProfile>>,
+	pub members:     Vec<PrimitiveProfile>,
 	pub locations:   Vec<Location>,
 }
 
-impl From<(Authority, Vec<SimpleProfile>, Vec<Location>)>
+impl From<(Authority, Vec<PrimitiveProfile>, Vec<Location>)>
 	for FullAuthorityResponse
 {
-	fn from(value: (Authority, Vec<SimpleProfile>, Vec<Location>)) -> Self {
+	fn from(value: (Authority, Vec<PrimitiveProfile>, Vec<Location>)) -> Self {
 		Self {
 			id:          value.0.authority.id,
 			name:        value.0.authority.name,

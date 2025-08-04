@@ -16,8 +16,8 @@ use crate::schema::{
 	excerpt,
 	location,
 	opening_time,
+	profile,
 	rejecter,
-	simple_profile,
 	translation,
 	updater,
 };
@@ -29,8 +29,8 @@ use crate::{
 	NewTranslation,
 	PrimitiveAuthority,
 	PrimitiveOpeningTime,
+	PrimitiveProfile,
 	PrimitiveTranslation,
-	SimpleProfile,
 	Tag,
 };
 
@@ -45,10 +45,10 @@ pub type UnjoinedLocationData = (
 	PrimitiveTranslation,
 	PrimitiveTranslation,
 	Option<PrimitiveAuthority>,
-	Option<SimpleProfile>,
-	Option<SimpleProfile>,
-	Option<SimpleProfile>,
-	Option<SimpleProfile>,
+	Option<PrimitiveProfile>,
+	Option<PrimitiveProfile>,
+	Option<PrimitiveProfile>,
+	Option<PrimitiveProfile>,
 );
 
 pub type LocationBackfill = (
@@ -84,10 +84,10 @@ pub struct Location {
 	pub authority:   Option<Option<PrimitiveAuthority>>,
 	pub description: PrimitiveTranslation,
 	pub excerpt:     PrimitiveTranslation,
-	pub approved_by: Option<Option<SimpleProfile>>,
-	pub rejected_by: Option<Option<SimpleProfile>>,
-	pub created_by:  Option<Option<SimpleProfile>>,
-	pub updated_by:  Option<Option<SimpleProfile>>,
+	pub approved_by: Option<Option<PrimitiveProfile>>,
+	pub rejected_by: Option<Option<PrimitiveProfile>>,
+	pub created_by:  Option<Option<PrimitiveProfile>>,
+	pub updated_by:  Option<Option<PrimitiveProfile>>,
 }
 
 impl Hash for Location {
@@ -182,25 +182,25 @@ impl Location {
 			.left_outer_join(
 				approver.on(inc_approved_by.into_sql::<Bool>().and(
 					crate::schema::location::dsl::approved_by
-						.eq(approver.field(simple_profile::id).nullable()),
+						.eq(approver.field(profile::id).nullable()),
 				)),
 			)
 			.left_outer_join(
 				rejecter.on(inc_rejected_by.into_sql::<Bool>().and(
 					crate::schema::location::dsl::rejected_by
-						.eq(rejecter.field(simple_profile::id).nullable()),
+						.eq(rejecter.field(profile::id).nullable()),
 				)),
 			)
 			.left_outer_join(
 				creator.on(inc_created_by.into_sql::<Bool>().and(
 					crate::schema::location::dsl::created_by
-						.eq(creator.field(simple_profile::id).nullable()),
+						.eq(creator.field(profile::id).nullable()),
 				)),
 			)
 			.left_outer_join(
 				updater.on(inc_updated_by.into_sql::<Bool>().and(
 					crate::schema::location::dsl::updated_by
-						.eq(updater.field(simple_profile::id).nullable()),
+						.eq(updater.field(profile::id).nullable()),
 				)),
 			)
 	}
@@ -344,10 +344,10 @@ impl Location {
 							PrimitiveAuthority as Selectable<Pg>
 						>
 						::construct_selection().nullable(),
-						approver.fields(simple_profile::all_columns).nullable(),
-						rejecter.fields(simple_profile::all_columns).nullable(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
+						approver.fields(profile::all_columns).nullable(),
+						rejecter.fields(profile::all_columns).nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
 					))
 					.get_result(conn)
 			})
@@ -400,10 +400,10 @@ impl Location {
 							PrimitiveAuthority as Selectable<Pg>
 						>
 						::construct_selection().nullable(),
-						approver.fields(simple_profile::all_columns).nullable(),
-						rejecter.fields(simple_profile::all_columns).nullable(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
+						approver.fields(profile::all_columns).nullable(),
+						rejecter.fields(profile::all_columns).nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
 					))
 					.get_results(conn)
 			})
@@ -460,10 +460,10 @@ impl Location {
 							PrimitiveAuthority as Selectable<Pg>
 						>
 						::construct_selection().nullable(),
-						approver.fields(simple_profile::all_columns).nullable(),
-						rejecter.fields(simple_profile::all_columns).nullable(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
+						approver.fields(profile::all_columns).nullable(),
+						rejecter.fields(profile::all_columns).nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
 					))
 					.load(conn)
 			})
@@ -520,10 +520,10 @@ impl Location {
 							PrimitiveAuthority as Selectable<Pg>
 						>
 						::construct_selection().nullable(),
-						approver.fields(simple_profile::all_columns).nullable(),
-						rejecter.fields(simple_profile::all_columns).nullable(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
+						approver.fields(profile::all_columns).nullable(),
+						rejecter.fields(profile::all_columns).nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
 					))
 					.load(conn)
 			})
@@ -569,10 +569,10 @@ impl Location {
 							PrimitiveAuthority as Selectable<Pg>
 						>
 						::construct_selection().nullable(),
-						approver.fields(simple_profile::all_columns).nullable(),
-						rejecter.fields(simple_profile::all_columns).nullable(),
-						creator.fields(simple_profile::all_columns).nullable(),
-						updater.fields(simple_profile::all_columns).nullable(),
+						approver.fields(profile::all_columns).nullable(),
+						rejecter.fields(profile::all_columns).nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
 					))
 					.load(conn)
 			})

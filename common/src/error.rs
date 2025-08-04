@@ -176,8 +176,9 @@ impl IntoResponse for Error {
 			Self::InternalServerError | Self::Infallible(_) => {
 				StatusCode::INTERNAL_SERVER_ERROR
 			},
-			Self::TokenError(TokenError::MissingAccessToken)
-			| Self::TokenError(TokenError::MissingSession) => StatusCode::UNAUTHORIZED,
+			Self::TokenError(
+				TokenError::MissingAccessToken | TokenError::MissingSession,
+			) => StatusCode::UNAUTHORIZED,
 			Self::Forbidden
 			| Self::LoginError(_)
 			| Self::OAuthError(_)

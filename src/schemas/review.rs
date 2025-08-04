@@ -3,9 +3,9 @@ use common::Error;
 use models::{
 	FullLocationData,
 	NewReview,
+	PrimitiveProfile,
 	Review,
 	ReviewUpdate,
-	SimpleProfile,
 };
 use serde::{Deserialize, Serialize};
 use validator::Validate;
@@ -17,7 +17,7 @@ use crate::schemas::location::LocationResponse;
 #[serde(rename_all = "camelCase")]
 pub struct ReviewResponse {
 	pub id:         i32,
-	pub created_by: SimpleProfile,
+	pub created_by: PrimitiveProfile,
 	pub rating:     i32,
 	pub body:       Option<String>,
 	pub created_at: NaiveDateTime,
@@ -41,7 +41,7 @@ impl From<Review> for ReviewResponse {
 #[serde(rename_all = "camelCase")]
 pub struct ReviewLocationResponse {
 	pub id:         i32,
-	pub created_by: SimpleProfile,
+	pub created_by: PrimitiveProfile,
 	pub rating:     i32,
 	pub body:       Option<String>,
 	pub created_at: NaiveDateTime,

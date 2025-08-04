@@ -5,7 +5,7 @@ use models::{
 	LocationUpdate,
 	NewLocation,
 	NewLocationProfile,
-	SimpleProfile,
+	PrimitiveProfile,
 };
 use serde::{Deserialize, Serialize};
 
@@ -45,17 +45,17 @@ pub struct LocationResponse {
 	pub longitude:              f64,
 	pub approved_at:            Option<NaiveDateTime>,
 	#[serde(serialize_with = "ser_includes")]
-	pub approved_by:            Option<Option<SimpleProfile>>,
+	pub approved_by:            Option<Option<PrimitiveProfile>>,
 	pub rejected_at:            Option<NaiveDateTime>,
 	#[serde(serialize_with = "ser_includes")]
-	pub rejected_by:            Option<Option<SimpleProfile>>,
+	pub rejected_by:            Option<Option<PrimitiveProfile>>,
 	pub rejected_reason:        Option<String>,
 	pub created_at:             NaiveDateTime,
 	#[serde(serialize_with = "ser_includes")]
-	pub created_by:             Option<Option<SimpleProfile>>,
+	pub created_by:             Option<Option<PrimitiveProfile>>,
 	pub updated_at:             NaiveDateTime,
 	#[serde(serialize_with = "ser_includes")]
-	pub updated_by:             Option<Option<SimpleProfile>>,
+	pub updated_by:             Option<Option<PrimitiveProfile>>,
 
 	pub images:        Vec<ImageResponse>,
 	pub opening_times: Vec<OpeningTimeResponse>,

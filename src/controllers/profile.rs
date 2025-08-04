@@ -18,7 +18,7 @@ use models::{
 	Location,
 	LocationIncludes,
 	NewImage,
-	Profile,
+	PrimitiveProfile,
 	ProfileState,
 	Reservation,
 	ReservationIncludes,
@@ -46,7 +46,8 @@ pub async fn get_all_profiles(
 	let conn = pool.get().await?;
 
 	let (total, truncated, profiles) =
-		Profile::get_all(p_opts.limit(), p_opts.offset(), &conn).await?;
+		PrimitiveProfile::get_all(p_opts.limit(), p_opts.offset(), &conn)
+			.await?;
 
 	let profiles: Vec<ProfileResponse> =
 		profiles.into_iter().map(Into::into).collect();
@@ -63,7 +64,7 @@ pub async fn get_current_profile(
 ) -> Result<Json<ProfileResponse>, Error> {
 	let conn = pool.get().await?;
 
-	let profile = Profile::get(session.data.profile_id, &conn).await?;
+	let profile = PrimitiveProfile::get(session.data.profile_id, &conn).await?;
 
 	Ok(Json(profile.into()))
 }
@@ -80,7 +81,7 @@ pub async fn get_profile(
 		return Err(Error::Forbidden);
 	}
 
-	let profile = Profile::get(p_id, &conn).await?;
+	let profile = PrimitiveProfile::get(p_id, &conn).await?;
 
 	Ok(Json(profile.into()))
 }
@@ -95,7 +96,8 @@ pub async fn update_current_profile(
 ) -> Result<Json<ProfileResponse>, Error> {
 	let conn = pool.get().await?;
 
-	let old_profile = Profile::get(session.data.profile_id, &conn).await?;
+	let old_profile =
+		PrimitiveProfile::get(session.data.profile_id, &conn).await?;
 
 	let mut updated_profile = UpdateProfile::from(update)
 		.apply_to(session.data.profile_id, &conn)
@@ -141,7 +143,7 @@ pub async fn update_profile(
 		return Err(Error::Forbidden);
 	}
 
-	let old_profile = Profile::get(p_id, &conn).await?;
+	let old_profile = PrimitiveProfile::get(p_id, &conn).await?;
 
 	let mut updated_profile =
 		UpdateProfile::from(update).apply_to(p_id, &conn).await?;
@@ -221,7 +223,7 @@ pub async fn upload_profile_avatar(
 		uploaded_by: session.data.profile_id,
 	};
 
-	let image = Profile::insert_avatar(p_id, new_image, &conn).await?;
+	let image = PrimitiveProfile::insert_avatar(p_id, new_image, &conn).await?;
 
 	Ok((StatusCode::CREATED, Json(image)))
 }
@@ -238,7 +240,7 @@ pub async fn delete_profile_avatar(
 
 	let conn = pool.get().await?;
 
-	let profile = Profile::get(p_id, &conn).await?;
+	let profile = PrimitiveProfile::get(p_id, &conn).await?;
 	let Some(img_id) = profile.avatar_image_id else {
 		return Ok((StatusCode::NO_CONTENT, NoContent));
 	};
@@ -261,7 +263,7 @@ pub async fn disable_profile(
 	Path(profile_id): Path<i32>,
 ) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;
-	let mut profile = Profile::get(profile_id, &conn).await?;
+	let mut profile = PrimitiveProfile::get(profile_id, &conn).await?;
 
 	profile.state = ProfileState::Disabled;
 	profile.update(&conn).await?;
@@ -280,7 +282,7 @@ pub async fn activate_profile(
 	Path(profile_id): Path<i32>,
 ) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;
-	let mut profile = Profile::get(profile_id, &conn).await?;
+	let mut profile = PrimitiveProfile::get(profile_id, &conn).await?;
 
 	profile.state = ProfileState::Active;
 	profile.update(&conn).await?;

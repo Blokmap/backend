@@ -9,7 +9,7 @@ use axum_extra::extract::PrivateCookieJar;
 use axum_extra::extract::cookie::Cookie;
 use chrono::Utc;
 use common::{DbPool, Error, LoginError, RedisConn, TokenError};
-use models::{NewProfile, Profile, ProfileState};
+use models::{NewProfile, PrimitiveProfile, ProfileState};
 use uuid::Uuid;
 use validator::Validate;
 
@@ -107,7 +107,7 @@ pub(crate) async fn resend_confirmation_email(
 	Path(profile_id): Path<i32>,
 ) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;
-	let profile = Profile::get(profile_id, &conn).await?;
+	let profile = PrimitiveProfile::get(profile_id, &conn).await?;
 
 	let email_confirmation_token = Uuid::new_v4().to_string();
 
@@ -140,7 +140,7 @@ pub(crate) async fn confirm_email(
 ) -> Result<(PrivateCookieJar, NoContent), Error> {
 	let conn = pool.get().await?;
 	let profile =
-		Profile::get_by_email_confirmation_token(token, &conn).await?;
+		PrimitiveProfile::get_by_email_confirmation_token(token, &conn).await?;
 
 	// Unwrap is safe because profiles with a confirmation token will always
 	// have a token expiry
@@ -178,7 +178,8 @@ pub(crate) async fn request_password_reset(
 	Json(request): Json<PasswordResetRequest>,
 ) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;
-	let profile = Profile::get_by_username(request.username, &conn).await?;
+	let profile =
+		PrimitiveProfile::get_by_username(request.username, &conn).await?;
 
 	let password_reset_token = Uuid::new_v4().to_string();
 
@@ -213,7 +214,8 @@ pub(crate) async fn reset_password(
 
 	let conn = pool.get().await?;
 	let profile =
-		Profile::get_by_password_reset_token(request.token, &conn).await?;
+		PrimitiveProfile::get_by_password_reset_token(request.token, &conn)
+			.await?;
 
 	// Unwrap is safe because profiles with a reset token will always
 	// have a token expiry
@@ -253,7 +255,8 @@ pub(crate) async fn login_profile(
 ) -> Result<(PrivateCookieJar, NoContent), Error> {
 	let conn = pool.get().await?;
 	let profile =
-		Profile::get_by_email_or_username(login_data.username, &conn).await?;
+		PrimitiveProfile::get_by_email_or_username(login_data.username, &conn)
+			.await?;
 
 	match profile.state {
 		ProfileState::Active => (),

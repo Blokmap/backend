@@ -37,7 +37,7 @@ use crate::schemas::location::{
 use crate::schemas::pagination::PaginationOptions;
 use crate::schemas::profile::ProfilePermissionsResponse;
 use crate::schemas::tag::SetLocationTagsRequest;
-use crate::{AdminSession, Session};
+use crate::{AdminSession, Config, Session};
 
 /// Create a new location in the database.
 #[instrument(skip(pool))]
@@ -357,6 +357,7 @@ pub async fn get_all_location_permissions() -> impl IntoResponse {
 #[instrument(skip(pool))]
 pub async fn get_location_members(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	session: Session,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
@@ -376,8 +377,16 @@ pub async fn get_location_members(
 	}
 
 	let members = Location::get_members(id, &conn).await?;
-	let response: Vec<_> =
-		members.into_iter().map(ProfilePermissionsResponse::from).collect();
+	let response: Vec<_> = members
+		.into_iter()
+		.map(|(m, img, perms)| {
+			let img =
+				img.map(|i| format!("{}{}", config.base_url, i.file_path));
+
+			(m, img, perms)
+		})
+		.map(ProfilePermissionsResponse::from)
+		.collect();
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -385,6 +394,7 @@ pub async fn get_location_members(
 #[instrument(skip(pool))]
 pub async fn add_location_member(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	session: Session,
 	Path(id): Path<i32>,
 	Json(request): Json<CreateLocationMemberRequest>,
@@ -405,8 +415,9 @@ pub async fn add_location_member(
 	}
 
 	let new_loc_profile = request.to_insertable(id, session.data.profile_id);
-	let member = new_loc_profile.insert(&conn).await?;
-	let response = ProfilePermissionsResponse::from(member);
+	let (member, img, perms) = new_loc_profile.insert(&conn).await?;
+	let img = img.map(|i| format!("{}{}", config.base_url, i.file_path));
+	let response = ProfilePermissionsResponse::from((member, img, perms));
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -441,6 +452,7 @@ pub async fn delete_location_member(
 #[instrument(skip(pool))]
 pub async fn update_location_member(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	session: Session,
 	Path((l_id, p_id)): Path<(i32, i32)>,
 	Json(request): Json<UpdateLocationMemberRequest>,
@@ -462,8 +474,11 @@ pub async fn update_location_member(
 	}
 
 	let loc_update = request.to_insertable(session.data.profile_id);
-	let updated_member = loc_update.apply_to(l_id, p_id, &conn).await?;
-	let response: ProfilePermissionsResponse = updated_member.into();
+	let (updated_member, img, perms) =
+		loc_update.apply_to(l_id, p_id, &conn).await?;
+	let img = img.map(|i| format!("{}{}", config.base_url, i.file_path));
+	let response: ProfilePermissionsResponse =
+		(updated_member, img, perms).into();
 
 	Ok((StatusCode::OK, Json(response)))
 }

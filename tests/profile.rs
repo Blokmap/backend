@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use blokmap::schemas::auth::LoginRequest;
 use blokmap::schemas::pagination::{PaginationOptions, PaginationResponse};
 use blokmap::schemas::reservation::ReservationResponse;
-use models::{Profile, ProfileState};
+use models::{PrimitiveProfile, ProfileState};
 
 mod common;
 
@@ -73,7 +73,7 @@ async fn update_current_profile_pending_email() {
 	let env = TestEnv::new().await.login("test").await;
 
 	let conn = env.db_guard.create_pool().get().await.unwrap();
-	let old_profile: Profile = conn
+	let old_profile: PrimitiveProfile = conn
 		.interact(|conn| {
 			use diesel::prelude::*;
 			use models::schema::profile::dsl::*;
@@ -97,7 +97,7 @@ async fn update_current_profile_pending_email() {
 		.await;
 	assert_eq!(response.status_code(), StatusCode::OK);
 
-	let new_profile: Profile = conn
+	let new_profile: PrimitiveProfile = conn
 		.interact(|conn| {
 			use diesel::prelude::*;
 			use models::schema::profile::dsl::*;
@@ -132,7 +132,7 @@ async fn disable_profile() {
 
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
-	let bob = Profile::get(test_id, &conn).await.unwrap();
+	let bob = PrimitiveProfile::get(test_id, &conn).await.unwrap();
 
 	assert_eq!(bob.state, ProfileState::Disabled);
 }
@@ -157,7 +157,7 @@ async fn disable_profile_not_admin() {
 
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
-	let bob = Profile::get(test_id, &conn).await.unwrap();
+	let bob = PrimitiveProfile::get(test_id, &conn).await.unwrap();
 
 	assert_eq!(bob.state, ProfileState::Active);
 }
@@ -169,13 +169,17 @@ async fn activate_profile() {
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
 	let pagination = PaginationOptions::default();
-	let test = Profile::get_all(pagination.limit(), pagination.offset(), &conn)
-		.await
-		.unwrap()
-		.2
-		.into_iter()
-		.find(|p| p.username == "test-disabled")
-		.unwrap();
+	let test = PrimitiveProfile::get_all(
+		pagination.limit(),
+		pagination.offset(),
+		&conn,
+	)
+	.await
+	.unwrap()
+	.2
+	.into_iter()
+	.find(|p| p.username == "test-disabled")
+	.unwrap();
 
 	let test_id = test.id;
 
@@ -183,7 +187,7 @@ async fn activate_profile() {
 
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
-	let bob = Profile::get(test_id, &conn).await.unwrap();
+	let bob = PrimitiveProfile::get(test_id, &conn).await.unwrap();
 
 	assert_eq!(bob.state, ProfileState::Active);
 }
@@ -195,13 +199,17 @@ async fn activate_profile_not_admin() {
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
 	let pagination = PaginationOptions::default();
-	let test = Profile::get_all(pagination.limit(), pagination.offset(), &conn)
-		.await
-		.unwrap()
-		.2
-		.into_iter()
-		.find(|p| p.username == "test-disabled")
-		.unwrap();
+	let test = PrimitiveProfile::get_all(
+		pagination.limit(),
+		pagination.offset(),
+		&conn,
+	)
+	.await
+	.unwrap()
+	.2
+	.into_iter()
+	.find(|p| p.username == "test-disabled")
+	.unwrap();
 
 	let test_id = test.id;
 
@@ -211,7 +219,7 @@ async fn activate_profile_not_admin() {
 
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
-	let bob = Profile::get(test_id, &conn).await.unwrap();
+	let bob = PrimitiveProfile::get(test_id, &conn).await.unwrap();
 
 	assert_eq!(bob.state, ProfileState::Disabled);
 }
