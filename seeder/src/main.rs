@@ -18,8 +18,10 @@ use models::{
 	InsertableNewLocation,
 	NewOpeningTime,
 	NewProfileDirect,
+	NewReservation,
 	NewTranslation,
 	ProfileState,
+	ReservationIncludes,
 };
 use rand::seq::IndexedRandom;
 use rand::{Rng, rng};
@@ -28,12 +30,16 @@ use crate::util::{batch_insert, generate_unique_set};
 
 #[derive(Parser, Debug)]
 struct Opt {
-	#[arg(long, short = 'p', default_value_t = 100_000)]
-	profiles:      usize,
-	#[arg(long, short = 'l', default_value_t = 1_000)]
-	locations:     usize,
-	#[arg(long, short = 't', default_value_t = 5_000)]
-	opening_times: usize,
+	#[arg(long, short = 'p')]
+	profiles:              Option<usize>,
+	#[arg(long, short = 'l')]
+	locations:             Option<usize>,
+	#[arg(long, short = 't')]
+	opening_times:         Option<usize>,
+	#[arg(long)]
+	seed_reservations_for: Option<i32>,
+	#[arg(long, default_value = "100")]
+	reservation_count:     usize,
 }
 
 #[tokio::main]
@@ -41,22 +47,34 @@ async fn main() -> Result<(), Error> {
 	let cli = Opt::parse();
 	let conn = get_conn().await;
 
-	if cli.profiles > 0 {
-		println!("Seeding {} profiles…", cli.profiles);
-		let inserted = seed_profiles(&conn, cli.profiles).await?;
+	if let Some(profiles) = cli.profiles {
+		println!("Seeding {} profiles…", profiles);
+		let inserted = seed_profiles(&conn, profiles).await?;
 		println!("Inserted {inserted} unique profiles");
 	}
 
-	if cli.locations > 0 {
-		println!("Seeding {} locations…", cli.locations);
-		let inserted = seed_locations(&conn, cli.locations).await?;
+	if let Some(locations) = cli.locations {
+		println!("Seeding {} locations…", locations);
+		let inserted = seed_locations(&conn, locations).await?;
 		println!("Inserted {inserted} locations with translations");
 	}
 
-	if cli.opening_times > 0 {
-		println!("Seeding {} opening times…", cli.opening_times);
-		let inserted = seed_opening_times(&conn, cli.opening_times).await?;
+	if let Some(opening_times) = cli.opening_times {
+		println!("Seeding {} opening times…", opening_times);
+		let inserted = seed_opening_times(&conn, opening_times).await?;
 		println!("Inserted {inserted} opening times for locations");
+	}
+
+	if let Some(profile_id) = cli.seed_reservations_for {
+		println!(
+			"Seeding {} reservations for profile ID {}…",
+			cli.reservation_count, profile_id
+		);
+		let inserted =
+			seed_reservations(&conn, profile_id, cli.reservation_count).await?;
+		println!(
+			"Inserted {inserted} reservations for profile ID {profile_id}"
+		);
 	}
 
 	Ok(())
@@ -207,6 +225,47 @@ async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 		diesel::insert_into(location).values(chunk).execute(conn)
 	})
 	.await
+}
+
+async fn seed_reservations(
+	conn: &DbConn,
+	profile_id: i32,
+	count: usize,
+) -> Result<usize, Error> {
+	let available_times: Vec<(i32, Option<i32>)> = conn
+		.interact(|c| {
+			use models::schema::opening_time::dsl::*;
+			opening_time.select((id, seat_count)).load::<(i32, Option<i32>)>(c)
+		})
+		.await
+		.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?
+		.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?;
+
+	if available_times.is_empty() {
+		return Ok(0);
+	}
+
+	let mut rng = rng();
+	let reservations: Vec<NewReservation> = (0..count)
+		.map(|_| {
+			let (t_id, _seats) = *available_times.choose(&mut rng).unwrap();
+			NewReservation {
+				profile_id,
+				opening_time_id: t_id,
+				base_block_index: rng.random_range(0..8),
+				block_count: rng.random_range(1..=3),
+			}
+		})
+		.collect();
+
+	for reservation in reservations {
+		let _ = reservation
+			.insert(ReservationIncludes::default(), conn)
+			.await
+			.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?;
+	}
+
+	Ok(count)
 }
 
 /// Faked DateTime that is bounded to the current week +- 1 week
