@@ -4,9 +4,10 @@ use models::{
 	OpeningTime,
 	OpeningTimeUpdate,
 	PrimitiveOpeningTime,
-	PrimitiveProfile,
 };
 use serde::{Deserialize, Serialize};
+
+use crate::schemas::profile::ProfileResponse;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,9 +20,9 @@ pub struct OpeningTimeResponse {
 	pub reservable_from:  Option<NaiveDateTime>,
 	pub reservable_until: Option<NaiveDateTime>,
 	pub created_at:       NaiveDateTime,
-	pub created_by:       Option<Option<PrimitiveProfile>>,
+	pub created_by:       Option<Option<ProfileResponse>>,
 	pub updated_at:       NaiveDateTime,
-	pub updated_by:       Option<Option<PrimitiveProfile>>,
+	pub updated_by:       Option<Option<ProfileResponse>>,
 }
 
 impl From<OpeningTime> for OpeningTimeResponse {
@@ -35,9 +36,9 @@ impl From<OpeningTime> for OpeningTimeResponse {
 			reservable_from:  value.opening_time.reservable_from,
 			reservable_until: value.opening_time.reservable_until,
 			created_at:       value.opening_time.created_at,
-			created_by:       value.created_by,
+			created_by:       value.created_by.map(|p| p.map(Into::into)),
 			updated_at:       value.opening_time.updated_at,
-			updated_by:       value.updated_by,
+			updated_by:       value.updated_by.map(|p| p.map(Into::into)),
 		}
 	}
 }

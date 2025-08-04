@@ -1,13 +1,11 @@
 use std::borrow::Borrow;
 
 use chrono::{Duration, NaiveDateTime, NaiveTime};
-use models::{
-	PrimitiveLocation,
-	PrimitiveOpeningTime,
-	PrimitiveProfile,
-	Reservation,
-};
+use models::{PrimitiveLocation, PrimitiveOpeningTime, Reservation};
 use serde::{Deserialize, Serialize};
+
+use crate::schemas::location::LocationResponse;
+use crate::schemas::profile::ProfileResponse;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -21,8 +19,8 @@ pub struct ReservationResponse {
 	pub created_at:       NaiveDateTime,
 	pub updated_at:       NaiveDateTime,
 	pub confirmed_at:     Option<NaiveDateTime>,
-	pub confirmed_by:     Option<Option<PrimitiveProfile>>,
-	pub location:         PrimitiveLocation,
+	pub confirmed_by:     Option<Option<ProfileResponse>>,
+	pub location:         LocationResponse,
 }
 
 impl<L, T> From<(L, T, Reservation)> for ReservationResponse
@@ -55,8 +53,8 @@ where
 			created_at: value.2.reservation.created_at,
 			updated_at: value.2.reservation.updated_at,
 			confirmed_at: value.2.reservation.confirmed_at,
-			confirmed_by: value.2.confirmed_by,
-			location: value.0.borrow().clone(),
+			confirmed_by: value.2.confirmed_by.map(|p| p.map(Into::into)),
+			location: value.0.borrow().clone().into(),
 		}
 	}
 }

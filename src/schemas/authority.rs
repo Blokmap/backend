@@ -11,6 +11,8 @@ use models::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::schemas::profile::ProfileResponse;
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,9 +21,9 @@ pub struct AuthorityResponse {
 	pub name:        String,
 	pub description: Option<String>,
 	pub created_at:  NaiveDateTime,
-	pub created_by:  Option<Option<PrimitiveProfile>>,
+	pub created_by:  Option<Option<ProfileResponse>>,
 	pub updated_at:  NaiveDateTime,
-	pub updated_by:  Option<Option<PrimitiveProfile>>,
+	pub updated_by:  Option<Option<ProfileResponse>>,
 }
 
 impl From<Authority> for AuthorityResponse {
@@ -31,9 +33,9 @@ impl From<Authority> for AuthorityResponse {
 			name:        value.authority.name,
 			description: value.authority.description,
 			created_at:  value.authority.created_at,
-			created_by:  value.created_by,
+			created_by:  value.created_by.map(|p| p.map(Into::into)),
 			updated_at:  value.authority.updated_at,
-			updated_by:  value.updated_by,
+			updated_by:  value.updated_by.map(|p| p.map(Into::into)),
 		}
 	}
 }
@@ -60,10 +62,10 @@ pub struct FullAuthorityResponse {
 	pub name:        String,
 	pub description: Option<String>,
 	pub created_at:  NaiveDateTime,
-	pub created_by:  Option<Option<PrimitiveProfile>>,
+	pub created_by:  Option<Option<ProfileResponse>>,
 	pub updated_at:  NaiveDateTime,
-	pub updated_by:  Option<Option<PrimitiveProfile>>,
-	pub members:     Vec<PrimitiveProfile>,
+	pub updated_by:  Option<Option<ProfileResponse>>,
+	pub members:     Vec<ProfileResponse>,
 	pub locations:   Vec<Location>,
 }
 
@@ -76,10 +78,10 @@ impl From<(Authority, Vec<PrimitiveProfile>, Vec<Location>)>
 			name:        value.0.authority.name,
 			description: value.0.authority.description,
 			created_at:  value.0.authority.created_at,
-			created_by:  value.0.created_by,
+			created_by:  value.0.created_by.map(|p| p.map(Into::into)),
 			updated_at:  value.0.authority.updated_at,
-			updated_by:  value.0.updated_by,
-			members:     value.1,
+			updated_by:  value.0.updated_by.map(|p| p.map(Into::into)),
+			members:     value.1.into_iter().map(Into::into).collect(),
 			locations:   value.2,
 		}
 	}

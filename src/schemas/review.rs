@@ -1,23 +1,18 @@
 use chrono::NaiveDateTime;
 use common::Error;
-use models::{
-	FullLocationData,
-	NewReview,
-	PrimitiveProfile,
-	Review,
-	ReviewUpdate,
-};
+use models::{FullLocationData, NewReview, Review, ReviewUpdate};
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 use validator_derive::Validate;
 
 use crate::schemas::location::LocationResponse;
+use crate::schemas::profile::ProfileResponse;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReviewResponse {
 	pub id:         i32,
-	pub created_by: PrimitiveProfile,
+	pub created_by: ProfileResponse,
 	pub rating:     i32,
 	pub body:       Option<String>,
 	pub created_at: NaiveDateTime,
@@ -28,7 +23,7 @@ impl From<Review> for ReviewResponse {
 	fn from(value: Review) -> Self {
 		Self {
 			id:         value.review.id,
-			created_by: value.created_by,
+			created_by: value.created_by.into(),
 			rating:     value.review.rating,
 			body:       value.review.body,
 			created_at: value.review.created_at,
@@ -41,7 +36,7 @@ impl From<Review> for ReviewResponse {
 #[serde(rename_all = "camelCase")]
 pub struct ReviewLocationResponse {
 	pub id:         i32,
-	pub created_by: PrimitiveProfile,
+	pub created_by: ProfileResponse,
 	pub rating:     i32,
 	pub body:       Option<String>,
 	pub created_at: NaiveDateTime,
@@ -53,7 +48,7 @@ impl From<(Review, FullLocationData)> for ReviewLocationResponse {
 	fn from((review, location): (Review, FullLocationData)) -> Self {
 		Self {
 			id:         review.review.id,
-			created_by: review.created_by,
+			created_by: review.created_by.into(),
 			rating:     review.review.rating,
 			body:       review.review.body,
 			created_at: review.review.created_at,
