@@ -80,7 +80,7 @@ impl Config {
 			get_env_default("ACCESS_TOKEN_NAME", "blokmap_access_token");
 
 		let access_token_lifetime = time::Duration::minutes(
-			get_env_default("ACCESS_TOKEN_LIFETIME_MINUTES", "10")
+			get_env_default("ACCESS_TOKEN_LIFETIME_MINUTES", "120")
 				.parse::<i64>()
 				.unwrap(),
 		);

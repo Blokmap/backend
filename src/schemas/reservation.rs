@@ -22,6 +22,7 @@ pub struct ReservationResponse {
 	pub updated_at:       NaiveDateTime,
 	pub confirmed_at:     Option<NaiveDateTime>,
 	pub confirmed_by:     Option<Option<PrimitiveProfile>>,
+	pub location:         PrimitiveLocation,
 }
 
 impl<L, T> From<(L, T, Reservation)> for ReservationResponse
@@ -55,6 +56,7 @@ where
 			updated_at: value.2.reservation.updated_at,
 			confirmed_at: value.2.reservation.confirmed_at,
 			confirmed_by: value.2.confirmed_by,
+			location: value.0.borrow().clone(),
 		}
 	}
 }
