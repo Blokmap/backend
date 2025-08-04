@@ -10,6 +10,7 @@ use axum_extra::extract::cookie::Cookie;
 use chrono::Utc;
 use common::{DbPool, Error, LoginError, RedisConn, TokenError};
 use models::{NewProfile, PrimitiveProfile, ProfileState};
+use time::Duration;
 use uuid::Uuid;
 use validator::Validate;
 
@@ -271,9 +272,14 @@ pub(crate) async fn login_profile(
 	Argon2::default()
 		.verify_password(login_data.password.as_bytes(), &password_hash)?;
 
+	let access_token_lifetime = if login_data.remember {
+		Duration::days(45)
+	} else {
+		config.access_token_lifetime
+	};
+
 	let session =
-		Session::create(config.access_token_lifetime, &profile, &mut r_conn)
-			.await?;
+		Session::create(access_token_lifetime, &profile, &mut r_conn).await?;
 
 	let access_token_cookie = session.to_access_token_cookie(
 		config.access_token_name,

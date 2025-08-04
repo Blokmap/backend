@@ -224,6 +224,7 @@ impl TestEnv {
 			.json(&LoginRequest {
 				username: username.to_string(),
 				password: "foo".to_string(),
+				remember: false,
 			})
 			.await;
 

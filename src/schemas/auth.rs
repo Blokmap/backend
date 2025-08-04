@@ -66,4 +66,7 @@ pub struct PasswordResetData {
 pub struct LoginRequest {
 	pub username: String,
 	pub password: String,
+
+	#[serde(default)]
+	pub remember: bool,
 }

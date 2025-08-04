@@ -511,6 +511,7 @@ async fn reset_password() {
 		.json(&LoginRequest {
 			username: "test".to_string(),
 			password: "bobdebouwer1234567!".to_string(),
+			remember: false,
 		})
 		.await;
 
@@ -585,6 +586,7 @@ async fn login_username() {
 		.json(&LoginRequest {
 			username: "test".to_string(),
 			password: "foo".to_string(),
+			remember: false,
 		})
 		.await;
 
@@ -603,6 +605,7 @@ async fn login_username_disabled() {
 		.json(&LoginRequest {
 			username: "test-disabled".to_string(),
 			password: "foo".to_string(),
+			remember: false,
 		})
 		.await;
 
@@ -621,6 +624,7 @@ async fn login_email() {
 		.json(&LoginRequest {
 			username: "test@example.com".to_string(),
 			password: "foo".to_string(),
+			remember: false,
 		})
 		.await;
 
@@ -639,6 +643,7 @@ async fn login_email_disabled() {
 		.json(&LoginRequest {
 			username: "test-disabled@example.com".to_string(),
 			password: "foo".to_string(),
+			remember: false,
 		})
 		.await;
 
@@ -657,6 +662,7 @@ async fn logout() {
 		.json(&LoginRequest {
 			username: "test".to_string(),
 			password: "foo".to_string(),
+			remember: false,
 		})
 		.await;
 
