@@ -5,8 +5,11 @@ use models::{PrimitiveLocation, PrimitiveOpeningTime, Reservation};
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::location::LocationResponse;
+use crate::schemas::opening_time::OpeningTimeResponse;
 use crate::schemas::profile::ProfileResponse;
+use crate::schemas::ser_includes;
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReservationResponse {
@@ -19,8 +22,12 @@ pub struct ReservationResponse {
 	pub created_at:       NaiveDateTime,
 	pub updated_at:       NaiveDateTime,
 	pub confirmed_at:     Option<NaiveDateTime>,
+	#[serde(serialize_with = "ser_includes")]
 	pub confirmed_by:     Option<Option<ProfileResponse>>,
-	pub location:         LocationResponse,
+	#[serde(serialize_with = "ser_includes")]
+	pub opening_time:     Option<Option<OpeningTimeResponse>>,
+	#[serde(serialize_with = "ser_includes")]
+	pub location:         Option<Option<LocationResponse>>,
 }
 
 impl<L, T> From<(L, T, Reservation)> for ReservationResponse
@@ -54,7 +61,8 @@ where
 			updated_at: value.2.reservation.updated_at,
 			confirmed_at: value.2.reservation.confirmed_at,
 			confirmed_by: value.2.confirmed_by.map(|p| p.map(Into::into)),
-			location: value.0.borrow().clone().into(),
+			opening_time: value.2.opening_time.map(|p| p.map(Into::into)),
+			location: value.2.location.map(|p| p.map(Into::into)),
 		}
 	}
 }
