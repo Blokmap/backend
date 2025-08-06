@@ -31,6 +31,7 @@ use crate::schemas::location::{
 	CreateLocationMemberRequest,
 	CreateLocationRequest,
 	LocationResponse,
+	NearestLocationResponse,
 	RejectLocationRequest,
 	UpdateLocationMemberRequest,
 	UpdateLocationRequest,
@@ -170,8 +171,9 @@ pub(crate) async fn get_nearest_location(
 	let conn = pool.get().await?;
 
 	let info = Location::get_nearest(point, &conn).await?;
+	let res: NearestLocationResponse = info.into();
 
-	Ok((StatusCode::OK, Json(info)))
+	Ok((StatusCode::OK, Json(res)))
 }
 
 /// Search all locations from the database on given latlng bounds.

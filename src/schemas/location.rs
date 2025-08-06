@@ -23,6 +23,21 @@ use crate::schemas::translation::{
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct NearestLocationResponse {
+	pub id:        i32,
+	pub latitude:  f64,
+	pub longitude: f64,
+}
+
+impl From<(i32, f64, f64)> for NearestLocationResponse {
+	fn from(value: (i32, f64, f64)) -> Self {
+		Self { id: value.0, latitude: value.1, longitude: value.2 }
+	}
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LocationResponse {
 	pub id:                     i32,
 	pub name:                   String,
