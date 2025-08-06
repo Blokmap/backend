@@ -19,6 +19,7 @@ use models::{
 	LocationIncludes,
 	LocationPermissions,
 	NewImage,
+	Point,
 	PrimitiveOpeningTime,
 	Tag,
 	TimeFilter,
@@ -159,6 +160,18 @@ pub(crate) async fn get_location(
 	let response = LocationResponse::from(result);
 
 	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub(crate) async fn get_nearest_location(
+	State(pool): State<DbPool>,
+	Query(point): Query<Point>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let info = Location::get_nearest(point, &conn).await?;
+
+	Ok((StatusCode::OK, Json(info)))
 }
 
 /// Search all locations from the database on given latlng bounds.

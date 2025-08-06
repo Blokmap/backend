@@ -2,12 +2,14 @@ use std::hash::Hash;
 
 use chrono::{NaiveDateTime, Utc};
 use common::{DbConn, Error};
+use diesel::dsl::sql;
 use diesel::pg::Pg;
 use diesel::prelude::*;
-use diesel::sql_types::Bool;
+use diesel::sql_types::{Bool, Double};
 use diesel::{Identifiable, Queryable, Selectable};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use serde_with::DisplayFromStr;
 
 use crate::schema::{
 	approver,
@@ -74,6 +76,16 @@ pub struct LocationIncludes {
 	pub created_by:  bool,
 	#[serde(default)]
 	pub updated_by:  bool,
+}
+
+#[serde_as]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Point {
+	#[serde_as(as = "DisplayFromStr")]
+	pub center_lat: f64,
+	#[serde_as(as = "DisplayFromStr")]
+	pub center_lng: f64,
 }
 
 #[derive(Clone, Debug, Queryable, Serialize)]
@@ -487,6 +499,33 @@ impl Location {
 		let imgs = imgs?;
 
 		Ok(Self::group(locations, &times, &tags, &imgs))
+	}
+
+	/// Get the location nearest to the given point
+	#[instrument(skip(conn))]
+	pub async fn get_nearest(
+		point: Point,
+		conn: &DbConn,
+	) -> Result<(i32, f64, f64), Error> {
+		let loc_info: (i32, f64, f64) = conn
+			.interact(move |conn| {
+				use self::location::dsl::*;
+
+				location
+					.order(
+						sql::<Double>("sqrt(power(latitude - ")
+							.bind::<Double, _>(point.center_lat)
+							.sql(", 2) + power(longitude - ")
+							.bind::<Double, _>(point.center_lng)
+							.sql(",2))")
+							.asc(),
+					)
+					.select((id, latitude, longitude))
+					.first(conn)
+			})
+			.await??;
+
+		Ok(loc_info)
 	}
 
 	/// Get all simple locations belonging to an authority
