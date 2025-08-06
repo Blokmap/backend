@@ -12,16 +12,7 @@ use common::{DbPool, Error};
 use image::ImageEncoder;
 use image::codecs::webp::WebPEncoder;
 use models::{
-	AuthorityPermissions,
-	Image,
-	Location,
-	LocationFilter,
-	LocationIncludes,
-	LocationPermissions,
-	NewImage,
-	PrimitiveOpeningTime,
-	Tag,
-	TimeFilter,
+	AuthorityPermissions, Image, Location, LocationFilter, LocationIncludes, LocationPermissions, Point, NewImage, PrimitiveOpeningTime, Tag, TimeFilter
 };
 use rayon::prelude::*;
 
@@ -159,6 +150,18 @@ pub(crate) async fn get_location(
 	let response = LocationResponse::from(result);
 
 	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub(crate) async fn get_nearest_location(
+	State(pool): State<DbPool>,
+	Query(point): Query<Point>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let info = Location::get_nearest(point, &conn).await?;
+
+	Ok((StatusCode::OK, Json(info)))
 }
 
 /// Search all locations from the database on given latlng bounds.
