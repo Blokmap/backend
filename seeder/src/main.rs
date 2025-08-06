@@ -8,7 +8,6 @@ use deadpool_diesel::postgres::{Manager, Pool};
 use diesel::RunQueryDsl;
 use diesel::query_dsl::methods::SelectDsl;
 use fake::faker::address::raw::{CityName, StateName, StreetName, ZipCode};
-use fake::faker::chrono::raw::Time;
 use fake::faker::company::raw::CompanyName;
 use fake::faker::internet::raw::{FreeEmail, Password, Username};
 use fake::faker::lorem::raw::Sentence;
@@ -253,7 +252,7 @@ async fn seed_reservations(
 				profile_id,
 				opening_time_id: t_id,
 				base_block_index: rng.random_range(0..8),
-				block_count: rng.random_range(1..=3),
+				block_count: rng.random_range(3..=10),
 			}
 		})
 		.collect();
@@ -327,17 +326,37 @@ async fn seed_opening_times(
 
 	let opening_times: Vec<NewOpeningTime> = (0..count)
 		.map(|_| {
+			// Generate a start time that allows for at least 15 minutes and up
+			// to 6 hours Start time between 6:00 and 17:59 (to allow for at
+			// least 6 hours until 23:59)
+			let start_hour = rng.random_range(6..18);
+			let start_minute = rng.random_range(0..60);
+			let start_time =
+				chrono::NaiveTime::from_hms_opt(start_hour, start_minute, 0)
+					.unwrap();
+
+			// Calculate maximum possible duration to not exceed 23:59:59
+			let max_end_time =
+				chrono::NaiveTime::from_hms_opt(23, 59, 59).unwrap();
+			let max_duration_minutes =
+				(max_end_time - start_time).num_minutes();
+
+			// Generate a duration between 15 minutes and min(6 hours, time
+			// until end of day)
+			let max_duration = std::cmp::min(360, max_duration_minutes); // 360 min = 6 hours
+			let duration_minutes = rng.random_range(15..=max_duration);
+			let end_time =
+				start_time + chrono::Duration::minutes(duration_minutes);
+
 			NewOpeningTime {
-				location_id:      *location_ids.choose(&mut rng).unwrap(),
-				day:              RelevantDate
-					.fake::<chrono::NaiveDateTime>()
-					.date(),
-				start_time:       Time(EN).fake(),
-				end_time:         Time(EN).fake(),
-				seat_count:       (10..100).fake_with_rng(&mut rng),
-				reservable_from:  RelevantDate.fake(),
+				location_id: *location_ids.choose(&mut rng).unwrap(),
+				day: RelevantDate.fake::<chrono::NaiveDateTime>().date(),
+				start_time,
+				end_time,
+				seat_count: (10..100).fake_with_rng(&mut rng),
+				reservable_from: RelevantDate.fake(),
 				reservable_until: RelevantDate.fake(),
-				created_by:       *profile_ids.choose(&mut rng).unwrap(),
+				created_by: *profile_ids.choose(&mut rng).unwrap(),
 			}
 		})
 		.collect();
