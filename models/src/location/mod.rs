@@ -503,17 +503,22 @@ impl Location {
 
 	/// Get the location nearest to the given point
 	#[instrument(skip(conn))]
-	pub async fn get_nearest(point: Point, conn: &DbConn) -> Result<(i32, f64, f64), Error> {
+	pub async fn get_nearest(
+		point: Point,
+		conn: &DbConn,
+	) -> Result<(i32, f64, f64), Error> {
 		let loc_info: (i32, f64, f64) = conn
 			.interact(move |conn| {
 				use self::location::dsl::*;
 
 				location
-					.order(sql::<Double>("sqrt(power(latitude - ")
-						.bind::<Double, _>(point.center_lat)
-						.sql(", 2) + power(longitude - ")
-						.bind::<Double, _>(point.center_lng)
-						.sql(",2))").asc()
+					.order(
+						sql::<Double>("sqrt(power(latitude - ")
+							.bind::<Double, _>(point.center_lat)
+							.sql(", 2) + power(longitude - ")
+							.bind::<Double, _>(point.center_lng)
+							.sql(",2))")
+							.asc(),
 					)
 					.select((id, latitude, longitude))
 					.first(conn)

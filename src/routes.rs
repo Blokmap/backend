@@ -34,7 +34,22 @@ use crate::controllers::authority::{
 };
 use crate::controllers::healthcheck;
 use crate::controllers::location::{
-	add_location_member, approve_location, create_location, delete_location, delete_location_image, delete_location_member, get_all_location_permissions, get_location, get_location_members, get_nearest_location, reject_location, search_locations, set_location_tags, update_location, update_location_member, upload_location_image
+	add_location_member,
+	approve_location,
+	create_location,
+	delete_location,
+	delete_location_image,
+	delete_location_member,
+	get_all_location_permissions,
+	get_location,
+	get_location_members,
+	get_nearest_location,
+	reject_location,
+	search_locations,
+	set_location_tags,
+	update_location,
+	update_location_member,
+	upload_location_image,
 };
 use crate::controllers::opening_time::{
 	create_location_time,

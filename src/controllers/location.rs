@@ -12,7 +12,17 @@ use common::{DbPool, Error};
 use image::ImageEncoder;
 use image::codecs::webp::WebPEncoder;
 use models::{
-	AuthorityPermissions, Image, Location, LocationFilter, LocationIncludes, LocationPermissions, Point, NewImage, PrimitiveOpeningTime, Tag, TimeFilter
+	AuthorityPermissions,
+	Image,
+	Location,
+	LocationFilter,
+	LocationIncludes,
+	LocationPermissions,
+	NewImage,
+	Point,
+	PrimitiveOpeningTime,
+	Tag,
+	TimeFilter,
 };
 use rayon::prelude::*;
 
