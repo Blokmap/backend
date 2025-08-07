@@ -11,7 +11,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::DisplayFromStr;
 
-use crate::schema::{
+use crate::db::{
 	approver,
 	creator,
 	description,
@@ -149,7 +149,7 @@ impl PrimitiveLocation {
 	pub async fn get_by_id(l_id: i32, conn: &DbConn) -> Result<Self, Error> {
 		let location = conn
 			.interact(move |conn| {
-				use crate::schema::location::dsl::*;
+				use crate::db::location::dsl::*;
 
 				location.find(l_id).select(Self::as_select()).first(conn)
 			})
@@ -174,44 +174,44 @@ impl Location {
 		let inc_created_by: bool = includes.created_by;
 		let inc_updated_by: bool = includes.updated_by;
 
-		crate::schema::location::dsl::location
+		crate::db::location::dsl::location
 			.inner_join(
-				description.on(crate::schema::location::dsl::description_id
+				description.on(crate::db::location::dsl::description_id
 					.eq(description.field(translation::id))),
 			)
 			.inner_join(
-				excerpt.on(crate::schema::location::dsl::excerpt_id
+				excerpt.on(crate::db::location::dsl::excerpt_id
 					.eq(excerpt.field(translation::id))),
 			)
 			.left_outer_join(
-				crate::schema::authority::table.on(inc_authority
+				crate::db::authority::table.on(inc_authority
 					.into_sql::<Bool>()
 					.and(
-						crate::schema::location::authority_id
-							.eq(crate::schema::authority::id.nullable()),
+						crate::db::location::authority_id
+							.eq(crate::db::authority::id.nullable()),
 					)),
 			)
 			.left_outer_join(
 				approver.on(inc_approved_by.into_sql::<Bool>().and(
-					crate::schema::location::dsl::approved_by
+					crate::db::location::dsl::approved_by
 						.eq(approver.field(profile::id).nullable()),
 				)),
 			)
 			.left_outer_join(
 				rejecter.on(inc_rejected_by.into_sql::<Bool>().and(
-					crate::schema::location::dsl::rejected_by
+					crate::db::location::dsl::rejected_by
 						.eq(rejecter.field(profile::id).nullable()),
 				)),
 			)
 			.left_outer_join(
 				creator.on(inc_created_by.into_sql::<Bool>().and(
-					crate::schema::location::dsl::created_by
+					crate::db::location::dsl::created_by
 						.eq(creator.field(profile::id).nullable()),
 				)),
 			)
 			.left_outer_join(
 				updater.on(inc_updated_by.into_sql::<Bool>().and(
-					crate::schema::location::dsl::updated_by
+					crate::db::location::dsl::updated_by
 						.eq(updater.field(profile::id).nullable()),
 				)),
 			)
@@ -282,7 +282,7 @@ impl Location {
 	> {
 		let auth_perms: Option<i64> = conn
 			.interact(move |conn| {
-				use crate::schema::{authority, authority_profile};
+				use crate::db::{authority, authority_profile};
 
 				location::table
 					.find(l_id)
@@ -306,8 +306,8 @@ impl Location {
 
 		let loc_perms: Option<i64> = conn
 			.interact(move |conn| {
-				use crate::schema::location::dsl::*;
-				use crate::schema::location_profile::dsl::*;
+				use crate::db::location::dsl::*;
+				use crate::db::location_profile::dsl::*;
 
 				location
 					.find(l_id)
@@ -336,7 +336,7 @@ impl Location {
 
 		let location_data = conn
 			.interact(move |conn| {
-				use crate::schema::location::dsl::*;
+				use crate::db::location::dsl::*;
 
 				query
 					.filter(id.eq(loc_id))
@@ -392,7 +392,7 @@ impl Location {
 
 		let locations: Vec<Location> = conn
 			.interact(move |conn| {
-				use crate::schema::location::dsl::*;
+				use crate::db::location::dsl::*;
 
 				query
 					.filter(id.eq_any(loc_ids))
@@ -711,8 +711,8 @@ impl Location {
 		let inserted_images = conn
 			.interact(move |conn| {
 				conn.transaction::<Vec<Image>, Error, _>(|conn| {
-					use crate::schema::image::dsl::*;
-					use crate::schema::location_image::dsl::*;
+					use crate::db::image::dsl::*;
+					use crate::db::location_image::dsl::*;
 
 					let images = diesel::insert_into(image)
 						.values(images)
@@ -765,7 +765,7 @@ pub struct NewLocation {
 }
 
 #[derive(Debug, Deserialize, Insertable)]
-#[diesel(table_name = crate::schema::location)]
+#[diesel(table_name = crate::db::location)]
 pub struct InsertableNewLocation {
 	pub name:                   String,
 	pub authority_id:           Option<i32>,
@@ -798,8 +798,8 @@ impl NewLocation {
 		let location = conn
 			.interact(move |conn| {
 				conn.transaction::<_, Error, _>(|conn| {
-					use crate::schema::location::dsl::location;
-					use crate::schema::translation::dsl::translation;
+					use crate::db::location::dsl::location;
+					use crate::db::translation::dsl::translation;
 
 					let desc = diesel::insert_into(translation)
 						.values(self.description)
@@ -851,7 +851,7 @@ impl NewLocation {
 }
 
 #[derive(AsChangeset, Clone, Debug, Deserialize)]
-#[diesel(table_name = crate::schema::location)]
+#[diesel(table_name = crate::db::location)]
 pub struct LocationUpdate {
 	pub name:          Option<String>,
 	pub seat_count:    Option<i32>,

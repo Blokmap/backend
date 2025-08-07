@@ -110,7 +110,7 @@ async fn seed_profiles(conn: &DbConn, count: usize) -> Result<usize, Error> {
 		.collect();
 
 	batch_insert(conn, profiles, 8192, |conn, chunk| {
-		use models::schema::profile::dsl::*;
+		use models::db::profile::dsl::*;
 		diesel::insert_into(profile).values(chunk).execute(conn)
 	})
 	.await
@@ -138,14 +138,14 @@ async fn seed_translations(
 		.collect();
 
 	batch_insert(conn, entries, 2 << 10, |conn, chunk| {
-		use models::schema::translation::dsl::*;
+		use models::db::translation::dsl::*;
 		diesel::insert_into(translation).values(chunk).execute(conn)
 	})
 	.await?;
 
 	let inserted_ids = conn
 		.interact(move |c| {
-			use models::schema::translation::dsl::*;
+			use models::db::translation::dsl::*;
 			translation.select(id).load::<i32>(c)
 		})
 		.await
@@ -159,7 +159,7 @@ async fn seed_translations(
 async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 	let profile_ids: Vec<i32> = conn
 		.interact(|c| {
-			use models::schema::profile::dsl::*;
+			use models::db::profile::dsl::*;
 			profile.select(id).load::<i32>(c)
 		})
 		.await
@@ -220,7 +220,7 @@ async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 		.collect();
 
 	batch_insert(conn, locations, 2 << 10, |conn, chunk| {
-		use models::schema::location::dsl::*;
+		use models::db::location::dsl::*;
 		diesel::insert_into(location).values(chunk).execute(conn)
 	})
 	.await
@@ -233,7 +233,7 @@ async fn seed_reservations(
 ) -> Result<usize, Error> {
 	let available_times: Vec<(i32, Option<i32>)> = conn
 		.interact(|c| {
-			use models::schema::opening_time::dsl::*;
+			use models::db::opening_time::dsl::*;
 			opening_time.select((id, seat_count)).load::<(i32, Option<i32>)>(c)
 		})
 		.await
@@ -296,7 +296,7 @@ async fn seed_opening_times(
 ) -> Result<usize, Error> {
 	let profile_ids: Vec<i32> = conn
 		.interact(|c| {
-			use models::schema::profile::dsl::*;
+			use models::db::profile::dsl::*;
 			profile.select(id).load::<i32>(c)
 		})
 		.await
@@ -310,7 +310,7 @@ async fn seed_opening_times(
 
 	let location_ids: Vec<i32> = conn
 		.interact(|c| {
-			use models::schema::location::dsl::*;
+			use models::db::location::dsl::*;
 			location.select(id).get_results(c)
 		})
 		.await
@@ -362,7 +362,7 @@ async fn seed_opening_times(
 		.collect();
 
 	batch_insert(conn, opening_times, 2 << 10, |conn, chunk| {
-		use models::schema::opening_time::dsl::*;
+		use models::db::opening_time::dsl::*;
 		diesel::insert_into(opening_time).values(chunk).execute(conn)
 	})
 	.await

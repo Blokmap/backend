@@ -6,7 +6,7 @@ use diesel::sql_types::Bool;
 use serde::{Deserialize, Serialize};
 
 use crate::PrimitiveProfile;
-use crate::schema::{authority, creator, profile, updater};
+use crate::db::{authority, creator, profile, updater};
 
 mod member;
 
@@ -56,7 +56,7 @@ impl Authority {
 			Option<PrimitiveProfile>,
 		) = conn
 			.interact(move |conn| {
-				use crate::schema::authority::dsl::*;
+				use crate::db::authority::dsl::*;
 
 				authority
 					.left_outer_join(
@@ -107,7 +107,7 @@ impl Authority {
 	) -> Result<Vec<Self>, Error> {
 		let authorities = conn
 			.interact(move |c| {
-				use crate::schema::authority::dsl::*;
+				use crate::db::authority::dsl::*;
 
 				authority
 					.left_outer_join(
@@ -158,7 +158,7 @@ impl Authority {
 		conn: &DbConn,
 	) -> Result<(), Error> {
 		conn.interact(move |conn| {
-			use crate::schema::authority::dsl::*;
+			use crate::db::authority::dsl::*;
 
 			diesel::delete(authority.find(auth_id)).execute(conn)
 		})
@@ -225,7 +225,7 @@ impl AuthorityUpdate {
 		conn: &DbConn,
 	) -> Result<Authority, Error> {
 		conn.interact(move |conn| {
-			use crate::schema::authority::dsl::*;
+			use crate::db::authority::dsl::*;
 
 			diesel::update(authority.find(auth_id)).set(self).execute(conn)
 		})

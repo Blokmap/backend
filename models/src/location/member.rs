@@ -5,7 +5,7 @@ use common::{DbConn, Error};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{image, location_profile, profile};
+use crate::db::{image, location_profile, profile};
 use crate::{
 	AuthorityPermissions,
 	Image,
@@ -142,7 +142,7 @@ impl Location {
 		conn: &DbConn,
 	) -> Result<(), Error> {
 		conn.interact(move |conn| {
-			use crate::schema::location_profile::dsl::*;
+			use crate::db::location_profile::dsl::*;
 
 			diesel::delete(location_profile.find((loc_id, prof_id)))
 				.execute(conn)
@@ -174,7 +174,7 @@ impl NewLocationProfile {
 	) -> Result<(PrimitiveProfile, Option<Image>, LocationPermissions), Error>
 	{
 		conn.interact(move |conn| {
-			use crate::schema::location_profile::dsl::*;
+			use crate::db::location_profile::dsl::*;
 
 			diesel::insert_into(location_profile).values(self).execute(conn)
 		})
@@ -235,7 +235,7 @@ impl LocationProfileUpdate {
 	) -> Result<(PrimitiveProfile, Option<Image>, LocationPermissions), Error>
 	{
 		conn.interact(move |conn| {
-			use crate::schema::location_profile::dsl::*;
+			use crate::db::location_profile::dsl::*;
 
 			diesel::update(location_profile.find((loc_id, prof_id)))
 				.set(self)

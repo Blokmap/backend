@@ -9,7 +9,7 @@ use diesel_derive_enum::DbEnum;
 use lettre::message::Mailbox;
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{image, profile};
+use crate::db::{image, profile};
 use crate::{Image, NewImage, QUERY_HARD_LIMIT, manual_pagination};
 
 diesel::joinable!(profile -> image (avatar_image_id));
@@ -17,7 +17,7 @@ diesel::joinable!(profile -> image (avatar_image_id));
 #[derive(
 	Clone, Copy, DbEnum, Debug, Default, Deserialize, PartialEq, Eq, Serialize,
 )]
-#[ExistingTypePath = "crate::schema::sql_types::ProfileState"]
+#[ExistingTypePath = "crate::db::sql_types::ProfileState"]
 pub enum ProfileState {
 	#[default]
 	PendingEmailVerification,
@@ -576,8 +576,8 @@ impl PrimitiveProfile {
 		let image = conn
 			.interact(move |conn| {
 				conn.transaction::<Image, Error, _>(|conn| {
-					use crate::schema::image::dsl::*;
-					use crate::schema::profile::dsl::*;
+					use crate::db::image::dsl::*;
+					use crate::db::profile::dsl::*;
 
 					let image_record = diesel::insert_into(image)
 						.values(avatar)

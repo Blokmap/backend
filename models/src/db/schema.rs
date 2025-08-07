@@ -1,9 +1,13 @@
 // @generated automatically by Diesel CLI.
 
 pub mod sql_types {
-	#[derive(diesel::query_builder::QueryId, diesel::sql_types::SqlType)]
+	#[derive(diesel::sql_types::SqlType)]
 	#[diesel(postgres_type(name = "profile_state"))]
 	pub struct ProfileState;
+
+	#[derive(diesel::sql_types::SqlType)]
+	#[diesel(postgres_type(name = "reservation_state"))]
+	pub struct ReservationState;
 }
 
 diesel::table! {
@@ -168,6 +172,9 @@ diesel::table! {
 }
 
 diesel::table! {
+	use diesel::sql_types::*;
+	use super::sql_types::ReservationState;
+
 	reservation (id) {
 		id -> Int4,
 		profile_id -> Int4,
@@ -178,6 +185,7 @@ diesel::table! {
 		updated_at -> Timestamp,
 		confirmed_at -> Nullable<Timestamp>,
 		confirmed_by -> Nullable<Int4>,
+		state -> ReservationState,
 	}
 }
 
@@ -217,17 +225,6 @@ diesel::table! {
 		updated_by -> Nullable<Int4>,
 	}
 }
-
-diesel::alias!(
-	translation as description: DescriptionAlias,
-	translation as excerpt: ExcerptAlias,
-	translation as tag_name: TagNameAlias,
-	profile as approver: ApproverAlias,
-	profile as rejecter: RejecterAlias,
-	profile as creator: CreatorAlias,
-	profile as updater: UpdaterAlias,
-	profile as confirmer: ConfirmerAlias,
-);
 
 diesel::joinable!(authority_profile -> authority (authority_id));
 diesel::joinable!(location -> authority (authority_id));
