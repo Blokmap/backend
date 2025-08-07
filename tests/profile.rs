@@ -77,7 +77,7 @@ async fn update_current_profile_pending_email() {
 	let old_profile: PrimitiveProfile = conn
 		.interact(|conn| {
 			use diesel::prelude::*;
-			use models::schema::profile::dsl::*;
+			use models::db::profile::dsl::*;
 
 			profile.filter(username.eq("test")).get_result(conn)
 		})
@@ -101,7 +101,7 @@ async fn update_current_profile_pending_email() {
 	let new_profile: PrimitiveProfile = conn
 		.interact(|conn| {
 			use diesel::prelude::*;
-			use models::schema::profile::dsl::*;
+			use models::db::profile::dsl::*;
 
 			profile.filter(username.eq("test")).get_result(conn)
 		})

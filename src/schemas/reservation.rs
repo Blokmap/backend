@@ -1,7 +1,12 @@
 use std::borrow::Borrow;
 
 use chrono::{Duration, NaiveDateTime, NaiveTime};
-use models::{PrimitiveLocation, PrimitiveOpeningTime, Reservation};
+use models::{
+	PrimitiveLocation,
+	PrimitiveOpeningTime,
+	Reservation,
+	ReservationState,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::location::LocationResponse;
@@ -14,6 +19,7 @@ use crate::schemas::ser_includes;
 #[serde(rename_all = "camelCase")]
 pub struct ReservationResponse {
 	pub id:               i32,
+	pub state:            ReservationState,
 	pub opening_time_id:  i32,
 	pub base_block_index: i32,
 	pub block_count:      i32,
@@ -36,33 +42,40 @@ where
 	T: Borrow<PrimitiveOpeningTime>,
 {
 	fn from(value: (L, T, Reservation)) -> Self {
-		let block_size = value.0.borrow().reservation_block_size;
-		let block_day = value.1.borrow().day;
-		let block_start_time = value.1.borrow().start_time;
+		let location = value.0.borrow();
+		let opening_time = value.1.borrow();
 
-		let base_idx = value.2.reservation.base_block_index;
-		let block_count = value.2.reservation.block_count;
+		let relations = value.2;
+		let reservation = relations.reservation;
 
-		let start_time = block_day.and_time(
-			block_start_time
-				+ Duration::minutes((base_idx * block_size).into()),
-		);
-		let end_time =
-			start_time + Duration::minutes((block_count * block_size).into());
+		let block_size = location.reservation_block_size;
+		let block_day = opening_time.day;
+		let block_start_time = opening_time.start_time;
+
+		let base_idx = reservation.base_block_index;
+		let block_count = reservation.block_count;
+
+		let start_offset = Duration::minutes((base_idx * block_size).into());
+		let start_time = block_day.and_time(block_start_time + start_offset);
+
+		let end_offset =
+			Duration::minutes(((base_idx + block_count) * block_size).into());
+		let end_time = start_time + end_offset;
 
 		Self {
-			id: value.2.reservation.id,
-			opening_time_id: value.2.reservation.opening_time_id,
-			base_block_index: value.2.reservation.base_block_index,
-			block_count: value.2.reservation.block_count,
+			id: reservation.id,
+			state: reservation.state,
+			opening_time_id: reservation.opening_time_id,
+			base_block_index: reservation.base_block_index,
+			block_count: reservation.block_count,
+			created_at: reservation.created_at,
+			updated_at: reservation.updated_at,
+			confirmed_at: reservation.confirmed_at,
+			confirmed_by: relations.confirmed_by.map(|p| p.map(Into::into)),
+			opening_time: relations.opening_time.map(|p| p.map(Into::into)),
+			location: relations.location.map(|p| p.map(Into::into)),
 			start_time,
 			end_time,
-			created_at: value.2.reservation.created_at,
-			updated_at: value.2.reservation.updated_at,
-			confirmed_at: value.2.reservation.confirmed_at,
-			confirmed_by: value.2.confirmed_by.map(|p| p.map(Into::into)),
-			opening_time: value.2.opening_time.map(|p| p.map(Into::into)),
-			location: value.2.location.map(|p| p.map(Into::into)),
 		}
 	}
 }

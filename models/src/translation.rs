@@ -6,7 +6,7 @@ use diesel::sql_types::Bool;
 use serde::{Deserialize, Serialize};
 
 use crate::PrimitiveProfile;
-use crate::schema::{creator, profile, translation, updater};
+use crate::db::{creator, profile, translation, updater};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct TranslationIncludes {
@@ -54,7 +54,7 @@ impl Translation {
 			Option<PrimitiveProfile>,
 		) = conn
 			.interact(move |conn| {
-				use crate::schema::translation::dsl::*;
+				use crate::db::translation::dsl::*;
 
 				translation
 					.left_outer_join(

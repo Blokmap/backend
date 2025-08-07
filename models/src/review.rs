@@ -4,7 +4,7 @@ use diesel::pg::Pg;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{profile, review};
+use crate::db::{profile, review};
 use crate::{
 	FullLocationData,
 	Location,
@@ -47,7 +47,7 @@ impl Review {
 	) -> Result<(usize, bool, Vec<Self>), Error> {
 		let reviews = conn
 			.interact(move |conn| {
-				use crate::schema::review::dsl::*;
+				use crate::db::review::dsl::*;
 
 				review
 					.filter(location_id.eq(l_id))
@@ -75,7 +75,7 @@ impl Review {
 	) -> Result<Vec<(Self, FullLocationData)>, Error> {
 		let (loc_ids, reviews): (Vec<i32>, Vec<Self>) = conn
 			.interact(move |conn| {
-				use crate::schema::review::dsl::*;
+				use crate::db::review::dsl::*;
 
 				review
 					.filter(profile_id.eq(p_id))
@@ -131,7 +131,7 @@ impl NewReview {
 		let (review, created_by) = conn
 			.interact(move |conn| {
 				conn.transaction(|conn| {
-					use crate::schema::review::dsl::*;
+					use crate::db::review::dsl::*;
 
 					let r_id: i32 = diesel::insert_into(review)
 						.values(self)
@@ -177,7 +177,7 @@ impl ReviewUpdate {
 		let (review, created_by) = conn
 			.interact(move |conn| {
 				conn.transaction(|conn| {
-					use crate::schema::review::dsl::*;
+					use crate::db::review::dsl::*;
 
 					let r_id: i32 = diesel::update(review)
 						.set(self)

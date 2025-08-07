@@ -5,7 +5,7 @@ use diesel::prelude::*;
 use diesel::sql_types::{Bool, Date, Time};
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{creator, opening_time, profile, updater};
+use crate::db::{creator, opening_time, profile, updater};
 use crate::{BoxedCondition, PrimitiveProfile, ToFilter};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -129,7 +129,7 @@ impl PrimitiveOpeningTime {
 	pub async fn get_by_id(t_id: i32, conn: &DbConn) -> Result<Self, Error> {
 		let opening_time = conn
 			.interact(move |conn| {
-				use crate::schema::opening_time::dsl::*;
+				use crate::db::opening_time::dsl::*;
 
 				opening_time
 					.find(t_id)
@@ -327,7 +327,7 @@ impl OpeningTime {
 
 		let times = conn
 			.interact(move |conn| {
-				use crate::schema::opening_time::dsl::*;
+				use crate::db::opening_time::dsl::*;
 
 				opening_time
 					.filter(filter)
@@ -343,7 +343,7 @@ impl OpeningTime {
 	#[instrument(skip(conn))]
 	pub async fn delete_by_id(t_id: i32, conn: &DbConn) -> Result<(), Error> {
 		conn.interact(move |conn| {
-			use crate::schema::opening_time::dsl::*;
+			use crate::db::opening_time::dsl::*;
 
 			diesel::delete(opening_time.find(t_id)).execute(conn)
 		})
@@ -419,7 +419,7 @@ impl OpeningTimeUpdate {
 		conn: &DbConn,
 	) -> Result<OpeningTime, Error> {
 		conn.interact(move |conn| {
-			use crate::schema::opening_time::dsl::*;
+			use crate::db::opening_time::dsl::*;
 
 			diesel::update(opening_time.find(t_id)).set(self).execute(conn)
 		})

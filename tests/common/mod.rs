@@ -72,7 +72,7 @@ impl TestEnv {
 					"tests/seed/profiles.json",
 					async |conn, records: Vec<SeedProfile>| {
 						conn.interact(move |conn| {
-							use models::schema::profile::dsl::*;
+							use models::db::profile::dsl::*;
 
 							diesel::insert_into(profile)
 								.values(records)
@@ -93,7 +93,7 @@ impl TestEnv {
 					"tests/seed/translations.json",
 					async |conn, records: Vec<NewTranslation>| {
 						conn.interact(move |conn| {
-							use models::schema::translation::dsl::*;
+							use models::db::translation::dsl::*;
 
 							diesel::insert_into(translation)
 								.values(records)
@@ -130,7 +130,7 @@ impl TestEnv {
 					"tests/seed/opening-times.json",
 					async |conn, records: Vec<NewOpeningTime>| {
 						conn.interact(move |conn| {
-							use models::schema::opening_time::dsl::*;
+							use models::db::opening_time::dsl::*;
 
 							diesel::insert_into(opening_time)
 								.values(records)
@@ -165,7 +165,7 @@ impl TestEnv {
 					"tests/seed/reservations.json",
 					async |conn, records: Vec<NewReservation>| {
 						conn.interact(move |conn| {
-							use models::schema::reservation::dsl::*;
+							use models::db::reservation::dsl::*;
 
 							diesel::insert_into(reservation)
 								.values(records)

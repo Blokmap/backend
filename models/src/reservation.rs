@@ -3,9 +3,10 @@ use common::{DbConn, Error};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Date};
+use diesel_derive_enum::DbEnum;
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{
+use crate::db::{
 	confirmer,
 	creator,
 	location,
@@ -59,6 +60,18 @@ pub struct Reservation {
 }
 
 #[derive(
+	Clone, Copy, DbEnum, Debug, Default, Deserialize, PartialEq, Eq, Serialize,
+)]
+#[ExistingTypePath = "crate::db::sql_types::ReservationState"]
+pub enum ReservationState {
+	#[default]
+	Created,
+	Cancelled,
+	Absent,
+	Present,
+}
+
+#[derive(
 	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
 )]
 #[diesel(table_name = reservation)]
@@ -66,6 +79,7 @@ pub struct Reservation {
 pub struct PrimitiveReservation {
 	pub id:               i32,
 	pub profile_id:       i32,
+	pub state:            ReservationState,
 	pub opening_time_id:  i32,
 	pub base_block_index: i32,
 	pub block_count:      i32,
@@ -80,7 +94,7 @@ impl PrimitiveReservation {
 	pub async fn get_by_id(r_id: i32, conn: &DbConn) -> Result<Self, Error> {
 		let reservation = conn
 			.interact(move |conn| {
-				use crate::schema::reservation::dsl::*;
+				use crate::db::reservation::dsl::*;
 
 				reservation
 					.find(r_id)
@@ -108,33 +122,33 @@ impl Reservation {
 		let inc_opening_time: bool = includes.opening_time || includes.location;
 		let inc_location: bool = includes.location;
 
-		crate::schema::reservation::dsl::reservation
+		crate::db::reservation::dsl::reservation
 			.left_outer_join(
 				creator.on(inc_profile.into_sql::<Bool>().and(
-					crate::schema::reservation::profile_id
+					crate::db::reservation::profile_id
 						.eq(creator.field(profile::id)),
 				)),
 			)
 			.left_outer_join(
 				confirmer.on(inc_confirmed.into_sql::<Bool>().and(
-					crate::schema::reservation::confirmed_by
+					crate::db::reservation::confirmed_by
 						.eq(confirmer.field(profile::id).nullable()),
 				)),
 			)
 			.left_outer_join(
-				crate::schema::opening_time::table.on(inc_opening_time
+				crate::db::opening_time::table.on(inc_opening_time
 					.into_sql::<Bool>()
 					.and(
-						crate::schema::reservation::opening_time_id
-							.eq(crate::schema::opening_time::id),
+						crate::db::reservation::opening_time_id
+							.eq(crate::db::opening_time::id),
 					)),
 			)
 			.left_outer_join(
-				crate::schema::location::table.on(inc_location
+				crate::db::location::table.on(inc_location
 					.into_sql::<Bool>()
 					.and(
-						crate::schema::opening_time::location_id
-							.eq(crate::schema::location::id),
+						crate::db::opening_time::location_id
+							.eq(crate::db::location::id),
 					)),
 			)
 	}
@@ -173,7 +187,7 @@ impl Reservation {
 
 		let reservation = conn
 			.interact(move |conn| {
-				use crate::schema::reservation::dsl::*;
+				use crate::db::reservation::dsl::*;
 
 				query
 					.filter(id.eq(r_id))
@@ -447,7 +461,7 @@ impl Reservation {
 	) -> Result<Vec<(i32, i32)>, Error> {
 		let pairs = conn
 			.interact(move |conn| {
-				use crate::schema::reservation::dsl::*;
+				use crate::db::reservation::dsl::*;
 
 				opening_time::table
 					.inner_join(
@@ -466,7 +480,7 @@ impl Reservation {
 	#[instrument(skip(conn))]
 	pub async fn delete_by_id(r_id: i32, conn: &DbConn) -> Result<(), Error> {
 		conn.interact(move |conn| {
-			use crate::schema::reservation::dsl::*;
+			use crate::db::reservation::dsl::*;
 
 			diesel::delete(reservation.find(r_id)).execute(conn)
 		})

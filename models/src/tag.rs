@@ -5,14 +5,7 @@ use diesel::prelude::*;
 use diesel::sql_types::Bool;
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{
-	creator,
-	location_tag,
-	profile,
-	tag,
-	translation,
-	updater,
-};
+use crate::db::{creator, location_tag, profile, tag, translation, updater};
 use crate::{
 	NewTranslation,
 	PrimitiveProfile,
@@ -64,7 +57,7 @@ impl Tag {
 			Option<PrimitiveProfile>,
 		) = conn
 			.interact(move |conn| {
-				use crate::schema::tag::dsl::*;
+				use crate::db::tag::dsl::*;
 
 				tag.inner_join(
 					translation::table
@@ -162,7 +155,7 @@ impl Tag {
 	#[instrument(skip(conn))]
 	pub async fn delete_by_id(tag_id: i32, conn: &DbConn) -> Result<(), Error> {
 		conn.interact(move |conn| {
-			use crate::schema::tag::dsl::*;
+			use crate::db::tag::dsl::*;
 
 			diesel::delete(tag.find(tag_id)).execute(conn)
 		})
@@ -181,9 +174,9 @@ impl Tag {
 	) -> Result<Vec<Self>, Error> {
 		let tags = conn
 			.interact(move |conn| {
-				use crate::schema::location;
-				use crate::schema::location_tag::dsl::*;
-				use crate::schema::tag::dsl::*;
+				use crate::db::location;
+				use crate::db::location_tag::dsl::*;
+				use crate::db::tag::dsl::*;
 
 				location::table
 					.find(l_id)
@@ -217,9 +210,9 @@ impl Tag {
 	) -> Result<Vec<(i32, Self)>, Error> {
 		let tags = conn
 			.interact(move |conn| {
-				use crate::schema::location;
-				use crate::schema::location_tag::dsl::*;
-				use crate::schema::tag::dsl::*;
+				use crate::db::location;
+				use crate::db::location_tag::dsl::*;
+				use crate::db::tag::dsl::*;
 
 				location::table
 					.filter(location::id.eq_any(l_ids))
@@ -272,7 +265,7 @@ impl Tag {
 
 		conn.interact(move |conn| {
 			conn.transaction(|conn| {
-				use crate::schema::location_tag::dsl::*;
+				use crate::db::location_tag::dsl::*;
 
 				diesel::delete(location_tag.filter(location_id.eq(l_id)))
 					.execute(conn)?;
@@ -311,8 +304,8 @@ impl NewTag {
 		let tag = conn
 			.interact(move |conn| {
 				conn.transaction::<_, Error, _>(|conn| {
-					use crate::schema::tag::dsl::tag;
-					use crate::schema::translation::dsl::translation;
+					use crate::db::tag::dsl::tag;
+					use crate::db::translation::dsl::translation;
 
 					let name_translation = diesel::insert_into(translation)
 						.values(self.name)
@@ -365,7 +358,7 @@ impl TagUpdate {
 	) -> Result<Tag, Error> {
 		conn.interact(move |conn| {
 			conn.transaction::<_, Error, _>(|conn| {
-				use crate::schema::{tag, translation};
+				use crate::db::{tag, translation};
 
 				let tag_update =
 					InsertableTagUpdate { updated_by: self.updated_by };

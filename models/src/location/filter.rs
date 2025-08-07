@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::DisplayFromStr;
 
 use super::{description, excerpt};
-use crate::schema::{
+use crate::db::{
 	approver,
 	creator,
 	location,
@@ -200,7 +200,7 @@ impl Location {
 
 		let locations = conn
 			.interact(move |conn| {
-				use crate::schema::location::dsl::*;
+				use crate::db::location::dsl::*;
 
 				query
 					.filter(filter)

@@ -165,8 +165,6 @@ CREATE TABLE authority_profile (
 
 SELECT diesel_manage_updated_at('authority_profile');
 
-
-
 CREATE TABLE location (
     id                     SERIAL  PRIMARY KEY,
     name                   TEXT    NOT NULL,
@@ -275,6 +273,7 @@ SELECT diesel_manage_updated_at('location_profile');
 
 
 CREATE TABLE review (
+    id          SERIAL     PRIMARY KEY,
 	profile_id  INTEGER   NOT NULL,
 	location_id INTEGER   NOT NULL,
 	rating      INTEGER   NOT NULL CHECK (0 <= rating AND rating <= 5),

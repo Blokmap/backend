@@ -12,6 +12,8 @@ use diesel::BoxableExpression;
 use diesel::pg::Pg;
 use diesel::sql_types::{Bool, Nullable};
 
+pub mod db;
+
 mod authority;
 mod image;
 mod location;
@@ -21,8 +23,6 @@ mod reservation;
 mod review;
 mod tag;
 mod translation;
-
-pub mod schema;
 
 pub use authority::*;
 pub use image::*;

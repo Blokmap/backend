@@ -62,7 +62,7 @@ impl<'c> Seeder<'c> {
 }
 
 #[derive(Clone, Debug, Deserialize, Insertable, AsChangeset)]
-#[diesel(table_name = models::schema::profile)]
+#[diesel(table_name = models::db::profile)]
 pub struct SeedProfile {
 	username:      String,
 	password_hash: String,
@@ -81,7 +81,7 @@ impl SeedProfile {
 	/// fails
 	pub async fn insert(self, conn: &DbConn) -> Result<(), Error> {
 		conn.interact(|conn| {
-			use models::schema::profile::dsl::*;
+			use models::db::profile::dsl::*;
 
 			diesel::insert_into(profile)
 				.values(self)

@@ -5,7 +5,7 @@ use diesel::prelude::*;
 use diesel::{Identifiable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{image, location_image};
+use crate::db::{image, location_image};
 
 #[derive(
 	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
@@ -51,9 +51,9 @@ impl Image {
 	) -> Result<Vec<Self>, Error> {
 		let imgs = conn
 			.interact(move |conn| {
-				use crate::schema::image::dsl::*;
-				use crate::schema::location;
-				use crate::schema::location_image::dsl::*;
+				use crate::db::image::dsl::*;
+				use crate::db::location;
+				use crate::db::location_image::dsl::*;
 
 				location::table
 					.find(l_id)
@@ -75,9 +75,9 @@ impl Image {
 	) -> Result<Vec<(i32, Self)>, Error> {
 		let imgs = conn
 			.interact(move |conn| {
-				use crate::schema::image::dsl::*;
-				use crate::schema::location;
-				use crate::schema::location_image::dsl::*;
+				use crate::db::image::dsl::*;
+				use crate::db::location;
+				use crate::db::location_image::dsl::*;
 
 				location::table
 					.filter(location::id.eq_any(l_ids))

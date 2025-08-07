@@ -7,7 +7,7 @@ use diesel::prelude::*;
 use diesel::sql_types::Bool;
 use serde::{Deserialize, Serialize};
 
-use crate::schema::{
+use crate::db::{
 	authority,
 	authority_profile,
 	creator,
@@ -144,7 +144,7 @@ impl Authority {
 	) -> Result<AuthorityPermissions, Error> {
 		let permissions = conn
 			.interact(move |conn| {
-				use crate::schema::authority_profile::dsl::*;
+				use crate::db::authority_profile::dsl::*;
 
 				authority_profile
 					.find((auth_id, prof_id))
@@ -164,7 +164,7 @@ impl Authority {
 		conn: &DbConn,
 	) -> Result<(), Error> {
 		conn.interact(move |conn| {
-			use crate::schema::authority_profile::dsl::*;
+			use crate::db::authority_profile::dsl::*;
 
 			diesel::delete(authority_profile.find((auth_id, prof_id)))
 				.execute(conn)
@@ -185,7 +185,7 @@ impl Authority {
 	) -> Result<Vec<Self>, Error> {
 		let authorities = conn
 			.interact(move |conn| {
-				use crate::schema::authority_profile::dsl::*;
+				use crate::db::authority_profile::dsl::*;
 
 				authority_profile
 					.filter(profile_id.eq(p_id))
@@ -253,7 +253,7 @@ impl NewAuthorityProfile {
 	) -> Result<(PrimitiveProfile, Option<Image>, AuthorityPermissions), Error>
 	{
 		conn.interact(move |conn| {
-			use crate::schema::authority_profile::dsl::*;
+			use crate::db::authority_profile::dsl::*;
 
 			diesel::insert_into(authority_profile).values(self).execute(conn)
 		})
@@ -317,7 +317,7 @@ impl AuthorityProfileUpdate {
 	) -> Result<(PrimitiveProfile, Option<Image>, AuthorityPermissions), Error>
 	{
 		conn.interact(move |conn| {
-			use crate::schema::authority_profile::dsl::*;
+			use crate::db::authority_profile::dsl::*;
 
 			diesel::update(authority_profile.find((auth_id, prof_id)))
 				.set(self)
