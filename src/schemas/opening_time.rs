@@ -7,7 +7,8 @@ use models::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::schemas::{profile::ProfileResponse, ser_includes};
+use crate::schemas::profile::ProfileResponse;
+use crate::schemas::ser_includes;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]

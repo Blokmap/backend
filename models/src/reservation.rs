@@ -406,13 +406,7 @@ impl Reservation {
 		includes: ReservationIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<(PrimitiveLocation, PrimitiveOpeningTime, Self)>, Error> {
-		let reservations: Vec<(
-			PrimitiveLocation,
-			PrimitiveOpeningTime,
-			PrimitiveReservation,
-			Option<PrimitiveProfile>,
-			Option<PrimitiveProfile>,
-		)> = conn
+		let reservations = conn
 			.interact(move |conn| {
 				let query =
 					reservation::table
@@ -457,11 +451,8 @@ impl Reservation {
 		let result = reservations
 			.into_iter()
 			.map(|(loc, time, reservation, profile, c)| {
-                let confirmed_by = if includes.confirmed_by {
-                    Some(c)
-                } else {
-                    None
-                };
+				let confirmed_by =
+					if includes.confirmed_by { Some(c) } else { None };
 
 				let res = Self {
 					reservation,
