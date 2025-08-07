@@ -1,5 +1,7 @@
 FROM rust:1.88.0-slim
 
+RUN rustup default nightly
+
 # Install build dependencies
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update \
