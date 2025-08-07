@@ -18,6 +18,7 @@ jobs:
 
             - name: Install deps
               run: |
+                  export DEBIAN_FRONTEND=noninteractive &&
                   apt update &&
                   apt install make libpq5 libpq-dev curl pkg-config openssl libssl-dev
 
