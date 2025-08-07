@@ -10,7 +10,6 @@ on:
 jobs:
     lint-format:
         runs-on: self-hosted
-        container: rust:1.88-slim
 
         steps:
             - name: Checkout code
