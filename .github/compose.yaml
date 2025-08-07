@@ -1,4 +1,5 @@
 services:
     lint:
         build:
-            dockerfile: Dockerfile.lint
+            dockerfile: Dockerfile
+        command: make lint
