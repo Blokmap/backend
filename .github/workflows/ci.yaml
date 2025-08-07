@@ -20,7 +20,9 @@ jobs:
               run: |
                   export DEBIAN_FRONTEND=noninteractive &&
                   apt update &&
-                  apt install -y make libpq5 libpq-dev curl pkg-config openssl libssl-dev
+                  apt install -y make libpq5 libpq-dev curl pkg-config openssl libssl-dev &&
+                  rustup default nightly &&
+                  rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt
 
             # - name: Setup Rust
             #   uses: actions-rust-lang/setup-rust-toolchain@v1
