@@ -4,7 +4,7 @@ use common::{DbConn, Error};
 use diesel::dsl::sql;
 use diesel::pg::Pg;
 use diesel::prelude::*;
-use diesel::sql_types::{Bool, Double, Nullable, Text};
+use diesel::sql_types::{Bool, Nullable, Text};
 use serde::{Deserialize, Serialize};
 use serde_with::DisplayFromStr;
 
@@ -47,8 +47,6 @@ pub struct LocationFilter {
 	#[serde(flatten)]
 	query:      Option<QueryFilter>,
 	#[serde(flatten)]
-	distance:   Option<DistanceFilter>,
-	#[serde(flatten)]
 	reservable: Option<ReservableFilter>,
 	#[serde(flatten)]
 	bounds:     Option<BoundsFilter>,
@@ -59,18 +57,6 @@ pub struct LocationFilter {
 pub struct QueryFilter {
 	pub language: String,
 	pub query:    String,
-}
-
-#[serde_as]
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DistanceFilter {
-	#[serde_as(as = "DisplayFromStr")]
-	pub center_lat: f64,
-	#[serde_as(as = "DisplayFromStr")]
-	pub center_lng: f64,
-	#[serde_as(as = "DisplayFromStr")]
-	pub distance:   f64,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
@@ -93,31 +79,6 @@ pub struct BoundsFilter {
 	pub south_west_lng: f64,
 }
 
-// impl<S> ToFilter<S> for NearestFilter
-// where
-// 	S: 'static,
-// 	location::latitude: SelectableExpression<S>,
-// 	location::longitude: SelectableExpression<S>,
-// {
-// 	type SqlType = Bool;
-
-// 	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType> {
-// 		Box::new(
-// 			sql::<Double>("2 * 6371 * asin(sqrt(1 - cos(radians( ")
-// 				.bind::<Double, _>(self.center_lat)
-// 				.sql(
-// 					" ) - radians( latitude )) + cos(radians( latitude )) * \
-// 					 cos(radians( ",
-// 				)
-// 				.bind::<Double, _>(self.center_lat)
-// 				.sql(" )) * (1 - cos(radians( ")
-// 				.bind::<Double, _>(self.center_lng)
-// 				.sql(" ) - radians( longitude ))) / 2))")
-// 				.le(self.distance),
-// 		)
-// 	}
-// }
-
 impl<S> ToFilter<S> for LocationFilter
 where
 	S: 'static,
@@ -134,10 +95,6 @@ where
 
 		if let Some(query) = self.query.clone() {
 			filter = Box::new(filter.and(query.to_filter()));
-		}
-
-		if let Some(dist) = self.distance {
-			filter = Box::new(filter.and(dist.to_filter()));
 		}
 
 		if let Some(resv) = self.reservable {
@@ -177,30 +134,6 @@ impl<S> ToFilter<S> for QueryFilter {
 			.bind::<Text, _>(self.query.clone());
 
 		Box::new(name_filter.or(desc_filter).or(exc_filter))
-	}
-}
-
-impl<S> ToFilter<S> for DistanceFilter
-where
-	location::latitude: SelectableExpression<S>,
-	location::longitude: SelectableExpression<S>,
-{
-	type SqlType = Bool;
-
-	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType> {
-		Box::new(
-			sql::<Double>("2 * 6371 * asin(sqrt(1 - cos(radians( ")
-				.bind::<Double, _>(self.center_lat)
-				.sql(
-					" ) - radians( latitude )) + cos(radians( latitude )) * \
-					 cos(radians( ",
-				)
-				.bind::<Double, _>(self.center_lat)
-				.sql(" )) * (1 - cos(radians( ")
-				.bind::<Double, _>(self.center_lng)
-				.sql(" ) - radians( longitude ))) / 2))")
-				.le(self.distance),
-		)
 	}
 }
 
