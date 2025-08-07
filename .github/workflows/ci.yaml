@@ -12,6 +12,9 @@ jobs:
         runs-on: self-hosted
 
         steps:
+            - name: Vague chown hack
+              run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+
             - name: Checkout code
               uses: actions/checkout@v4
 
