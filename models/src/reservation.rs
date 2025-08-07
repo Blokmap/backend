@@ -48,7 +48,6 @@ pub struct ReservationIncludes {
 	pub location:     bool,
 }
 
-
 #[derive(Clone, Debug, Deserialize, Queryable, Serialize)]
 #[diesel(table_name = reservation)]
 #[diesel(check_for_backend(Pg))]
@@ -67,10 +66,10 @@ pub struct Reservation {
 #[serde(rename_all = "camelCase")]
 pub enum ReservationState {
 	#[default]
-    Created,
-    Cancelled,
-    Absent,
-    Present,
+	Created,
+	Cancelled,
+	Absent,
+	Present,
 }
 
 #[derive(
@@ -81,7 +80,7 @@ pub enum ReservationState {
 pub struct PrimitiveReservation {
 	pub id:               i32,
 	pub profile_id:       i32,
-    pub state:            ReservationState,
+	pub state:            ReservationState,
 	pub opening_time_id:  i32,
 	pub base_block_index: i32,
 	pub block_count:      i32,

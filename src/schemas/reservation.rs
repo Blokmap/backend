@@ -1,7 +1,12 @@
 use std::borrow::Borrow;
 
 use chrono::{Duration, NaiveDateTime, NaiveTime};
-use models::{PrimitiveLocation, PrimitiveOpeningTime, Reservation, ReservationState};
+use models::{
+	PrimitiveLocation,
+	PrimitiveOpeningTime,
+	Reservation,
+	ReservationState,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::location::LocationResponse;
@@ -37,11 +42,11 @@ where
 	T: Borrow<PrimitiveOpeningTime>,
 {
 	fn from(value: (L, T, Reservation)) -> Self {
-        let location = value.0.borrow();
-        let opening_time = value.1.borrow();
+		let location = value.0.borrow();
+		let opening_time = value.1.borrow();
 
-        let relations = value.2;
-        let reservation = relations.reservation;
+		let relations = value.2;
+		let reservation = relations.reservation;
 
 		let block_size = location.reservation_block_size;
 		let block_day = opening_time.day;
@@ -50,15 +55,16 @@ where
 		let base_idx = reservation.base_block_index;
 		let block_count = reservation.block_count;
 
-        let start_offset = Duration::minutes((base_idx * block_size).into());
+		let start_offset = Duration::minutes((base_idx * block_size).into());
 		let start_time = block_day.and_time(block_start_time + start_offset);
 
-        let end_offset = Duration::minutes(((base_idx + block_count) * block_size).into());
+		let end_offset =
+			Duration::minutes(((base_idx + block_count) * block_size).into());
 		let end_time = start_time + end_offset;
 
 		Self {
 			id: reservation.id,
-            state: reservation.state,
+			state: reservation.state,
 			opening_time_id: reservation.opening_time_id,
 			base_block_index: reservation.base_block_index,
 			block_count: reservation.block_count,
