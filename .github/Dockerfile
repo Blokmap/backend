@@ -18,7 +18,10 @@ RUN cargo build
 
 FROM base AS lint
 
-CMD [ "make", "lint" ]
+COPY .github/lint.sh ./lint.sh
+RUN chmod +x ./lint.sh
+
+CMD [ "./lint.sh" ]
 
 
 FROM base AS test

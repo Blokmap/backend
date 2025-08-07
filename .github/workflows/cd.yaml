@@ -7,6 +7,14 @@ permissions:
 on:
     push:
         branches: ["main", "staging"]
+        paths-ignore:
+          - ".github/**"
+          - ".vscode/**"
+          - ".editorconfig"
+          - ".env.example"
+          - ".gitignore"
+          - "LICENSE"
+          - "README.md"
 
 concurrency:
   group: deploy-${{ github.ref }}
