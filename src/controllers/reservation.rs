@@ -94,14 +94,10 @@ pub async fn get_reservation_for_opening_time(
 		return Err(Error::Forbidden);
 	}
 
-	let loc = PrimitiveLocation::get_by_id(l_id, &conn).await?;
-
 	let reservations =
 		Reservation::for_opening_time(t_id, includes, &conn).await?;
-	let response: Vec<ReservationResponse> = reservations
-		.into_iter()
-		.map(|(time, res)| From::from((&loc, time, res)))
-		.collect();
+	let response: Vec<ReservationResponse> =
+		reservations.into_iter().map(Into::into).collect();
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -164,7 +160,7 @@ pub async fn create_reservation(
 	};
 
 	let new_reservation = new_reservation.insert(includes, &conn).await?;
-	let response = ReservationResponse::from((loc, time, new_reservation));
+	let response = ReservationResponse::from(new_reservation);
 
 	Ok((StatusCode::CREATED, Json(response)))
 }

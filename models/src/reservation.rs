@@ -1,6 +1,5 @@
 use chrono::{NaiveDate, NaiveDateTime};
 use common::{DbConn, Error};
-use diesel::debug_query;
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Date};
@@ -22,12 +21,12 @@ use crate::{
 	PrimitiveProfile,
 };
 
-pub type UnjoinedReservationData = (
+pub type JoinedReservationData = (
 	PrimitiveReservation,
+	PrimitiveOpeningTime,
+	PrimitiveLocation,
 	Option<PrimitiveProfile>,
 	Option<PrimitiveProfile>,
-	Option<PrimitiveOpeningTime>,
-	Option<PrimitiveLocation>,
 );
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -44,10 +43,6 @@ pub struct ReservationIncludes {
 	pub profile:      bool,
 	#[serde(default)]
 	pub confirmed_by: bool,
-	#[serde(default)]
-	pub opening_time: bool,
-	#[serde(default)]
-	pub location:     bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Queryable, Serialize)]
@@ -55,10 +50,10 @@ pub struct ReservationIncludes {
 #[diesel(check_for_backend(Pg))]
 pub struct Reservation {
 	pub reservation:  PrimitiveReservation,
+	pub opening_time: PrimitiveOpeningTime,
+	pub location:     PrimitiveLocation,
 	pub profile:      Option<PrimitiveProfile>,
 	pub confirmed_by: Option<Option<PrimitiveProfile>>,
-	pub opening_time: Option<Option<PrimitiveOpeningTime>>,
-	pub location:     Option<Option<PrimitiveLocation>>,
 }
 
 #[derive(
@@ -140,11 +135,18 @@ impl Reservation {
 	fn joined_query(includes: ReservationIncludes) -> _ {
 		let inc_profile: bool = includes.profile;
 		let inc_confirmed: bool = includes.confirmed_by;
-		// Joining location happens through the opening_time table
-		let inc_opening_time: bool = includes.opening_time || includes.location;
-		let inc_location: bool = includes.location;
 
 		crate::db::reservation::dsl::reservation
+			.inner_join(
+				crate::db::opening_time::table
+					.on(crate::db::reservation::opening_time_id
+						.eq(crate::db::opening_time::id)),
+			)
+			.inner_join(
+				crate::db::location::table
+					.on(crate::db::opening_time::location_id
+						.eq(crate::db::location::id)),
+			)
 			.left_outer_join(
 				creator.on(inc_profile.into_sql::<Bool>().and(
 					crate::db::reservation::profile_id
@@ -157,44 +159,24 @@ impl Reservation {
 						.eq(confirmer.field(profile::id).nullable()),
 				)),
 			)
-			.left_outer_join(
-				crate::db::opening_time::table.on(inc_opening_time
-					.into_sql::<Bool>()
-					.and(
-						crate::db::reservation::opening_time_id
-							.eq(crate::db::opening_time::id),
-					)),
-			)
-			.left_outer_join(
-				crate::db::location::table.on(inc_location
-					.into_sql::<Bool>()
-					.and(
-						crate::db::opening_time::location_id
-							.eq(crate::db::location::id),
-					)),
-			)
 	}
 
 	/// Construct a full [`Reservation`] struct from the data returned by a
 	/// joined query
 	fn from_joined(
 		includes: ReservationIncludes,
-		data: UnjoinedReservationData,
+		data: JoinedReservationData,
 	) -> Self {
 		Self {
 			reservation:  data.0,
-			profile:      if includes.profile { data.1 } else { None },
+			opening_time: data.1,
+			location:     data.2,
+			profile:      if includes.profile { data.3 } else { None },
 			confirmed_by: if includes.confirmed_by {
-				Some(data.2)
+				Some(data.4)
 			} else {
 				None
 			},
-			opening_time: if includes.opening_time {
-				Some(data.3)
-			} else {
-				None
-			},
-			location:     if includes.location { Some(data.4) } else { None },
 		}
 	}
 
@@ -215,14 +197,10 @@ impl Reservation {
 					.filter(id.eq(r_id))
 					.select((
 						PrimitiveReservation::as_select(),
+						PrimitiveOpeningTime::as_select(),
+						PrimitiveLocation::as_select(),
 						creator.fields(profile::all_columns).nullable(),
 						confirmer.fields(profile::all_columns).nullable(),
-						<
-							PrimitiveOpeningTime as Selectable<Pg>
-						>::construct_selection().nullable(),
-						<
-							PrimitiveLocation as Selectable<Pg>
-						>::construct_selection().nullable(),
 					))
 					.get_result(conn)
 			})
@@ -234,15 +212,13 @@ impl Reservation {
 	}
 
 	/// Get all the reservations for a specific [`Location`](crate::Location)
-	///
-	/// TODO: figure out if this can use [`Self::joined_query`] insted
 	#[instrument(skip(conn))]
 	pub async fn for_location(
 		loc_id: i32,
 		filter: ReservationFilter,
 		includes: ReservationIncludes,
 		conn: &DbConn,
-	) -> Result<Vec<(PrimitiveLocation, PrimitiveOpeningTime, Self)>, Error> {
+	) -> Result<Vec<Self>, Error> {
 		let date_filter: BoxedCondition<_, Bool> =
 			if let Some(date) = filter.date {
 				Box::new(date.into_sql::<Date>().eq(opening_time::day))
@@ -250,40 +226,17 @@ impl Reservation {
 				Box::new(true.into_sql::<Bool>().eq(true))
 			};
 
-		let reservations: Vec<(PrimitiveLocation, PrimitiveOpeningTime, Self)> =
-			conn.interact(move |conn| {
-				location::table
-					.inner_join(
-						opening_time::table
-							.on(opening_time::location_id.eq(location::id)),
-					)
-					.inner_join(
-						reservation::table
-							.on(reservation::opening_time_id
-								.eq(opening_time::id)),
-					)
-					.left_outer_join(
-						creator.on(includes.profile.into_sql::<Bool>().and(
-							reservation::profile_id
-								.eq(creator.field(profile::id)),
-						)),
-					)
-					.left_outer_join(
-						confirmer.on(includes
-							.confirmed_by
-							.into_sql::<Bool>()
-							.and(
-								reservation::confirmed_by.eq(confirmer
-									.field(profile::id)
-									.nullable()),
-							)),
-					)
+		let query = Self::joined_query(includes);
+
+		let reservations = conn
+			.interact(move |conn| {
+				query
 					.filter(location::id.eq(loc_id))
 					.filter(date_filter)
 					.select((
-						PrimitiveLocation::as_select(),
-						PrimitiveOpeningTime::as_select(),
 						PrimitiveReservation::as_select(),
+						PrimitiveOpeningTime::as_select(),
+						PrimitiveLocation::as_select(),
 						creator.fields(profile::all_columns).nullable(),
 						confirmer.fields(profile::all_columns).nullable(),
 					))
@@ -291,29 +244,7 @@ impl Reservation {
 			})
 			.await??
 			.into_iter()
-			.map(|(loc, time, r, cr, conf)| {
-				let res = Self {
-					reservation:  r,
-					profile:      cr,
-					confirmed_by: if includes.confirmed_by {
-						Some(conf)
-					} else {
-						None
-					},
-					opening_time: if includes.opening_time {
-						Some(Some(time.clone()))
-					} else {
-						None
-					},
-					location:     if includes.location {
-						Some(Some(loc.clone()))
-					} else {
-						None
-					},
-				};
-
-				(loc, time, res)
-			})
+			.map(|data| Self::from_joined(includes, data))
 			.collect();
 
 		Ok(reservations)
@@ -326,74 +257,25 @@ impl Reservation {
 		t_id: i32,
 		includes: ReservationIncludes,
 		conn: &DbConn,
-	) -> Result<Vec<(PrimitiveOpeningTime, Self)>, Error> {
-		let reservations: Vec<(PrimitiveOpeningTime, Self)> = conn
+	) -> Result<Vec<Self>, Error> {
+		let query = Self::joined_query(includes);
+
+		let reservations = conn
 			.interact(move |conn| {
-				opening_time::table
-					.inner_join(
-						reservation::table
-							.on(reservation::opening_time_id
-								.eq(opening_time::id)),
-					)
-					.left_outer_join(
-						creator.on(includes.profile.into_sql::<Bool>().and(
-							reservation::profile_id
-								.eq(creator.field(profile::id)),
-						)),
-					)
-					.left_outer_join(
-						confirmer.on(includes
-							.confirmed_by
-							.into_sql::<Bool>()
-							.and(
-								reservation::confirmed_by.eq(confirmer
-									.field(profile::id)
-									.nullable()),
-							)),
-					)
-					.left_outer_join(
-						location::table.on(
-							includes.location.into_sql::<Bool>()
-							.and(location::id.eq(opening_time::location_id))
-						)
-					)
+				query
 					.filter(opening_time::id.eq(t_id))
 					.select((
-						PrimitiveOpeningTime::as_select(),
 						PrimitiveReservation::as_select(),
+						PrimitiveOpeningTime::as_select(),
+						PrimitiveLocation::as_select(),
 						creator.fields(profile::all_columns).nullable(),
 						confirmer.fields(profile::all_columns).nullable(),
-						<
-							PrimitiveLocation as Selectable<Pg>
-						>::construct_selection().nullable(),
 					))
 					.get_results(conn)
 			})
 			.await??
 			.into_iter()
-			.map(|(time, r, cr, conf, loc)| {
-				let res = Self {
-					reservation:  r,
-					profile:      cr,
-					confirmed_by: if includes.confirmed_by {
-						Some(conf)
-					} else {
-						None
-					},
-					opening_time: if includes.opening_time {
-						Some(Some(time.clone()))
-					} else {
-						None
-					},
-					location:     if includes.location {
-						Some(loc)
-					} else {
-						None
-					},
-				};
-
-				(time, res)
-			})
+			.map(|data| Self::from_joined(includes, data))
 			.collect();
 
 		Ok(reservations)
@@ -405,65 +287,27 @@ impl Reservation {
 		p_id: i32,
 		includes: ReservationIncludes,
 		conn: &DbConn,
-	) -> Result<Vec<(PrimitiveLocation, PrimitiveOpeningTime, Self)>, Error> {
+	) -> Result<Vec<Self>, Error> {
+		let query = Self::joined_query(includes);
+
 		let reservations = conn
 			.interact(move |conn| {
-				let query =
-					reservation::table
-						.filter(reservation::profile_id.eq(p_id))
-						.inner_join(opening_time::table.on(
-							reservation::opening_time_id.eq(opening_time::id),
-						))
-						.inner_join(
-							location::table
-								.on(opening_time::location_id.eq(location::id)),
-						)
-						.left_join(
-							creator.on(includes
-								.profile
-								.into_sql::<Bool>()
-								.and(
-									reservation::profile_id
-										.eq(creator.field(profile::id)),
-								)),
-						)
-						.left_join(confirmer.on(
-							includes.confirmed_by.into_sql::<Bool>().and(
-								reservation::confirmed_by.eq(
-									confirmer.field(profile::id).nullable(),
-								),
-							),
-						))
-						.select((
-							PrimitiveLocation::as_select(),
-							PrimitiveOpeningTime::as_select(),
-							PrimitiveReservation::as_select(),
-							creator.fields(profile::all_columns).nullable(),
-							confirmer.fields(profile::all_columns).nullable(),
-						));
-
-				info!("Query: {}", debug_query::<Pg, _>(&query));
-
-				query.get_results(conn)
+				query
+					.filter(reservation::profile_id.eq(p_id))
+					.select((
+						PrimitiveReservation::as_select(),
+						PrimitiveOpeningTime::as_select(),
+						PrimitiveLocation::as_select(),
+						creator.fields(profile::all_columns).nullable(),
+						confirmer.fields(profile::all_columns).nullable(),
+					))
+					.get_results(conn)
 			})
 			.await??;
 
 		let result = reservations
 			.into_iter()
-			.map(|(loc, time, reservation, profile, c)| {
-				let confirmed_by =
-					if includes.confirmed_by { Some(c) } else { None };
-
-				let res = Self {
-					reservation,
-					profile,
-					confirmed_by,
-					opening_time: Some(Some(time.clone())),
-					location: Some(Some(loc.clone())),
-				};
-
-				(loc, time, res)
-			})
+			.map(|data| Self::from_joined(includes, data))
 			.collect();
 
 		Ok(result)
