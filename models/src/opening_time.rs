@@ -142,18 +142,26 @@ impl PrimitiveOpeningTime {
 		Ok(opening_time)
 	}
 
-	/// Get all the [`PrimitiveOpeningTimes`] for a specific location
+	/// Get all the [`PrimitiveOpeningTimes`] for a specific location limited
+	/// to the current week
 	#[instrument(skip(conn))]
 	pub async fn get_for_location(
 		l_id: i32,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
+		let now = Utc::now().date_naive();
+		let week = now.week(chrono::Weekday::Mon);
+		let start = week.first_day();
+		let end = week.last_day();
+
 		let times = conn
 			.interact(move |conn| {
 				use self::opening_time::dsl::*;
 
 				opening_time
 					.filter(location_id.eq(l_id))
+					.filter(start.into_sql::<Date>().le(day))
+					.filter(end.into_sql::<Date>().ge(day))
 					.select(Self::as_select())
 					.get_results(conn)
 			})
