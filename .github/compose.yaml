@@ -1,0 +1,4 @@
+services:
+    lint:
+        build:
+            dockerfile: Dockerfile.lint

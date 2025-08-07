@@ -10,16 +10,17 @@ on:
 jobs:
     lint-format:
         runs-on: self-hosted
+        container: rust:1.88-slim
 
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Setup Rust
-              uses: actions-rust-lang/setup-rust-toolchain@v1
-              with:
-                  toolchain: nightly
-                  components: rustfmt, clippy
+            # - name: Setup Rust
+            #   uses: actions-rust-lang/setup-rust-toolchain@v1
+            #   with:
+            #       toolchain: nightly
+            #       components: rustfmt, clippy
 
             - name: Format code
               run: make fmt-check
@@ -29,7 +30,7 @@ jobs:
 
     test:
         runs-on: self-hosted
-        needs: [lint-format]
+        # needs: [lint-format]
         env:
             # The test job doesn't run in a container and so can't use docker DNS
             DATABASE_URL: postgresql://test:test@127.0.0.1:15432/test
