@@ -17,16 +17,16 @@ jobs:
 
             - name: Build images
               run: |
-                  docker compose
-                  -f .github/compose.yaml
-                  --project-directory .
+                  docker compose \
+                  -f .github/compose.yaml \
+                  --project-directory . \
                   build
 
             - name: Lint code
               run: |
-                  docker compose
-                  -f .github/compose.yaml
-                  --project-directory .
+                  docker compose \
+                  -f .github/compose.yaml \
+                  --project-directory . \
                   run lint
 
             # - name: Install deps
