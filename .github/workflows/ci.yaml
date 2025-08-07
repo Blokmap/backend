@@ -51,7 +51,7 @@ jobs:
 
     test:
         runs-on: self-hosted
-        # needs: [lint-format]
+        needs: [lint-format]
         env:
             # The test job doesn't run in a container and so can't use docker DNS
             DATABASE_URL: postgresql://test:test@127.0.0.1:15432/test
