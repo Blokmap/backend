@@ -1,6 +1,7 @@
 FROM rust:1.88.0-slim
 
 RUN rustup default nightly
+RUN rustup component add clippy rustfmt
 
 # Install build dependencies
 ENV DEBIAN_FRONTEND=noninteractive
