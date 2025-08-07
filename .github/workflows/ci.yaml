@@ -6,6 +6,7 @@ on:
         tags-ignore: ["**"]
 
     workflow_call:
+    workflow_dispatch:
 
 jobs:
     setup:
@@ -30,6 +31,12 @@ jobs:
         needs: [setup]
 
         steps:
+            - name: vague chown hack
+              run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+
+            - name: Checkout code
+              uses: actions/checkout@v4
+
             - name: Lint code
               run: |
                   docker compose \
@@ -42,6 +49,12 @@ jobs:
         needs: [setup]
 
         steps:
+            - name: vague chown hack
+              run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+
+            - name: Checkout code
+              uses: actions/checkout@v4
+
             - name: Run tests
               run: |
                   docker compose \

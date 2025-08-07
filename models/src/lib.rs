@@ -34,7 +34,7 @@ pub use review::*;
 pub use tag::*;
 pub use translation::*;
 
-const QUERY_HARD_LIMIT: i64 = 1000;
+const QUERY_HARD_LIMIT: i64 = 100;
 
 pub type BoxedCondition<S, T = Nullable<Bool>> =
 	Box<dyn BoxableExpression<S, Pg, SqlType = T>>;
