@@ -1,10 +1,10 @@
-FROM rust:1.87.0-slim AS build
+FROM rust:1.88.0-slim AS build
 
 # Install build dependencies
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update \
-    && apt install -y libpq5 libpq-dev curl pkg-config openssl libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
+	&& apt install -y libpq5 libpq-dev curl pkg-config openssl libssl-dev \
+	&& rm -rf /var/lib/apt/lists/*
 
 RUN cargo new --vcs none --edition 2024 --bin blokmap
 WORKDIR /blokmap
@@ -31,11 +31,11 @@ FROM debian:bookworm-slim
 # Install dependency for postgres and healthcheck
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update \
-    && apt install -y libpq5 libpq-dev curl pkg-config openssl libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
+	&& apt install -y libpq5 libpq-dev curl pkg-config openssl libssl-dev \
+	&& rm -rf /var/lib/apt/lists/*
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
-    CMD curl -f http://localhost/healthcheck || exit 1
+	CMD curl -f http://localhost/healthcheck || exit 1
 
 WORKDIR /blokmap
 
