@@ -8,11 +8,11 @@ on:
     workflow_call:
 
 jobs:
-    lint:
+    setup:
         runs-on: self-hosted
 
         steps:
-            - name: Vague chown hack
+            - name: vague chown hack
               run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
 
             - name: Checkout code
@@ -25,6 +25,11 @@ jobs:
                   --project-directory . \
                   build
 
+    lint:
+        runs-on: self-hosted
+        needs: [setup]
+
+        steps:
             - name: Lint code
               run: |
                   docker compose \
@@ -34,21 +39,9 @@ jobs:
 
     test:
         runs-on: self-hosted
+        needs: [setup]
 
         steps:
-            - name: Vague chown hack
-              run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-
-            - name: Checkout code
-              uses: actions/checkout@v4
-
-            - name: Build images
-              run: |
-                  docker compose \
-                  -f .github/compose.yaml \
-                  --project-directory . \
-                  build
-
             - name: Run tests
               run: |
                   docker compose \
