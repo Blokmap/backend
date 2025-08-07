@@ -3,7 +3,6 @@
 !.github/test.sh
 
 target/
-tests/
 
 .dockerignore
 .editorconfig
