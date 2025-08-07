@@ -1,5 +1,6 @@
 use chrono::{NaiveDate, NaiveDateTime};
 use common::{DbConn, Error};
+use diesel::debug_query;
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Date};
@@ -105,6 +106,26 @@ impl PrimitiveReservation {
 			.await??;
 
 		Ok(reservation)
+	}
+
+	/// Count reservations by opening time id.
+	#[instrument(skip(conn))]
+	pub async fn count_by_opening_time_id(
+		opening_time_id: i32,
+		conn: &DbConn,
+	) -> Result<i64, Error> {
+		let count = conn
+			.interact(move |conn| {
+				use crate::db::reservation::dsl::*;
+
+				reservation
+					.filter(opening_time_id.eq(opening_time_id))
+					.count()
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(count)
 	}
 }
 
@@ -385,73 +406,76 @@ impl Reservation {
 		includes: ReservationIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<(PrimitiveLocation, PrimitiveOpeningTime, Self)>, Error> {
-		let reservations: Vec<(PrimitiveLocation, PrimitiveOpeningTime, Self)> =
-			conn.interact(move |conn| {
-				location::table
-					.inner_join(
-						opening_time::table
-							.on(opening_time::location_id.eq(location::id)),
-					)
-					.inner_join(
-						reservation::table
-							.on(reservation::opening_time_id
-								.eq(opening_time::id)),
-					)
-					.inner_join(creator.on(
-						reservation::profile_id.eq(creator.field(profile::id)),
-					))
-					.left_outer_join(
-						confirmer.on(includes
-							.confirmed_by
-							.into_sql::<Bool>()
-							.and(
-								reservation::confirmed_by.eq(confirmer
-									.field(profile::id)
-									.nullable()),
-							)),
-					)
-					.filter(creator.field(profile::id).eq(p_id))
-					.select((
-						PrimitiveLocation::as_select(),
-						PrimitiveOpeningTime::as_select(),
-						PrimitiveReservation::as_select(),
-						creator.fields(profile::all_columns),
-						confirmer.fields(profile::all_columns).nullable(),
-					))
-					.get_results(conn)
+		let reservations: Vec<(
+			PrimitiveLocation,
+			PrimitiveOpeningTime,
+			PrimitiveReservation,
+			Option<PrimitiveProfile>,
+			Option<PrimitiveProfile>,
+		)> = conn
+			.interact(move |conn| {
+				let query =
+					reservation::table
+						.filter(reservation::profile_id.eq(p_id))
+						.inner_join(opening_time::table.on(
+							reservation::opening_time_id.eq(opening_time::id),
+						))
+						.inner_join(
+							location::table
+								.on(opening_time::location_id.eq(location::id)),
+						)
+						.left_join(
+							creator.on(includes
+								.profile
+								.into_sql::<Bool>()
+								.and(
+									reservation::profile_id
+										.eq(creator.field(profile::id)),
+								)),
+						)
+						.left_join(confirmer.on(
+							includes.confirmed_by.into_sql::<Bool>().and(
+								reservation::confirmed_by.eq(
+									confirmer.field(profile::id).nullable(),
+								),
+							),
+						))
+						.select((
+							PrimitiveLocation::as_select(),
+							PrimitiveOpeningTime::as_select(),
+							PrimitiveReservation::as_select(),
+							creator.fields(profile::all_columns).nullable(),
+							confirmer.fields(profile::all_columns).nullable(),
+						));
+
+				info!("Query: {}", debug_query::<Pg, _>(&query));
+
+				query.get_results(conn)
 			})
-			.await??
+			.await??;
+
+		let result = reservations
 			.into_iter()
-			.map(|(loc, time, r, cr, conf)| {
+			.map(|(loc, time, reservation, profile, c)| {
+                let confirmed_by = if includes.confirmed_by {
+                    Some(c)
+                } else {
+                    None
+                };
+
 				let res = Self {
-					reservation:  r,
-					profile:      if includes.profile {
-						Some(cr)
-					} else {
-						None
-					},
-					confirmed_by: if includes.confirmed_by {
-						Some(conf)
-					} else {
-						None
-					},
-					opening_time: if includes.opening_time {
-						Some(Some(time.clone()))
-					} else {
-						None
-					},
-					location:     if includes.location {
-						Some(Some(loc.clone()))
-					} else {
-						None
-					},
+					reservation,
+					profile,
+					confirmed_by,
+					opening_time: Some(Some(time.clone())),
+					location: Some(Some(loc.clone())),
 				};
 
 				(loc, time, res)
 			})
 			.collect();
 
-		Ok(reservations)
+		Ok(result)
 	}
 
 	/// Get all the block (base, count) pairs a given opening time

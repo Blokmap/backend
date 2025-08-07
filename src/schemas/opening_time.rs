@@ -7,7 +7,7 @@ use models::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::schemas::profile::ProfileResponse;
+use crate::schemas::{profile::ProfileResponse, ser_includes};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -16,12 +16,16 @@ pub struct OpeningTimeResponse {
 	pub day:              NaiveDate,
 	pub start_time:       NaiveTime,
 	pub end_time:         NaiveTime,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub seat_occupancy:   Option<i32>,
 	pub seat_count:       Option<i32>,
 	pub reservable_from:  Option<NaiveDateTime>,
 	pub reservable_until: Option<NaiveDateTime>,
 	pub created_at:       NaiveDateTime,
+	#[serde(serialize_with = "ser_includes")]
 	pub created_by:       Option<Option<ProfileResponse>>,
 	pub updated_at:       NaiveDateTime,
+	#[serde(serialize_with = "ser_includes")]
 	pub updated_by:       Option<Option<ProfileResponse>>,
 }
 
@@ -32,6 +36,7 @@ impl From<OpeningTime> for OpeningTimeResponse {
 			day:              value.opening_time.day,
 			start_time:       value.opening_time.start_time,
 			end_time:         value.opening_time.end_time,
+			seat_occupancy:   value.seat_occupancy,
 			seat_count:       value.opening_time.seat_count,
 			reservable_from:  value.opening_time.reservable_from,
 			reservable_until: value.opening_time.reservable_until,
@@ -47,6 +52,7 @@ impl From<PrimitiveOpeningTime> for OpeningTimeResponse {
 	fn from(value: PrimitiveOpeningTime) -> Self {
 		Self {
 			id:               value.id,
+			seat_occupancy:   None,
 			day:              value.day,
 			start_time:       value.start_time,
 			end_time:         value.end_time,

@@ -93,9 +93,10 @@ pub struct OpeningTimeIncludes {
 #[diesel(table_name = opening_time)]
 #[diesel(check_for_backend(Pg))]
 pub struct OpeningTime {
-	pub opening_time: PrimitiveOpeningTime,
-	pub created_by:   Option<Option<PrimitiveProfile>>,
-	pub updated_by:   Option<Option<PrimitiveProfile>>,
+	pub opening_time:   PrimitiveOpeningTime,
+	pub seat_occupancy: Option<i32>,
+	pub created_by:     Option<Option<PrimitiveProfile>>,
+	pub updated_by:     Option<Option<PrimitiveProfile>>,
 }
 
 #[derive(
@@ -222,9 +223,18 @@ impl OpeningTime {
 			.await??;
 
 		let time = OpeningTime {
-			opening_time: time.0,
-			created_by:   if includes.created_by { Some(time.1) } else { None },
-			updated_by:   if includes.updated_by { Some(time.2) } else { None },
+			opening_time:   time.0,
+			seat_occupancy: None,
+			created_by:     if includes.created_by {
+				Some(time.1)
+			} else {
+				None
+			},
+			updated_by:     if includes.updated_by {
+				Some(time.2)
+			} else {
+				None
+			},
 		};
 
 		Ok(time)
@@ -270,13 +280,14 @@ impl OpeningTime {
 			.into_iter()
 			.map(|(time, cr, up)| {
 				OpeningTime {
-					opening_time: time,
-					created_by:   if includes.created_by {
+					opening_time:   time,
+					seat_occupancy: None,
+					created_by:     if includes.created_by {
 						Some(cr)
 					} else {
 						None
 					},
-					updated_by:   if includes.updated_by {
+					updated_by:     if includes.updated_by {
 						Some(up)
 					} else {
 						None
