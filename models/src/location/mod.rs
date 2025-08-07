@@ -42,7 +42,7 @@ mod member;
 pub use filter::*;
 pub use member::*;
 
-pub type UnjoinedLocationData = (
+pub type JoinedLocationData = (
 	PrimitiveLocation,
 	PrimitiveTranslation,
 	PrimitiveTranslation,
@@ -223,7 +223,7 @@ impl Location {
 	#[allow(clippy::too_many_arguments)]
 	fn from_joined(
 		includes: LocationIncludes,
-		data: UnjoinedLocationData,
+		data: JoinedLocationData,
 	) -> Self {
 		Self {
 			location:    data.0,

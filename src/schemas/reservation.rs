@@ -1,12 +1,5 @@
-use std::borrow::Borrow;
-
 use chrono::{Duration, NaiveDateTime, NaiveTime};
-use models::{
-	PrimitiveLocation,
-	PrimitiveOpeningTime,
-	Reservation,
-	ReservationState,
-};
+use models::{Reservation, ReservationState};
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::location::LocationResponse;
@@ -26,27 +19,22 @@ pub struct ReservationResponse {
 	pub start_time:       NaiveDateTime,
 	pub end_time:         NaiveDateTime,
 	pub created_at:       NaiveDateTime,
+	pub created_by:       Option<ProfileResponse>,
 	pub updated_at:       NaiveDateTime,
 	pub confirmed_at:     Option<NaiveDateTime>,
 	#[serde(serialize_with = "ser_includes")]
 	pub confirmed_by:     Option<Option<ProfileResponse>>,
-	#[serde(serialize_with = "ser_includes")]
-	pub opening_time:     Option<Option<OpeningTimeResponse>>,
-	#[serde(serialize_with = "ser_includes")]
-	pub location:         Option<Option<LocationResponse>>,
+
+	pub opening_time: OpeningTimeResponse,
+	pub location:     LocationResponse,
 }
 
-impl<L, T> From<(L, T, Reservation)> for ReservationResponse
-where
-	L: Borrow<PrimitiveLocation>,
-	T: Borrow<PrimitiveOpeningTime>,
-{
-	fn from(value: (L, T, Reservation)) -> Self {
-		let location = value.0.borrow();
-		let opening_time = value.1.borrow();
+impl From<Reservation> for ReservationResponse {
+	fn from(value: Reservation) -> Self {
+		let location = value.location;
+		let opening_time = value.opening_time;
 
-		let relations = value.2;
-		let reservation = relations.reservation;
+		let reservation = value.reservation;
 
 		let block_size = location.reservation_block_size;
 		let block_day = opening_time.day;
@@ -69,11 +57,12 @@ where
 			base_block_index: reservation.base_block_index,
 			block_count: reservation.block_count,
 			created_at: reservation.created_at,
+			created_by: value.profile.map(Into::into),
 			updated_at: reservation.updated_at,
 			confirmed_at: reservation.confirmed_at,
-			confirmed_by: relations.confirmed_by.map(|p| p.map(Into::into)),
-			opening_time: relations.opening_time.map(|p| p.map(Into::into)),
-			location: relations.location.map(|p| p.map(Into::into)),
+			confirmed_by: value.confirmed_by.map(|p| p.map(Into::into)),
+			opening_time: opening_time.into(),
+			location: location.into(),
 			start_time,
 			end_time,
 		}
