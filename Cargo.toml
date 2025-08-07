@@ -96,6 +96,7 @@ tower = "0.5.2"
 tower-http = { version = "0.6.5", features = [
     "compression-full",
     "decompression-full",
+	"set-header",
     "timeout",
     "trace",
 	"cors",

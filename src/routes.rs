@@ -1,10 +1,13 @@
 use std::time::Duration;
 
 use axum::Router;
+use axum::http::HeaderValue;
+use axum::http::header::CONTENT_SECURITY_POLICY;
 use axum::routing::{delete, get, patch, post, put};
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
+use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
@@ -97,6 +100,10 @@ use crate::controllers::translation::{
 };
 use crate::middleware::AuthLayer;
 
+const CSP_VALUE: &str = "default-src 'self'; script-src 'self'; style-src \
+                         'self' 'unsafe-inline'; object-src 'none'; base-uri \
+                         'none'; frame-ancestors 'none'";
+
 /// Get the app router
 pub fn get_app_router(state: AppState) -> Router {
 	let api_routes = Router::new()
@@ -115,7 +122,11 @@ pub fn get_app_router(state: AppState) -> Router {
 				.layer(TraceLayer::new_for_http())
 				.layer(TimeoutLayer::new(Duration::from_secs(10)))
 				.layer(CompressionLayer::new())
-				.layer(CorsLayer::permissive()),
+				.layer(CorsLayer::permissive())
+				.layer(SetResponseHeaderLayer::overriding(
+					CONTENT_SECURITY_POLICY,
+					HeaderValue::from_static(CSP_VALUE),
+				)),
 		)
 		.with_state(state)
 }
