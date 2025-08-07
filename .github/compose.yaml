@@ -1,0 +1,33 @@
+services:
+    lint:
+        build:
+            dockerfile: .github/Dockerfile
+            target: lint
+
+    test:
+        build:
+            dockerfile: .github/Dockerfile
+            target: test
+        environment:
+            DATABASE_URL: postgresql://test:test@test-database:5432/test
+            REDIS_URL: redis://test-redis:6379
+            FRONTEND_URL: stub
+            BASE_URL: stub
+        depends_on:
+            - test-database
+            - test-redis
+
+    test-database:
+        image: postgres:17
+        environment:
+            PGUSER: test
+            POSTGRES_USER: test
+            POSTGRES_PASSWORD: test
+            POSTGRES_DB: test
+        expose:
+          - "5432"
+
+    test-redis:
+        image: redis:7-alpine
+        expose:
+          - "6379"

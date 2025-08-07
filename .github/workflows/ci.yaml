@@ -1,4 +1,4 @@
-name: Lint, format, and test code
+name: Lint and test code
 
 on:
     push:
@@ -8,68 +8,50 @@ on:
     workflow_call:
 
 jobs:
-    lint-format:
+    lint:
         runs-on: self-hosted
 
         steps:
+            - name: Vague chown hack
+              run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+
             - name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Setup Rust
-              uses: actions-rust-lang/setup-rust-toolchain@v1
-              with:
-                  toolchain: nightly
-                  components: rustfmt, clippy
-
-            - name: Format code
-              run: make fmt-check
+            - name: Build images
+              run: |
+                  docker compose \
+                  -f .github/compose.yaml \
+                  --project-directory . \
+                  build
 
             - name: Lint code
-              run: make lint
+              run: |
+                  docker compose \
+                  -f .github/compose.yaml \
+                  --project-directory . \
+                  run lint
 
     test:
         runs-on: self-hosted
-        needs: [lint-format]
-        env:
-            # The test job doesn't run in a container and so can't use docker DNS
-            DATABASE_URL: postgresql://test:test@127.0.0.1:15432/test
-            REDIS_URL: redis://127.0.0.1:16379
-            FRONTEND_URL: stub
-            BASE_URL: stub
-
-        services:
-            test-database:
-                image: postgres:17
-                env:
-                    PGUSER: test
-                    POSTGRES_USER: test
-                    POSTGRES_PASSWORD: test
-                    POSTGRES_DB: test
-                ports:
-                    - "15432:5432"
-
-            test-redis:
-                image: redis:7-alpine
-                ports:
-                    - "16379:6379"
 
         steps:
+            - name: Vague chown hack
+              run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+
             - name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Setup Rust
-              uses: actions-rust-lang/setup-rust-toolchain@v1
-              with:
-                  components: cargo
-
-            - name: Add cargo binstall
-              uses: cargo-bins/cargo-binstall@main
-
-            - name: Install diesel
-              run: cargo binstall -y --force diesel_cli
-
-            - name: Run migrations
-              run: diesel migration run
+            - name: Build images
+              run: |
+                  docker compose \
+                  -f .github/compose.yaml \
+                  --project-directory . \
+                  build
 
             - name: Run tests
-              run: cargo test --tests
+              run: |
+                  docker compose \
+                  -f .github/compose.yaml \
+                  --project-directory . \
+                  run test
