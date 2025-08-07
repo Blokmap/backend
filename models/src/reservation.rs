@@ -37,6 +37,7 @@ pub struct ReservationFilter {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[allow(clippy::struct_excessive_bools)]
+#[serde(rename_all = "camelCase")]
 pub struct ReservationIncludes {
 	#[serde(default)]
 	pub profile:      bool,
