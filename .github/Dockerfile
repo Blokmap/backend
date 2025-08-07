@@ -24,4 +24,7 @@ FROM base AS test
 RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 RUN cargo binstall -y --force diesel_cli
 
-CMD [ "diesel", "migration", "run", "&&", "cargo", "test", "--tests" ]
+COPY .github/test.sh ./test.sh
+RUN chmod +x ./test.sh
+
+CMD [ "./test.sh" ]
