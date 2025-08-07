@@ -1,4 +1,4 @@
 #!/bin/bash
 
 diesel migration run
-cargo test --tests
+CI=true cargo test --tests
