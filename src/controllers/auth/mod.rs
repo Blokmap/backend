@@ -283,7 +283,7 @@ pub(crate) async fn login_profile(
 
 	let access_token_cookie = session.to_access_token_cookie(
 		config.access_token_name,
-		config.access_token_lifetime,
+		access_token_lifetime,
 		config.production,
 	);
 
