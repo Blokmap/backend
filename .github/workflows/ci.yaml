@@ -16,6 +16,9 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
 
+            - name: Install deps
+              run: apt install make libpq5 libpq-dev curl pkg-config openssl libssl-dev
+
             # - name: Setup Rust
             #   uses: actions-rust-lang/setup-rust-toolchain@v1
             #   with:
