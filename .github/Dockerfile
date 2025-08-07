@@ -25,4 +25,4 @@ RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/ca
 RUN cargo binstall -y --force diesel_cli
 RUN diesel migration run
 
-CMD [ "cargo", "test", "--tests" ]
+CMD [ "diesel", "migration", "run", "&&", "cargo", "test", "--tests" ]
