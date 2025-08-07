@@ -22,7 +22,7 @@ jobs:
                   apt update &&
                   apt install -y make libpq5 libpq-dev curl pkg-config openssl libssl-dev &&
                   rustup default nightly &&
-                  rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt
+                  rustup component add rustfmt clippy
 
             # - name: Setup Rust
             #   uses: actions-rust-lang/setup-rust-toolchain@v1
