@@ -1,5 +1,5 @@
 services:
     lint:
         build:
-            dockerfile: Dockerfile
+            dockerfile: .github/Dockerfile
         command: make lint
