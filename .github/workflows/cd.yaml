@@ -16,6 +16,8 @@ on:
           - "LICENSE"
           - "README.md"
 
+    workflow_dispatch:
+
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: true
