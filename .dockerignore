@@ -16,7 +16,6 @@ Dockerfile.migrations
 Dockerfile.prod
 endpoints.md
 LICENSE
-Makefile
 openapi.yaml
 README.md
 rust-toolchain.toml
