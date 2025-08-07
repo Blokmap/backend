@@ -63,7 +63,6 @@ pub struct Reservation {
 	Clone, Copy, DbEnum, Debug, Default, Deserialize, PartialEq, Eq, Serialize,
 )]
 #[ExistingTypePath = "crate::db::sql_types::ReservationState"]
-#[serde(rename_all = "camelCase")]
 pub enum ReservationState {
 	#[default]
 	Created,
