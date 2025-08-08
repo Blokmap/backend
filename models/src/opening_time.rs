@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 use crate::db::{creator, opening_time, profile, updater};
 use crate::{BoxedCondition, PrimitiveProfile, ToFilter};
 
+pub type JoinedOpeningTimeData =
+	(PrimitiveOpeningTime, Option<PrimitiveProfile>, Option<PrimitiveProfile>);
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimeBoundsFilter {
@@ -191,7 +194,55 @@ impl PrimitiveOpeningTime {
 	}
 }
 
+mod auto_type_helpers {
+	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
+}
+
 impl OpeningTime {
+	/// Build a query with all required (dynamic) joins to select a full
+	/// location data tuple
+	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
+	fn joined_query(includes: OpeningTimeIncludes) -> _ {
+		let inc_created_by: bool = includes.created_by;
+		let inc_updated_by: bool = includes.updated_by;
+
+		opening_time::table
+			.left_outer_join(
+				creator.on(inc_created_by.into_sql::<Bool>().and(
+					opening_time::created_by
+						.eq(creator.field(profile::id).nullable()),
+				)),
+			)
+			.left_outer_join(
+				updater.on(inc_updated_by.into_sql::<Bool>().and(
+					opening_time::updated_by
+						.eq(updater.field(profile::id).nullable()),
+				)),
+			)
+	}
+
+	/// Construct a full [`OpeningTime`] struct from the data returned by a
+	/// joined query
+	fn from_joined(
+		includes: OpeningTimeIncludes,
+		data: JoinedOpeningTimeData,
+	) -> Self {
+		Self {
+			opening_time:   data.0,
+			seat_occupancy: None,
+			created_by:     if includes.created_by {
+				Some(data.1)
+			} else {
+				None
+			},
+			updated_by:     if includes.updated_by {
+				Some(data.2)
+			} else {
+				None
+			},
+		}
+	}
+
 	/// Get an [`OpeningTime`] by its id
 	#[instrument(skip(conn))]
 	pub async fn get_by_id(
@@ -199,28 +250,12 @@ impl OpeningTime {
 		includes: OpeningTimeIncludes,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let time: (
-			PrimitiveOpeningTime,
-			Option<PrimitiveProfile>,
-			Option<PrimitiveProfile>,
-		) = conn
-			.interact(move |conn| {
-				use self::opening_time::dsl::*;
+		let query = Self::joined_query(includes);
 
-				opening_time
-					.left_outer_join(
-						creator.on(includes.created_by.into_sql::<Bool>().and(
-							created_by
-								.eq(creator.field(profile::id).nullable()),
-						)),
-					)
-					.left_outer_join(
-						updater.on(includes.updated_by.into_sql::<Bool>().and(
-							updated_by
-								.eq(updater.field(profile::id).nullable()),
-						)),
-					)
-					.filter(id.eq(t_id))
+		let time = conn
+			.interact(move |conn| {
+				query
+					.filter(opening_time::id.eq(t_id))
 					.select((
 						PrimitiveOpeningTime::as_select(),
 						creator.fields(profile::all_columns).nullable(),
@@ -230,20 +265,7 @@ impl OpeningTime {
 			})
 			.await??;
 
-		let time = OpeningTime {
-			opening_time:   time.0,
-			seat_occupancy: None,
-			created_by:     if includes.created_by {
-				Some(time.1)
-			} else {
-				None
-			},
-			updated_by:     if includes.updated_by {
-				Some(time.2)
-			} else {
-				None
-			},
-		};
+		let time = Self::from_joined(includes, time);
 
 		Ok(time)
 	}
@@ -257,24 +279,13 @@ impl OpeningTime {
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
 		let filter = time_filter.to_filter();
+		let query = Self::joined_query(includes);
 
 		let times = conn
 			.interact(move |conn| {
 				use self::opening_time::dsl::*;
 
-				opening_time
-					.left_outer_join(
-						creator.on(includes.created_by.into_sql::<Bool>().and(
-							created_by
-								.eq(creator.field(profile::id).nullable()),
-						)),
-					)
-					.left_outer_join(
-						updater.on(includes.updated_by.into_sql::<Bool>().and(
-							updated_by
-								.eq(updater.field(profile::id).nullable()),
-						)),
-					)
+				query
 					.filter(location_id.eq(loc_id))
 					.filter(filter)
 					.select((
@@ -286,22 +297,7 @@ impl OpeningTime {
 			})
 			.await??
 			.into_iter()
-			.map(|(time, cr, up)| {
-				OpeningTime {
-					opening_time:   time,
-					seat_occupancy: None,
-					created_by:     if includes.created_by {
-						Some(cr)
-					} else {
-						None
-					},
-					updated_by:     if includes.updated_by {
-						Some(up)
-					} else {
-						None
-					},
-				}
-			})
+			.map(|data| Self::from_joined(includes, data))
 			.collect();
 
 		Ok(times)

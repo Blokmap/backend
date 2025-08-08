@@ -129,7 +129,7 @@ impl Config {
 	#[must_use]
 	pub fn create_database_pool(&self) -> Pool {
 		let manager = Manager::new(
-			self.database_url.to_string(),
+			self.database_url.clone(),
 			deadpool_diesel::Runtime::Tokio1,
 		);
 

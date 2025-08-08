@@ -75,12 +75,12 @@ impl TryFrom<&PrimitiveProfile> for Mailbox {
 	fn try_from(value: &PrimitiveProfile) -> Result<Mailbox, Error> {
 		if value.pending_email.is_some() {
 			Ok(Mailbox::new(
-				Some(value.username.to_string()),
+				Some(value.username.clone()),
 				value.pending_email.as_ref().unwrap().parse()?,
 			))
 		} else if value.email.is_some() {
 			Ok(Mailbox::new(
-				Some(value.username.to_string()),
+				Some(value.username.clone()),
 				value.email.as_ref().unwrap().parse()?,
 			))
 		} else {
