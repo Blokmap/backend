@@ -14,6 +14,8 @@ use crate::{
 	manual_pagination,
 };
 
+pub type JoinedReviewData = (PrimitiveReview, PrimitiveProfile);
+
 #[derive(Clone, Debug, Deserialize, Queryable, Serialize)]
 #[diesel(table_name = review)]
 #[diesel(check_for_backend(Pg))]
@@ -37,6 +39,20 @@ pub struct PrimitiveReview {
 }
 
 impl Review {
+	/// Build a query with all required (dynamic) joins to select a full
+	/// review data tuple
+	#[diesel::dsl::auto_type(no_type_alias)]
+	fn joined_query() -> _ {
+		review::table
+			.inner_join(profile::table.on(profile::id.eq(review::profile_id)))
+	}
+
+	/// Construct a full [`Review`] struct from the data returned by a
+	/// joined query
+	fn from_joined(data: JoinedReviewData) -> Self {
+		Self { review: data.0, created_by: data.1 }
+	}
+
 	/// Get all [`Review`]s for a location with the given ID
 	#[instrument(skip(conn))]
 	pub async fn for_location(
@@ -45,13 +61,12 @@ impl Review {
 		offset: usize,
 		conn: &DbConn,
 	) -> Result<(usize, bool, Vec<Self>), Error> {
+		let query = Self::joined_query();
+
 		let reviews = conn
 			.interact(move |conn| {
-				use crate::db::review::dsl::*;
-
-				review
-					.filter(location_id.eq(l_id))
-					.inner_join(profile::table.on(profile::id.eq(profile_id)))
+				query
+					.filter(review::location_id.eq(l_id))
 					.select((
 						PrimitiveReview::as_select(),
 						PrimitiveProfile::as_select(),
@@ -61,7 +76,7 @@ impl Review {
 			})
 			.await??
 			.into_iter()
-			.map(|(review, created_by)| Review { review, created_by })
+			.map(Self::from_joined)
 			.collect();
 
 		manual_pagination(reviews, limit, offset)
@@ -73,13 +88,12 @@ impl Review {
 		p_id: i32,
 		conn: &DbConn,
 	) -> Result<Vec<(Self, FullLocationData)>, Error> {
+		let query = Self::joined_query();
+
 		let (loc_ids, reviews): (Vec<i32>, Vec<Self>) = conn
 			.interact(move |conn| {
-				use crate::db::review::dsl::*;
-
-				review
-					.filter(profile_id.eq(p_id))
-					.inner_join(profile::table.on(profile::id.eq(profile_id)))
+				query
+					.filter(review::profile_id.eq(p_id))
 					.select((
 						PrimitiveReview::as_select(),
 						PrimitiveProfile::as_select(),
@@ -88,8 +102,8 @@ impl Review {
 			})
 			.await??
 			.into_iter()
-			.map(|(review, created_by)| {
-				(review.location_id, Review { review, created_by })
+			.map(|data: JoinedReviewData| {
+				(data.0.location_id, Self::from_joined(data))
 			})
 			.collect();
 

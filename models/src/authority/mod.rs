@@ -12,6 +12,9 @@ mod member;
 
 pub use member::*;
 
+pub type JoinedAuthorityData =
+	(PrimitiveAuthority, Option<PrimitiveProfile>, Option<PrimitiveProfile>);
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct AuthorityIncludes {
 	#[serde(default)]
@@ -25,8 +28,8 @@ pub struct AuthorityIncludes {
 #[diesel(check_for_backend(Pg))]
 pub struct Authority {
 	pub authority:  PrimitiveAuthority,
-	pub updated_by: Option<Option<PrimitiveProfile>>,
 	pub created_by: Option<Option<PrimitiveProfile>>,
+	pub updated_by: Option<Option<PrimitiveProfile>>,
 }
 
 #[derive(
@@ -42,7 +45,38 @@ pub struct PrimitiveAuthority {
 	pub updated_at:  NaiveDateTime,
 }
 
+mod auto_type_helpers {
+	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
+}
+
 impl Authority {
+	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
+	fn joined_query(includes: AuthorityIncludes) -> _ {
+		let inc_created_by: bool = includes.created_by;
+		let inc_updated_by: bool = includes.updated_by;
+
+		authority::table
+			.left_outer_join(creator.on(inc_created_by.into_sql::<Bool>().and(
+				authority::created_by.eq(creator.field(profile::id).nullable()),
+			)))
+			.left_outer_join(updater.on(inc_updated_by.into_sql::<Bool>().and(
+				authority::updated_by.eq(updater.field(profile::id).nullable()),
+			)))
+	}
+
+	/// Construct a full [`Authority`] struct from the data returned by a
+	/// joined query
+	fn from_joined(
+		includes: AuthorityIncludes,
+		data: JoinedAuthorityData,
+	) -> Self {
+		Self {
+			authority:  data.0,
+			created_by: if includes.created_by { Some(data.1) } else { None },
+			updated_by: if includes.updated_by { Some(data.2) } else { None },
+		}
+	}
+
 	/// Get a single [`Authority`] given its id
 	#[instrument(skip(conn))]
 	pub async fn get_by_id(
@@ -50,28 +84,12 @@ impl Authority {
 		includes: AuthorityIncludes,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let authority: (
-			PrimitiveAuthority,
-			Option<PrimitiveProfile>,
-			Option<PrimitiveProfile>,
-		) = conn
-			.interact(move |conn| {
-				use crate::db::authority::dsl::*;
+		let query = Self::joined_query(includes);
 
-				authority
-					.left_outer_join(
-						creator.on(includes.created_by.into_sql::<Bool>().and(
-							created_by
-								.eq(creator.field(profile::id).nullable()),
-						)),
-					)
-					.left_outer_join(
-						updater.on(includes.updated_by.into_sql::<Bool>().and(
-							updated_by
-								.eq(updater.field(profile::id).nullable()),
-						)),
-					)
-					.filter(id.eq(auth_id))
+		let authority = conn
+			.interact(move |conn| {
+				query
+					.filter(authority::id.eq(auth_id))
 					.select((
 						PrimitiveAuthority::as_select(),
 						creator.fields(profile::all_columns).nullable(),
@@ -81,19 +99,7 @@ impl Authority {
 			})
 			.await??;
 
-		let authority = Self {
-			authority:  authority.0,
-			created_by: if includes.created_by {
-				Some(authority.1)
-			} else {
-				None
-			},
-			updated_by: if includes.updated_by {
-				Some(authority.2)
-			} else {
-				None
-			},
-		};
+		let authority = Self::from_joined(includes, authority);
 
 		Ok(authority)
 	}
@@ -105,23 +111,11 @@ impl Authority {
 		includes: AuthorityIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
+		let query = Self::joined_query(includes);
+
 		let authorities = conn
 			.interact(move |c| {
-				use crate::db::authority::dsl::*;
-
-				authority
-					.left_outer_join(
-						creator.on(includes.created_by.into_sql::<Bool>().and(
-							created_by
-								.eq(creator.field(profile::id).nullable()),
-						)),
-					)
-					.left_outer_join(
-						updater.on(includes.updated_by.into_sql::<Bool>().and(
-							updated_by
-								.eq(updater.field(profile::id).nullable()),
-						)),
-					)
+				query
 					.select((
 						PrimitiveAuthority::as_select(),
 						creator.fields(profile::all_columns).nullable(),
@@ -131,21 +125,7 @@ impl Authority {
 			})
 			.await??
 			.into_iter()
-			.map(|(authority, cr, up)| {
-				Authority {
-					authority,
-					created_by: if includes.created_by {
-						Some(cr)
-					} else {
-						None
-					},
-					updated_by: if includes.updated_by {
-						Some(up)
-					} else {
-						None
-					},
-				}
-			})
+			.map(|data| Self::from_joined(includes, data))
 			.collect();
 
 		Ok(authorities)

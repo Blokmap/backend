@@ -4,7 +4,6 @@ use chrono::NaiveDateTime;
 use common::{DbConn, Error};
 use diesel::pg::Pg;
 use diesel::prelude::*;
-use diesel::sql_types::Bool;
 use serde::{Deserialize, Serialize};
 
 use crate::db::{
@@ -183,27 +182,15 @@ impl Authority {
 		includes: AuthorityIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
+		let query = Self::joined_query(includes);
+
 		let authorities = conn
 			.interact(move |conn| {
 				use crate::db::authority_profile::dsl::*;
 
 				authority_profile
 					.filter(profile_id.eq(p_id))
-					.inner_join(
-						authority::table.on(authority_id.eq(authority::id)),
-					)
-					.left_outer_join(
-						creator.on(includes.created_by.into_sql::<Bool>().and(
-							authority::created_by
-								.eq(creator.field(profile::id).nullable()),
-						)),
-					)
-					.left_outer_join(
-						updater.on(includes.updated_by.into_sql::<Bool>().and(
-							authority::updated_by
-								.eq(updater.field(profile::id).nullable()),
-						)),
-					)
+					.inner_join(query.on(authority_id.eq(authority::id)))
 					.select((
 						PrimitiveAuthority::as_select(),
 						creator.fields(profile::all_columns).nullable(),
@@ -213,21 +200,7 @@ impl Authority {
 			})
 			.await??
 			.into_iter()
-			.map(|(authority, cr, up)| {
-				Authority {
-					authority,
-					created_by: if includes.created_by {
-						Some(cr)
-					} else {
-						None
-					},
-					updated_by: if includes.updated_by {
-						Some(up)
-					} else {
-						None
-					},
-				}
-			})
+			.map(|data| Self::from_joined(includes, data))
 			.collect();
 
 		Ok(authorities)

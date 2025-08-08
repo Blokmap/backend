@@ -13,6 +13,7 @@ use serde_with::DisplayFromStr;
 
 use crate::db::{
 	approver,
+	authority,
 	creator,
 	description,
 	excerpt,
@@ -166,6 +167,7 @@ mod auto_type_helpers {
 impl Location {
 	/// Build a query with all required (dynamic) joins to select a full
 	/// location data tuple
+	#[rustfmt::skip] // rustfmt hates me and i hate rustfmt
 	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
 	fn joined_query(includes: LocationIncludes) -> _ {
 		let inc_authority: bool = includes.authority;
@@ -174,47 +176,52 @@ impl Location {
 		let inc_created_by: bool = includes.created_by;
 		let inc_updated_by: bool = includes.updated_by;
 
-		crate::db::location::dsl::location
-			.inner_join(
-				description.on(crate::db::location::dsl::description_id
-					.eq(description.field(translation::id))),
-			)
-			.inner_join(
-				excerpt.on(crate::db::location::dsl::excerpt_id
-					.eq(excerpt.field(translation::id))),
-			)
+		location::table
+			.inner_join(description.on(
+				location::description_id
+					.eq(description.field(translation::id)),
+			))
+			.inner_join(excerpt.on(
+				location::excerpt_id
+					.eq(excerpt.field(translation::id))
+			))
 			.left_outer_join(
-				crate::db::authority::table.on(inc_authority
-					.into_sql::<Bool>()
+				authority::table.on(
+					inc_authority.into_sql::<Bool>()
+					.and(location::authority_id.eq(authority::id.nullable()))
+			))
+			.left_outer_join(
+				approver.on(
+					inc_approved_by.into_sql::<Bool>()
 					.and(
-						crate::db::location::authority_id
-							.eq(crate::db::authority::id.nullable()),
-					)),
-			)
+						location::approved_by.
+							eq(approver.field(profile::id).nullable()),
+					)
+			))
 			.left_outer_join(
-				approver.on(inc_approved_by.into_sql::<Bool>().and(
-					crate::db::location::dsl::approved_by
-						.eq(approver.field(profile::id).nullable()),
-				)),
-			)
+				rejecter.on(
+					inc_rejected_by.into_sql::<Bool>()
+					.and(
+						location::rejected_by
+							.eq(rejecter.field(profile::id).nullable()),
+					)
+			))
 			.left_outer_join(
-				rejecter.on(inc_rejected_by.into_sql::<Bool>().and(
-					crate::db::location::dsl::rejected_by
-						.eq(rejecter.field(profile::id).nullable()),
-				)),
-			)
+				creator.on(
+					inc_created_by.into_sql::<Bool>()
+					.and(
+						location::created_by
+							.eq(creator.field(profile::id).nullable())
+					)
+			))
 			.left_outer_join(
-				creator.on(inc_created_by.into_sql::<Bool>().and(
-					crate::db::location::dsl::created_by
-						.eq(creator.field(profile::id).nullable()),
-				)),
-			)
-			.left_outer_join(
-				updater.on(inc_updated_by.into_sql::<Bool>().and(
-					crate::db::location::dsl::updated_by
-						.eq(updater.field(profile::id).nullable()),
-				)),
-			)
+				updater.on(
+					inc_updated_by.into_sql::<Bool>()
+					.and(
+						location::updated_by
+							.eq(updater.field(profile::id).nullable())
+					)
+			))
 	}
 
 	/// Construct a full [`Location`] struct from the data returned by a

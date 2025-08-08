@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 use crate::PrimitiveProfile;
 use crate::db::{creator, profile, translation, updater};
 
+pub type JoinedTranslationData =
+	(PrimitiveTranslation, Option<PrimitiveProfile>, Option<PrimitiveProfile>);
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct TranslationIncludes {
 	#[serde(default)]
@@ -40,7 +43,48 @@ pub struct PrimitiveTranslation {
 	pub updated_at: NaiveDateTime,
 }
 
+mod auto_type_helpers {
+	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
+}
+
 impl Translation {
+	/// Build a query with all required (dynamic) joins to select a full
+	/// translation data tuple
+	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
+	fn joined_query(includes: TranslationIncludes) -> _ {
+		let inc_created_by: bool = includes.created_by;
+		let inc_updated_by: bool = includes.updated_by;
+
+		translation::table
+			.left_outer_join(
+				creator.on(inc_created_by.into_sql::<Bool>().and(
+					translation::created_by
+						.eq(creator.field(profile::id).nullable()),
+				)),
+			)
+			.left_outer_join(
+				updater.on(inc_updated_by.into_sql::<Bool>().and(
+					translation::updated_by
+						.eq(updater.field(profile::id).nullable()),
+				)),
+			)
+	}
+
+	/// Construct a full [`Translation`] struct from the data returned by a
+	/// joined query
+	#[allow(clippy::many_single_char_names)]
+	#[allow(clippy::too_many_arguments)]
+	fn from_joined(
+		includes: TranslationIncludes,
+		data: JoinedTranslationData,
+	) -> Self {
+		Self {
+			translation: data.0,
+			created_by:  if includes.created_by { Some(data.1) } else { None },
+			updated_by:  if includes.updated_by { Some(data.2) } else { None },
+		}
+	}
+
 	/// Attempt to get a single [`Translation`] given its id.
 	#[instrument(skip(conn))]
 	pub async fn get_by_id(
@@ -48,28 +92,12 @@ impl Translation {
 		includes: TranslationIncludes,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let translation: (
-			PrimitiveTranslation,
-			Option<PrimitiveProfile>,
-			Option<PrimitiveProfile>,
-		) = conn
-			.interact(move |conn| {
-				use crate::db::translation::dsl::*;
+		let query = Self::joined_query(includes);
 
-				translation
-					.left_outer_join(
-						creator.on(includes.created_by.into_sql::<Bool>().and(
-							created_by
-								.eq(creator.field(profile::id).nullable()),
-						)),
-					)
-					.left_outer_join(
-						updater.on(includes.updated_by.into_sql::<Bool>().and(
-							updated_by
-								.eq(updater.field(profile::id).nullable()),
-						)),
-					)
-					.filter(id.eq(tr_id))
+		let translation = conn
+			.interact(move |conn| {
+				query
+					.filter(translation::id.eq(tr_id))
 					.select((
 						PrimitiveTranslation::as_select(),
 						creator.fields(profile::all_columns).nullable(),
@@ -79,19 +107,7 @@ impl Translation {
 			})
 			.await??;
 
-		let translation = Self {
-			translation: translation.0,
-			created_by:  if includes.created_by {
-				Some(translation.1)
-			} else {
-				None
-			},
-			updated_by:  if includes.updated_by {
-				Some(translation.2)
-			} else {
-				None
-			},
-		};
+		let translation = Self::from_joined(includes, translation);
 
 		Ok(translation)
 	}

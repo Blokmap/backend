@@ -13,6 +13,13 @@ use crate::{
 	TranslationUpdate,
 };
 
+pub type JoinedTagData = (
+	PrimitiveTag,
+	PrimitiveTranslation,
+	Option<PrimitiveProfile>,
+	Option<PrimitiveProfile>,
+);
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct TagIncludes {
 	#[serde(default)]
@@ -42,7 +49,42 @@ pub struct PrimitiveTag {
 	pub updated_at: NaiveDateTime,
 }
 
+mod auto_type_helpers {
+	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
+}
+
 impl Tag {
+	/// Build a query with all required (dynamic) joins to select a full
+	/// tag data tuple
+	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
+	fn joined_query(includes: TagIncludes) -> _ {
+		let inc_created_by: bool = includes.created_by;
+		let inc_updated_by: bool = includes.updated_by;
+
+		tag::table
+			.inner_join(
+				translation::table
+					.on(tag::name_translation_id.eq(translation::id)),
+			)
+			.left_outer_join(creator.on(inc_created_by.into_sql::<Bool>().and(
+				tag::created_by.eq(creator.field(profile::id).nullable()),
+			)))
+			.left_outer_join(updater.on(inc_updated_by.into_sql::<Bool>().and(
+				tag::updated_by.eq(updater.field(profile::id).nullable()),
+			)))
+	}
+
+	/// Construct a full [`Tag`] struct from the data returned by a
+	/// joined query
+	fn from_joined(includes: TagIncludes, data: JoinedTagData) -> Self {
+		Self {
+			tag:        data.0,
+			name:       data.1,
+			created_by: if includes.created_by { Some(data.2) } else { None },
+			updated_by: if includes.updated_by { Some(data.3) } else { None },
+		}
+	}
+
 	/// Get a single [`Tag`] given its id
 	#[instrument(skip(conn))]
 	pub async fn get_by_id(
@@ -50,46 +92,23 @@ impl Tag {
 		includes: TagIncludes,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let tag: (
-			PrimitiveTag,
-			PrimitiveTranslation,
-			Option<PrimitiveProfile>,
-			Option<PrimitiveProfile>,
-		) = conn
-			.interact(move |conn| {
-				use crate::db::tag::dsl::*;
+		let query = Self::joined_query(includes);
 
-				tag.inner_join(
-					translation::table
-						.on(name_translation_id.eq(translation::id)),
-				)
-				.left_outer_join(creator.on(
-					includes.created_by.into_sql::<Bool>().and(
-						created_by.eq(creator.field(profile::id).nullable()),
-					),
-				))
-				.left_outer_join(updater.on(
-					includes.updated_by.into_sql::<Bool>().and(
-						updated_by.eq(updater.field(profile::id).nullable()),
-					),
-				))
-				.filter(id.eq(tag_id))
-				.select((
-					PrimitiveTag::as_select(),
-					PrimitiveTranslation::as_select(),
-					creator.fields(profile::all_columns).nullable(),
-					updater.fields(profile::all_columns).nullable(),
-				))
-				.get_result(conn)
+		let tag = conn
+			.interact(move |conn| {
+				query
+					.filter(tag::id.eq(tag_id))
+					.select((
+						PrimitiveTag::as_select(),
+						PrimitiveTranslation::as_select(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
+					))
+					.get_result(conn)
 			})
 			.await??;
 
-		let tag = Self {
-			tag:        tag.0,
-			name:       tag.1,
-			created_by: if includes.created_by { Some(tag.2) } else { None },
-			updated_by: if includes.updated_by { Some(tag.3) } else { None },
-		};
+		let tag = Self::from_joined(includes, tag);
 
 		Ok(tag)
 	}
@@ -101,25 +120,11 @@ impl Tag {
 		includes: TagIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
+		let query = Self::joined_query(includes);
+
 		let tags = conn
 			.interact(move |c| {
-				tag::table
-					.inner_join(
-						translation::table
-							.on(tag::name_translation_id.eq(translation::id)),
-					)
-					.left_outer_join(
-						creator.on(includes.created_by.into_sql::<Bool>().and(
-							tag::created_by
-								.eq(creator.field(profile::id).nullable()),
-						)),
-					)
-					.left_outer_join(
-						updater.on(includes.updated_by.into_sql::<Bool>().and(
-							tag::updated_by
-								.eq(updater.field(profile::id).nullable()),
-						)),
-					)
+				query
 					.select((
 						PrimitiveTag::as_select(),
 						PrimitiveTranslation::as_select(),
@@ -130,22 +135,7 @@ impl Tag {
 			})
 			.await??
 			.into_iter()
-			.map(|(tag, tr, cr, up)| {
-				Tag {
-					tag,
-					name: tr,
-					created_by: if includes.created_by {
-						Some(cr)
-					} else {
-						None
-					},
-					updated_by: if includes.updated_by {
-						Some(up)
-					} else {
-						None
-					},
-				}
-			})
+			.map(|data| Self::from_joined(includes, data))
 			.collect();
 
 		Ok(tags)
