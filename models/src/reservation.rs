@@ -19,6 +19,7 @@ use crate::{
 	PrimitiveLocation,
 	PrimitiveOpeningTime,
 	PrimitiveProfile,
+	ToFilter,
 };
 
 pub type JoinedReservationData = (
@@ -29,10 +30,42 @@ pub type JoinedReservationData = (
 	Option<PrimitiveProfile>,
 );
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReservationFilter {
-	pub date: Option<NaiveDate>,
+	pub date:       Option<NaiveDate>,
+	pub in_week_of: Option<NaiveDate>,
+}
+
+impl<S> ToFilter<S> for ReservationFilter
+where
+	S: 'static,
+	opening_time::day: SelectableExpression<S>,
+{
+	type SqlType = Bool;
+
+	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType> {
+		let mut filter: BoxedCondition<S, Self::SqlType> =
+			Box::new(true.into_sql::<Bool>());
+
+		if let Some(date) = self.date {
+			filter = Box::new(
+				filter.and(date.into_sql::<Date>().eq(opening_time::day)),
+			);
+		}
+
+		if let Some(in_week_of) = self.in_week_of {
+			let week = in_week_of.week(chrono::Weekday::Mon);
+			let week_start = week.first_day();
+			let week_end = week.last_day();
+
+			filter = Box::new(
+				filter.and(opening_time::day.between(week_start, week_end)),
+			);
+		}
+
+		filter
+	}
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
@@ -217,20 +250,15 @@ impl Reservation {
 		includes: ReservationIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
-		let date_filter: BoxedCondition<_, Bool> =
-			if let Some(date) = filter.date {
-				Box::new(date.into_sql::<Date>().eq(opening_time::day))
-			} else {
-				Box::new(true.into_sql::<Bool>().eq(true))
-			};
-
+		let filter = filter.to_filter();
 		let query = Self::joined_query(includes);
 
 		let reservations = conn
 			.interact(move |conn| {
 				query
 					.filter(location::id.eq(loc_id))
-					.filter(date_filter)
+					// .filter(date_filter)
+					.filter(filter)
 					.select((
 						PrimitiveReservation::as_select(),
 						PrimitiveOpeningTime::as_select(),
@@ -283,23 +311,18 @@ impl Reservation {
 	#[instrument(skip(conn))]
 	pub async fn for_profile(
 		p_id: i32,
+		filter: ReservationFilter,
 		includes: ReservationIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
+		let filter = filter.to_filter();
 		let query = Self::joined_query(includes);
-
-		// Calculate current week bounds
-		// let now = chrono::Utc::now().date_naive();
-		// let week = now.week(chrono::Weekday::Mon);
-		// let week_start = week.checked_first_day().unwrap(); // blokmap will
-		// probably not be around in 262,000 years let week_end =
-		// week.checked_last_day().unwrap();
 
 		let reservations = conn
 			.interact(move |conn| {
 				query
 					.filter(reservation::profile_id.eq(p_id))
-					// .filter(opening_time::day.between(week_start, week_end))
+					.filter(filter)
 					.select((
 						PrimitiveReservation::as_select(),
 						PrimitiveOpeningTime::as_select(),

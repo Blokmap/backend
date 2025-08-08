@@ -21,6 +21,7 @@ use models::{
 	PrimitiveProfile,
 	ProfileState,
 	Reservation,
+	ReservationFilter,
 	ReservationIncludes,
 	Review,
 	UpdateProfile,
@@ -310,13 +311,14 @@ pub async fn get_profile_locations(
 #[instrument(skip(pool))]
 pub async fn get_profile_reservations(
 	State(pool): State<DbPool>,
+	Query(filter): Query<ReservationFilter>,
 	Query(includes): Query<ReservationIncludes>,
 	Path(profile_id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
 	let reservations =
-		Reservation::for_profile(profile_id, includes, &conn).await?;
+		Reservation::for_profile(profile_id, filter, includes, &conn).await?;
 	let response: Vec<ReservationResponse> =
 		reservations.into_iter().map(Into::into).collect();
 
