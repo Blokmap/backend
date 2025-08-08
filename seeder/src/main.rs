@@ -517,18 +517,24 @@ async fn get_existing_reservations_for_profile_optimized(
 			use models::db::reservation::dsl::*;
 
 			reservation
-			.inner_join(ot_dsl::opening_time.on(opening_time_id.eq(ot_dsl::id)))
-			.inner_join(loc_dsl::location.on(ot_dsl::location_id.eq(loc_dsl::id)))
-			.filter(profile_id.eq(user_profile_id))
-			.order_by(ot_dsl::day.desc()) // Recent reservations first for better overlap detection
-			.select((
-				ot_dsl::day,
-				ot_dsl::start_time,
-				base_block_index,
-				block_count,
-				loc_dsl::reservation_block_size,
-			))
-			.load::<(chrono::NaiveDate, chrono::NaiveTime, i32, i32, i32)>(c)
+				.inner_join(
+					ot_dsl::opening_time.on(opening_time_id.eq(ot_dsl::id)),
+				)
+				.inner_join(
+					loc_dsl::location.on(ot_dsl::location_id.eq(loc_dsl::id)),
+				)
+				.filter(profile_id.eq(user_profile_id))
+				.order_by(ot_dsl::day.desc())
+				.select((
+					ot_dsl::day,
+					ot_dsl::start_time,
+					base_block_index,
+					block_count,
+					loc_dsl::reservation_block_size,
+				))
+				.load::<(chrono::NaiveDate, chrono::NaiveTime, i32, i32, i32)>(
+					c,
+				)
 		})
 		.await
 		.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?
