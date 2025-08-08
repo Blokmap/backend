@@ -136,29 +136,27 @@ impl Reservation {
 		let inc_profile: bool = includes.profile;
 		let inc_confirmed: bool = includes.confirmed_by;
 
+		let opening_time_join = crate::db::opening_time::table
+			.on(crate::db::reservation::opening_time_id
+				.eq(crate::db::opening_time::id));
+
+		let location_join = crate::db::location::table
+			.on(crate::db::opening_time::location_id
+				.eq(crate::db::location::id));
+
+		let profile_join = creator.on(crate::db::reservation::profile_id
+			.eq(creator.field(profile::id))
+			.and(inc_profile.into_sql::<Bool>()));
+
+		let confirmed_join = confirmer.on(crate::db::reservation::confirmed_by
+			.eq(confirmer.field(profile::id).nullable())
+			.and(inc_confirmed.into_sql::<Bool>()));
+
 		crate::db::reservation::dsl::reservation
-			.inner_join(
-				crate::db::opening_time::table
-					.on(crate::db::reservation::opening_time_id
-						.eq(crate::db::opening_time::id)),
-			)
-			.inner_join(
-				crate::db::location::table
-					.on(crate::db::opening_time::location_id
-						.eq(crate::db::location::id)),
-			)
-			.left_outer_join(
-				creator.on(inc_profile.into_sql::<Bool>().and(
-					crate::db::reservation::profile_id
-						.eq(creator.field(profile::id)),
-				)),
-			)
-			.left_outer_join(
-				confirmer.on(inc_confirmed.into_sql::<Bool>().and(
-					crate::db::reservation::confirmed_by
-						.eq(confirmer.field(profile::id).nullable()),
-				)),
-			)
+			.inner_join(opening_time_join)
+			.inner_join(location_join)
+			.left_outer_join(profile_join)
+			.left_outer_join(confirmed_join)
 	}
 
 	/// Construct a full [`Reservation`] struct from the data returned by a
@@ -290,10 +288,18 @@ impl Reservation {
 	) -> Result<Vec<Self>, Error> {
 		let query = Self::joined_query(includes);
 
+		// Calculate current week bounds
+		// let now = chrono::Utc::now().date_naive();
+		// let week = now.week(chrono::Weekday::Mon);
+		// let week_start = week.checked_first_day().unwrap(); // blokmap will
+		// probably not be around in 262,000 years let week_end =
+		// week.checked_last_day().unwrap();
+
 		let reservations = conn
 			.interact(move |conn| {
 				query
 					.filter(reservation::profile_id.eq(p_id))
+					// .filter(opening_time::day.between(week_start, week_end))
 					.select((
 						PrimitiveReservation::as_select(),
 						PrimitiveOpeningTime::as_select(),

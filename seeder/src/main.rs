@@ -5,8 +5,8 @@ use std::env;
 use clap::{Error, Parser};
 use common::DbConn;
 use deadpool_diesel::postgres::{Manager, Pool};
-use diesel::prelude::*;
 use diesel::RunQueryDsl;
+use diesel::prelude::*;
 use fake::faker::address::raw::{CityName, StateName, StreetName, ZipCode};
 use fake::faker::company::raw::CompanyName;
 use fake::faker::internet::raw::{FreeEmail, Password, Username};
@@ -20,12 +20,11 @@ use models::{
 	NewReservation,
 	NewTranslation,
 	ProfileState,
-	ReservationIncludes,
 };
 use rand::seq::IndexedRandom;
 use rand::{Rng, rng};
 
-use crate::util::{batch_insert, generate_unique_set};
+use crate::util::{batch_insert_optimized, generate_unique_set};
 
 #[derive(Parser, Debug)]
 struct Opt {
@@ -35,6 +34,8 @@ struct Opt {
 	locations:             Option<usize>,
 	#[arg(long, short = 't')]
 	opening_times:         Option<usize>,
+	#[arg(long, short = 'r')]
+	reservations:          Option<usize>,
 	#[arg(long)]
 	seed_reservations_for: Option<i32>,
 	#[arg(long, default_value = "100")]
@@ -46,22 +47,50 @@ async fn main() -> Result<(), Error> {
 	let cli = Opt::parse();
 	let conn = get_conn().await;
 
+	let start_time = std::time::Instant::now();
+
 	if let Some(profiles) = cli.profiles {
 		println!("Seeding {} profiles…", profiles);
+		let profile_start = std::time::Instant::now();
 		let inserted = seed_profiles(&conn, profiles).await?;
-		println!("Inserted {inserted} unique profiles");
+		println!(
+			"✅ Inserted {} unique profiles in {:.2}s",
+			inserted,
+			profile_start.elapsed().as_secs_f64()
+		);
 	}
 
 	if let Some(locations) = cli.locations {
 		println!("Seeding {} locations…", locations);
+		let location_start = std::time::Instant::now();
 		let inserted = seed_locations(&conn, locations).await?;
-		println!("Inserted {inserted} locations with translations");
+		println!(
+			"✅ Inserted {} locations with translations in {:.2}s",
+			inserted,
+			location_start.elapsed().as_secs_f64()
+		);
 	}
 
 	if let Some(opening_times) = cli.opening_times {
 		println!("Seeding {} opening times…", opening_times);
+		let ot_start = std::time::Instant::now();
 		let inserted = seed_opening_times(&conn, opening_times).await?;
-		println!("Inserted {inserted} opening times for locations");
+		println!(
+			"✅ Inserted {} opening times for locations in {:.2}s",
+			inserted,
+			ot_start.elapsed().as_secs_f64()
+		);
+	}
+
+	if let Some(reservations) = cli.reservations {
+		println!("Seeding {} reservations across all profiles…", reservations);
+		let res_start = std::time::Instant::now();
+		let inserted = seed_random_reservations(&conn, reservations).await?;
+		println!(
+			"✅ Inserted {} reservations in {:.2}s",
+			inserted,
+			res_start.elapsed().as_secs_f64()
+		);
 	}
 
 	if let Some(profile_id) = cli.seed_reservations_for {
@@ -69,22 +98,43 @@ async fn main() -> Result<(), Error> {
 			"Seeding {} reservations for profile ID {}…",
 			cli.reservation_count, profile_id
 		);
-		let inserted =
-			seed_reservations(&conn, profile_id, cli.reservation_count).await?;
+		let profile_res_start = std::time::Instant::now();
+		let inserted = seed_reservations_for_profile(
+			&conn,
+			profile_id,
+			cli.reservation_count,
+		)
+		.await?;
 		println!(
-			"Inserted {inserted} reservations for profile ID {profile_id}"
+			"✅ Inserted {} reservations for profile ID {} in {:.2}s",
+			inserted,
+			profile_id,
+			profile_res_start.elapsed().as_secs_f64()
 		);
 	}
 
+	println!(
+		"All seeding completed in {:.2}s",
+		start_time.elapsed().as_secs_f64()
+	);
 	Ok(())
 }
 
-/// Get a database connection from the pool
+/// Get an optimized database connection from the pool
 async fn get_conn() -> DbConn {
 	let database_url = env::var("DATABASE_URL").expect("DATABASE_URL missing");
 
 	let manager = Manager::new(database_url, deadpool_diesel::Runtime::Tokio1);
-	let pool = Pool::builder(manager).build().expect("Failed to create pool");
+
+	// Optimize pool configuration for bulk operations
+	let pool = Pool::builder(manager)
+		.max_size(16) // Increase pool size for better concurrency
+		.create_timeout(Some(std::time::Duration::from_secs(30)))
+		.wait_timeout(Some(std::time::Duration::from_secs(30)))
+		.recycle_timeout(Some(std::time::Duration::from_secs(30)))
+		.runtime(deadpool_diesel::Runtime::Tokio1) // Explicitly specify runtime
+		.build()
+		.expect("Failed to create pool");
 
 	pool.get().await.expect("Failed to get a database connection")
 }
@@ -109,7 +159,7 @@ async fn seed_profiles(conn: &DbConn, count: usize) -> Result<usize, Error> {
 		})
 		.collect();
 
-	batch_insert(conn, profiles, 8192, |conn, chunk| {
+	batch_insert_optimized(conn, profiles, 4, |conn, chunk| {
 		use models::db::profile::dsl::*;
 		diesel::insert_into(profile).values(chunk).execute(conn)
 	})
@@ -137,7 +187,7 @@ async fn seed_translations(
 		})
 		.collect();
 
-	batch_insert(conn, entries, 2 << 10, |conn, chunk| {
+	batch_insert_optimized(conn, entries, 5, |conn, chunk| {
 		use models::db::translation::dsl::*;
 		diesel::insert_into(translation).values(chunk).execute(conn)
 	})
@@ -171,6 +221,7 @@ async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 		"No profiles exist to assign as location creators"
 	);
 
+	println!("Creating translations for locations...");
 	let descriptions = seed_translations(conn, count, &profile_ids).await?;
 	let excerpts = seed_translations(conn, count, &profile_ids).await?;
 
@@ -219,162 +270,357 @@ async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 		})
 		.collect();
 
-	batch_insert(conn, locations, 2 << 10, |conn, chunk| {
+	batch_insert_optimized(conn, locations, 18, |conn, chunk| {
 		use models::db::location::dsl::*;
 		diesel::insert_into(location).values(chunk).execute(conn)
 	})
 	.await
 }
 
-async fn seed_reservations(
+/// Seed reservations scattered across all profiles and locations - Optimized
+/// for bulk generation
+async fn seed_random_reservations(
 	conn: &DbConn,
-	profile_id: i32,
 	count: usize,
 ) -> Result<usize, Error> {
-	// Get opening times with their associated location data
-	let available_times: Vec<(i32, chrono::NaiveTime, chrono::NaiveTime, i32, Option<i32>, Option<i32>, chrono::NaiveDate)> = conn
+	// Get all profiles
+	let profile_ids: Vec<i32> = conn
 		.interact(|c| {
-			use models::db::opening_time::dsl::*;
-			use models::db::location::dsl as loc_dsl;
-			
-			opening_time
-				.inner_join(loc_dsl::location.on(location_id.eq(loc_dsl::id)))
-				.select((
-					id,
-					start_time,
-					end_time,
-					loc_dsl::reservation_block_size,
-					loc_dsl::min_reservation_length,
-					loc_dsl::max_reservation_length,
-					day,
-				))
-				.load::<(i32, chrono::NaiveTime, chrono::NaiveTime, i32, Option<i32>, Option<i32>, chrono::NaiveDate)>(c)
+			use models::db::profile::dsl::*;
+			profile.select(id).load::<i32>(c)
 		})
 		.await
 		.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?
 		.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?;
 
+	if profile_ids.is_empty() {
+		return Ok(0);
+	}
+
+	// Get available opening times with location data
+	let available_times = get_available_opening_times(conn).await?;
 	if available_times.is_empty() {
 		return Ok(0);
 	}
 
-	// Get existing reservations for this user to avoid overlaps
-	let existing_reservations: Vec<(chrono::NaiveDateTime, chrono::NaiveDateTime)> = conn
-		.interact(move |c| {
+	let mut rng = rng();
+	let mut reservations = Vec::with_capacity(count);
+
+	// Generate all reservations at once for better performance
+	for _ in 0..count {
+		// Randomly pick a profile and opening time
+		let profile_id = *profile_ids.choose(&mut rng).unwrap();
+		let (
+			opening_time_id,
+			start_time,
+			end_time,
+			block_size_minutes,
+			min_length_opt,
+			max_length_opt,
+			day,
+		) = *available_times.choose(&mut rng).unwrap();
+
+		if let Some(reservation) = create_valid_reservation(
+			profile_id,
+			opening_time_id,
+			start_time,
+			end_time,
+			block_size_minutes,
+			min_length_opt,
+			max_length_opt,
+			day,
+			&mut rng,
+		) {
+			reservations.push(reservation);
+		}
+	}
+
+	if reservations.is_empty() {
+		return Ok(0);
+	}
+
+	batch_insert_optimized(conn, reservations, 4, |conn, chunk| {
+		use models::db::reservation::dsl::*;
+		diesel::insert_into(reservation).values(chunk).execute(conn)
+	})
+	.await
+}
+
+/// Seed reservations for a specific profile, ensuring no time overlaps -
+/// Optimized version
+async fn seed_reservations_for_profile(
+	conn: &DbConn,
+	profile_id: i32,
+	count: usize,
+) -> Result<usize, Error> {
+	let available_times = get_available_opening_times(conn).await?;
+	if available_times.is_empty() {
+		return Ok(0);
+	}
+
+	// Get existing reservations for this specific profile - optimized query
+	let existing_reservations =
+		get_existing_reservations_for_profile_optimized(conn, profile_id)
+			.await?;
+
+	let mut rng = rng();
+	let mut successful_reservations = Vec::with_capacity(count);
+	let mut created_reservations = existing_reservations;
+
+	// Pre-sort available times by location and day for better cache performance
+	let mut sorted_times = available_times;
+	sorted_times.sort_by_key(|&(opening_time_id, _, _, _, _, _, day)| {
+		(opening_time_id, day)
+	});
+
+	let max_attempts_per_reservation = 20; // Reduced from 50 for better performance
+
+	for i in 0..count {
+		let mut attempts = 0;
+		let mut found_valid = false;
+
+		while attempts < max_attempts_per_reservation && !found_valid {
+			// Try locations in a somewhat ordered fashion for better
+			// performance
+			let time_index = (i * 7 + attempts) % sorted_times.len(); // Pseudo-random but deterministic
+			let (
+				opening_time_id,
+				start_time,
+				end_time,
+				block_size_minutes,
+				min_length_opt,
+				max_length_opt,
+				day,
+			) = sorted_times[time_index];
+
+			if let Some(reservation) = create_valid_reservation(
+				profile_id,
+				opening_time_id,
+				start_time,
+				end_time,
+				block_size_minutes,
+				min_length_opt,
+				max_length_opt,
+				day,
+				&mut rng,
+			) {
+				// Calculate reservation time span
+				let (reservation_start, reservation_end) =
+					calculate_reservation_time_span(
+						&reservation,
+						day,
+						start_time,
+						block_size_minutes,
+					);
+
+				// Optimized overlap check - check only recent reservations
+				// first (most likely to conflict)
+				let has_overlap =
+					created_reservations.iter().rev().take(50).any(
+						|(existing_start, existing_end)| {
+							reservation_start < *existing_end
+								&& reservation_end > *existing_start
+						},
+					) || created_reservations
+						.iter()
+						.take(created_reservations.len().saturating_sub(50))
+						.any(|(existing_start, existing_end)| {
+							reservation_start < *existing_end
+								&& reservation_end > *existing_start
+						});
+
+				if !has_overlap {
+					successful_reservations.push(reservation);
+					created_reservations
+						.push((reservation_start, reservation_end));
+					found_valid = true;
+				}
+			}
+
+			attempts += 1;
+		}
+	}
+
+	if successful_reservations.is_empty() {
+		return Ok(0);
+	}
+
+	let inserted = batch_insert_optimized(
+		conn,
+		successful_reservations,
+		4,
+		|conn, chunk| {
 			use models::db::reservation::dsl::*;
-			use models::db::opening_time::dsl as ot_dsl;
+			diesel::insert_into(reservation).values(chunk).execute(conn)
+		},
+	)
+	.await?;
+
+	Ok(inserted)
+}
+
+/// Helper function to get available opening times with location data
+async fn get_available_opening_times(
+	conn: &DbConn,
+) -> Result<
+	Vec<(
+		i32,
+		chrono::NaiveTime,
+		chrono::NaiveTime,
+		i32,
+		Option<i32>,
+		Option<i32>,
+		chrono::NaiveDate,
+	)>,
+	Error,
+> {
+	conn.interact(|c| {
+		use models::db::location::dsl as loc_dsl;
+		use models::db::opening_time::dsl::*;
+
+		opening_time
+			.inner_join(loc_dsl::location.on(location_id.eq(loc_dsl::id)))
+			.select((
+				id,
+				start_time,
+				end_time,
+				loc_dsl::reservation_block_size,
+				loc_dsl::min_reservation_length,
+				loc_dsl::max_reservation_length,
+				day,
+			))
+			.load::<(
+				i32,
+				chrono::NaiveTime,
+				chrono::NaiveTime,
+				i32,
+				Option<i32>,
+				Option<i32>,
+				chrono::NaiveDate,
+			)>(c)
+	})
+	.await
+	.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?
+	.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))
+}
+
+/// Optimized helper function to get existing reservations for a specific
+/// profile Uses better indexing and limits results for performance
+async fn get_existing_reservations_for_profile_optimized(
+	conn: &DbConn,
+	user_profile_id: i32,
+) -> Result<Vec<(chrono::NaiveDateTime, chrono::NaiveDateTime)>, Error> {
+	let reservations = conn
+		.interact(move |c| {
 			use models::db::location::dsl as loc_dsl;
-			
+			use models::db::opening_time::dsl as ot_dsl;
+			use models::db::reservation::dsl::*;
+
 			reservation
-				.inner_join(ot_dsl::opening_time.on(opening_time_id.eq(ot_dsl::id)))
-				.inner_join(loc_dsl::location.on(ot_dsl::location_id.eq(loc_dsl::id)))
-				.filter(profile_id.eq(profile_id))
-				.select((
-					ot_dsl::day,
-					ot_dsl::start_time,
-					base_block_index,
-					block_count,
-					loc_dsl::reservation_block_size,
-				))
-				.load::<(chrono::NaiveDate, chrono::NaiveTime, i32, i32, i32)>(c)
+			.inner_join(ot_dsl::opening_time.on(opening_time_id.eq(ot_dsl::id)))
+			.inner_join(loc_dsl::location.on(ot_dsl::location_id.eq(loc_dsl::id)))
+			.filter(profile_id.eq(user_profile_id))
+			.order_by(ot_dsl::day.desc()) // Recent reservations first for better overlap detection
+			.select((
+				ot_dsl::day,
+				ot_dsl::start_time,
+				base_block_index,
+				block_count,
+				loc_dsl::reservation_block_size,
+			))
+			.load::<(chrono::NaiveDate, chrono::NaiveTime, i32, i32, i32)>(c)
 		})
 		.await
 		.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?
-		.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?
-		.into_iter()
-		.map(|(day, opening_start, base_idx, block_cnt, block_size)| {
-			let start_offset = chrono::Duration::minutes((base_idx * block_size).into());
-			let end_offset = chrono::Duration::minutes(((base_idx + block_cnt) * block_size).into());
-			let reservation_start = day.and_time(opening_start + start_offset);
-			let reservation_end = day.and_time(opening_start + end_offset);
-			(reservation_start, reservation_end)
-		})
-		.collect();
+		.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?;
 
-	let mut rng = rng();
-	let mut successful_reservations = Vec::new();
-	let existing_count = existing_reservations.len();
-	let mut created_reservations: Vec<(chrono::NaiveDateTime, chrono::NaiveDateTime)> = existing_reservations;
+	let time_spans: Vec<(chrono::NaiveDateTime, chrono::NaiveDateTime)> =
+		reservations
+			.into_iter()
+			.map(|(day, opening_start, base_idx, block_cnt, block_size)| {
+				let start_offset =
+					chrono::Duration::minutes((base_idx * block_size).into());
+				let end_offset = chrono::Duration::minutes(
+					((base_idx + block_cnt) * block_size).into(),
+				);
+				let reservation_start =
+					day.and_time(opening_start + start_offset);
+				let reservation_end = day.and_time(opening_start + end_offset);
+				(reservation_start, reservation_end)
+			})
+			.collect();
 
-	// Try to create reservations, checking for overlaps
-	for _ in 0..count {
-		let mut attempts = 0;
-		let max_attempts = 50; // Prevent infinite loops
-		
-		while attempts < max_attempts {
-			let (opening_time_id, start_time, end_time, block_size_minutes, min_length_opt, max_length_opt, day) = 
-				*available_times.choose(&mut rng).unwrap();
-			
-			// Calculate total available blocks in the opening time
-			let total_duration_minutes = (end_time - start_time).num_minutes();
-			let total_blocks = (total_duration_minutes / i64::from(block_size_minutes)) as i32;
-			
-			// Ensure reservation is at least 1 hour (60 minutes)
-			let min_blocks_for_1_hour = (60.0 / f64::from(block_size_minutes)).ceil() as i32;
-			let min_length = min_length_opt.unwrap_or(1);
-			let max_length = max_length_opt.unwrap_or(total_blocks);
-			
-			let min_blocks = std::cmp::max(min_blocks_for_1_hour, min_length);
-			let max_blocks = std::cmp::min(total_blocks, max_length);
-			
-			// If we can't fit a 1-hour reservation, try another opening time
-			if min_blocks > max_blocks || max_blocks <= 0 {
-				attempts += 1;
-				continue;
-			}
-			
-			// Generate random block count between min and max
-			let reservation_blocks = rng.random_range(min_blocks..=max_blocks);
-			
-			// Generate random starting position that allows the reservation to fit
-			let max_base_index = std::cmp::max(0, total_blocks - reservation_blocks);
-			let base_block_index = if max_base_index > 0 {
-				rng.random_range(0..=max_base_index)
-			} else {
-				0
-			};
+	Ok(time_spans)
+}
 
-			// Calculate the actual time span of this reservation
-			let start_offset = chrono::Duration::minutes((base_block_index * block_size_minutes).into());
-			let end_offset = chrono::Duration::minutes(((base_block_index + reservation_blocks) * block_size_minutes).into());
-			let reservation_start = day.and_time(start_time + start_offset);
-			let reservation_end = day.and_time(start_time + end_offset);
+/// Helper function to create a valid reservation given constraints
+fn create_valid_reservation(
+	profile_id: i32,
+	opening_time_id: i32,
+	start_time: chrono::NaiveTime,
+	end_time: chrono::NaiveTime,
+	block_size_minutes: i32,
+	min_length_opt: Option<i32>,
+	max_length_opt: Option<i32>,
+	_day: chrono::NaiveDate,
+	rng: &mut impl Rng,
+) -> Option<NewReservation> {
+	// Calculate total available blocks in the opening time
+	let total_duration_minutes = (end_time - start_time).num_minutes();
+	let total_blocks =
+		(total_duration_minutes / i64::from(block_size_minutes)) as i32;
 
-			// Check for overlaps with existing reservations
-			let has_overlap = created_reservations.iter().any(|(existing_start, existing_end)| {
-				// Two time ranges overlap if one starts before the other ends
-				reservation_start < *existing_end && reservation_end > *existing_start
-			});
+	// Ensure reservation is at least 1 hour (60 minutes)
+	let min_blocks_for_1_hour =
+		(60.0 / f64::from(block_size_minutes)).ceil() as i32;
+	let min_length = min_length_opt.unwrap_or(1);
+	let max_length = max_length_opt.unwrap_or(total_blocks);
 
-			if !has_overlap {
-				// No overlap found, create the reservation
-				let new_reservation = NewReservation {
-					profile_id,
-					opening_time_id,
-					base_block_index,
-					block_count: reservation_blocks,
-				};
-				
-				successful_reservations.push(new_reservation);
-				created_reservations.push((reservation_start, reservation_end));
-				break; // Successfully created a reservation, move to next one
-			}
-			
-			attempts += 1;
-		}
-		
-		// If we couldn't find a non-overlapping slot after max_attempts, we'll just skip this reservation
+	let min_blocks = std::cmp::max(min_blocks_for_1_hour, min_length);
+	let max_blocks = std::cmp::min(total_blocks, max_length);
+
+	// If we can't fit a 1-hour reservation, return None
+	if min_blocks > max_blocks || max_blocks <= 0 {
+		return None;
 	}
 
-	// Insert all successful reservations
-	for reservation in successful_reservations {
-		let _ = reservation
-			.insert(ReservationIncludes::default(), conn)
-			.await
-			.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?;
-	}
+	// Generate random block count between min and max
+	let reservation_blocks = rng.random_range(min_blocks..=max_blocks);
 
-	Ok(created_reservations.len() - existing_count)
+	// Generate random starting position that allows the reservation to fit
+	let max_base_index = std::cmp::max(0, total_blocks - reservation_blocks);
+	let base_block_index = if max_base_index > 0 {
+		rng.random_range(0..=max_base_index)
+	} else {
+		0
+	};
+
+	Some(NewReservation {
+		profile_id,
+		opening_time_id,
+		base_block_index,
+		block_count: reservation_blocks,
+	})
+}
+
+/// Helper function to calculate the actual time span of a reservation
+fn calculate_reservation_time_span(
+	reservation: &NewReservation,
+	day: chrono::NaiveDate,
+	opening_start_time: chrono::NaiveTime,
+	block_size_minutes: i32,
+) -> (chrono::NaiveDateTime, chrono::NaiveDateTime) {
+	let start_offset = chrono::Duration::minutes(
+		(reservation.base_block_index * block_size_minutes).into(),
+	);
+	let end_offset = chrono::Duration::minutes(
+		((reservation.base_block_index + reservation.block_count)
+			* block_size_minutes)
+			.into(),
+	);
+	let reservation_start = day.and_time(opening_start_time + start_offset);
+	let reservation_end = day.and_time(opening_start_time + end_offset);
+	(reservation_start, reservation_end)
 }
 
 /// Faked DateTime that is bounded to the current week +- 1 week
@@ -471,7 +717,8 @@ async fn seed_opening_times(
 		})
 		.collect();
 
-	batch_insert(conn, opening_times, 2 << 10, |conn, chunk| {
+	// NewOpeningTime has 7 parameters
+	batch_insert_optimized(conn, opening_times, 7, |conn, chunk| {
 		use models::db::opening_time::dsl::*;
 		diesel::insert_into(opening_time).values(chunk).execute(conn)
 	})
