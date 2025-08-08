@@ -43,7 +43,7 @@ impl DatabaseProvider {
 		let base_url = base_url.to_string();
 
 		let manager = Manager::new(
-			database_url.to_string(),
+			database_url.clone(),
 			deadpool_diesel::Runtime::Tokio1,
 		);
 
@@ -91,7 +91,7 @@ impl DatabaseGuard {
 	#[must_use]
 	pub fn create_pool(&self) -> DbPool {
 		let manager = Manager::new(
-			self.database_url.to_string(),
+			self.database_url.clone(),
 			deadpool_diesel::Runtime::Tokio1,
 		);
 
