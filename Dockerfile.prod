@@ -10,9 +10,7 @@ RUN cargo new --vcs none --edition 2024 --bin blokmap
 WORKDIR /blokmap
 
 COPY ./.cargo ./Cargo.toml ./Cargo.lock ./
-COPY ./common ./common
-COPY ./models ./models
-COPY ./seeder ./seeder
+COPY ./lib ./lib
 
 # Cache dependencies
 RUN cargo build --release --bin blokmap
