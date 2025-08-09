@@ -9,7 +9,7 @@ use diesel_derive_enum::DbEnum;
 use lettre::message::Mailbox;
 use serde::{Deserialize, Serialize};
 
-use crate::db::{image, location, opening_time, profile, reservation};
+use crate::db::{location, opening_time, profile, reservation};
 use crate::{
 	Image,
 	NewImage,
@@ -615,6 +615,7 @@ impl ProfileStats {
 	/// # Errors
 	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
+    #[allow(clippy::cast_sign_loss)]
 	pub async fn for_profile(
 		profile_id: i32,
 		conn: &DbConn,
@@ -652,17 +653,17 @@ impl ProfileStats {
 			.await??;
 
 		let now = Utc::now().naive_utc();
-		let mut total_reservations = 0;
-		let mut completed_reservations = 0;
-		let mut upcoming_reservations = 0;
-		let mut total_reservation_hours = 0;
+		let mut total_reservations: usize = 0;
+		let mut completed_reservations: usize = 0;
+		let mut upcoming_reservations: usize = 0;
+		let mut total_reservation_hours: usize = 0;
 
 		for data in reservation_data {
 			let (block_count, block_size_minutes, day, end_time, state) = data;
 
 			// Calculate total hours for this reservation
 			let reservation_minutes = block_count * block_size_minutes;
-			total_reservation_hours += (reservation_minutes / 60) as usize;
+			total_reservation_hours += (reservation_minutes as usize) / 60;
 
 			// Determine if reservation is past or future
 			let reservation_end = day.and_time(end_time);
