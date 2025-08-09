@@ -11,7 +11,7 @@ panic = "abort"
 codegen-units = 1
 
 [workspace]
-members = ["common", "models", "seeder"]
+members = ["libs/*"]
 resolver = "3"
 
 [workspace.dependencies]
@@ -65,8 +65,8 @@ license-file = "../LICENSE"
 publish = false
 
 [dependencies]
-common = { path = "./common" }
-models = { path = "./models" }
+common = { path = "./libs/common" }
+models = { path = "./libs/models" }
 
 argon2 = { workspace = true }
 axum = { workspace = true }
