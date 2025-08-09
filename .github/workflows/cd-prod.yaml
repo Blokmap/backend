@@ -26,8 +26,23 @@ jobs:
     ci:
         uses: ./.github/workflows/ci.yaml
 
+    path-filter:
+        runs-on: self-hosted
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
+
+          - name: Filter changed paths
+            uses: dorny/paths-filter@v3
+            id: filter
+            with:
+                filters: |
+                    migrations:
+                      - 'migrations/**'
+
     build-prod-backend:
         runs-on: self-hosted
+        if: steps.filter.outputs.migrations == 'true'
         needs: ci
         steps:
           - name: Load docker metadata
@@ -97,6 +112,7 @@ jobs:
         needs: [build-prod-backend, build-prod-migrations]
         steps:
           - name: Run migrations
+            if: steps.filter.outputs.migrations == 'true'
             uses: appleboy/ssh-action@v1.2.1
             with:
                 host: ${{ secrets.PRODUCTION_HOST }}
