@@ -10,4 +10,5 @@ models = { path = "../models" }
 axum = { workspace = true }
 fast_image_resize = { workspace = true }
 image = { workspace = true }
+rayon = { workspace = true }
 uuid = { workspace = true }

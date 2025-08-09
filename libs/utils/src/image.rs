@@ -1,12 +1,103 @@
-use std::io::Cursor;
-use std::path::PathBuf;
+use std::fs::File;
+use std::io::{BufWriter, Cursor, Write};
+use std::path::{Path, PathBuf};
 
 use axum::body::Bytes;
-use common::Error;
+use common::{DbConn, Error};
 use fast_image_resize::images::Image;
 use fast_image_resize::{IntoImageView, Resizer};
-use image::{ColorType, ImageReader};
+use image::codecs::webp::WebPEncoder;
+use image::{ColorType, ImageEncoder, ImageReader};
+use models::{Location, NewImage, PrimitiveProfile};
+use rayon::prelude::*;
 use uuid::Uuid;
+
+/// Store a list of images for the given location
+pub async fn store_location_images(
+	uploader_id: i32,
+	location_id: i32,
+	bytes: &[Bytes],
+	conn: &DbConn,
+) -> Result<Vec<String>, Error> {
+	let images = bytes
+		.into_par_iter()
+		.map(|bytes| {
+			let (image, color_type) = resize_image(bytes)?;
+			let (abs_filepath, rel_filepath) =
+				generate_image_filepaths(ImageOwner::Location, location_id)?;
+
+			save_image_file(&abs_filepath, &image, color_type)?;
+
+			let new_image = NewImage {
+				file_path:   rel_filepath.to_string_lossy().into_owned(),
+				uploaded_by: uploader_id,
+			};
+
+			Ok(new_image)
+		})
+		.collect::<Result<Vec<NewImage>, Error>>()?;
+
+	let images = Location::insert_images(location_id, images, conn).await?;
+
+	let image_paths = images.into_iter().map(|i| i.file_path).collect();
+
+	Ok(image_paths)
+}
+
+/// Store an image for the given profile
+pub async fn store_profile_image(
+	profile_id: i32,
+	bytes: &Bytes,
+	conn: &DbConn,
+) -> Result<models::Image, Error> {
+	let (image, color_type) = resize_image(bytes)?;
+	let (abs_filepath, rel_filepath) =
+		generate_image_filepaths(ImageOwner::Profile, profile_id)?;
+
+	save_image_file(&abs_filepath, &image, color_type)?;
+
+	let new_image = NewImage {
+		file_path:   rel_filepath.to_string_lossy().into_owned(),
+		uploaded_by: profile_id,
+	};
+
+	let image =
+		PrimitiveProfile::insert_avatar(profile_id, new_image, conn).await?;
+
+	Ok(image)
+}
+
+/// Delete an image from both the database and disk storage
+pub async fn delete_image(id: i32, conn: &DbConn) -> Result<(), Error> {
+	// Delete the image record before the file to prevent dangling
+	let image = models::Image::get_by_id(id, conn).await?;
+	models::Image::delete_by_id(id, conn).await?;
+
+	let filepath = PathBuf::from("/mnt/files").join(image.file_path);
+	std::fs::remove_file(filepath)?;
+
+	Ok(())
+}
+
+/// Save an image to a file
+fn save_image_file(
+	path: &Path,
+	image: &Image<'static>,
+	color_type: ColorType,
+) -> Result<(), Error> {
+	let mut file = BufWriter::new(File::create(path)?);
+
+	WebPEncoder::new_lossless(&mut file).write_image(
+		image.buffer(),
+		image.width(),
+		image.height(),
+		color_type.into(),
+	)?;
+
+	file.flush()?;
+
+	Ok(())
+}
 
 /// Resize an image to 1024x1024 (as close as possible while preserving aspect
 /// ratio)
@@ -14,9 +105,7 @@ use uuid::Uuid;
 /// # Panics
 /// Panics if the decoder can't infer the images pixel type
 #[inline]
-pub fn resize_image(
-	bytes: Bytes,
-) -> Result<(Image<'static>, u32, u32, ColorType), Error> {
+fn resize_image(bytes: &Bytes) -> Result<(Image<'static>, ColorType), Error> {
 	let image_reader =
 		ImageReader::new(Cursor::new(bytes)).with_guessed_format()?;
 
@@ -36,11 +125,11 @@ pub fn resize_image(
 	let mut resizer = Resizer::new();
 	resizer.resize(&src_image, &mut dst_image, None)?;
 
-	Ok((dst_image, dst_width, dst_height, src_image.color()))
+	Ok((dst_image, src_image.color()))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ImageOwner {
+enum ImageOwner {
 	Profile,
 	Location,
 }
@@ -63,15 +152,15 @@ impl ImageOwner {
 /// Panics if some wandering cosmic ray decides to mess up the file path
 /// generation
 #[inline]
-pub fn generate_image_filepaths(
-	id: i32,
-	owner: ImageOwner,
+fn generate_image_filepaths(
+	owner_type: ImageOwner,
+	owner_id: i32,
 ) -> Result<(PathBuf, PathBuf), Error> {
-	let owner_chunk = owner.as_url_chunk();
+	let owner_chunk = owner_type.as_url_chunk();
 
 	let image_uuid = Uuid::new_v4().to_string();
 	let rel_filepath = PathBuf::from(owner_chunk)
-		.join(id.to_string())
+		.join(owner_id.to_string())
 		.join(image_uuid)
 		.with_extension("webp");
 

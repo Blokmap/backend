@@ -3885,6 +3885,7 @@ dependencies = [
  "fast_image_resize",
  "image",
  "models",
+ "rayon",
  "uuid",
 ]
 
