@@ -9,10 +9,14 @@ use diesel_derive_enum::DbEnum;
 use lettre::message::Mailbox;
 use serde::{Deserialize, Serialize};
 
-use crate::db::{image, profile};
-use crate::{Image, NewImage, QUERY_HARD_LIMIT, manual_pagination};
-
-diesel::joinable!(profile -> image (avatar_image_id));
+use crate::db::{image, location, opening_time, profile, reservation};
+use crate::{
+	Image,
+	NewImage,
+	QUERY_HARD_LIMIT,
+	ReservationState,
+	manual_pagination,
+};
 
 #[derive(
 	Clone, Copy, DbEnum, Debug, Default, Deserialize, PartialEq, Eq, Serialize,
@@ -100,131 +104,6 @@ impl TryFrom<&PrimitiveProfile> for Mailbox {
 pub struct Profile {
 	pub profile:    PrimitiveProfile,
 	pub avatar_url: Option<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct NewProfile {
-	pub username:                        String,
-	pub password:                        String,
-	pub pending_email:                   String,
-	pub email_confirmation_token:        String,
-	pub email_confirmation_token_expiry: NaiveDateTime,
-	pub first_name:                      String,
-	pub last_name:                       String,
-}
-
-#[derive(Clone, Debug, Insertable)]
-#[diesel(table_name = profile)]
-struct NewProfileHashed {
-	username:                        String,
-	password_hash:                   String,
-	pending_email:                   String,
-	email_confirmation_token:        String,
-	email_confirmation_token_expiry: NaiveDateTime,
-	first_name:                      String,
-	last_name:                       String,
-}
-
-impl NewProfile {
-	/// Insert this [`NewProfile`]
-	#[instrument(skip(conn))]
-	pub async fn insert(
-		self,
-		conn: &DbConn,
-	) -> Result<PrimitiveProfile, Error> {
-		let hash = PrimitiveProfile::hash_password(&self.password)?;
-
-		let insertable = NewProfileHashed {
-			username:                        self.username,
-			password_hash:                   hash,
-			pending_email:                   self.pending_email,
-			email_confirmation_token:        self.email_confirmation_token,
-			email_confirmation_token_expiry: self
-				.email_confirmation_token_expiry,
-			first_name:                      self.first_name,
-			last_name:                       self.last_name,
-		};
-
-		let profile = conn
-			.interact(|conn| {
-				use self::profile::dsl::*;
-
-				diesel::insert_into(profile)
-					.values(insertable)
-					.returning(PrimitiveProfile::as_returning())
-					.get_result(conn)
-			})
-			.await??;
-
-		Ok(profile)
-	}
-}
-
-/// A new insertable profile that bypasses email verification and has an
-/// explicit email
-///
-/// Used for SSO logins like OAuth/SAML
-#[derive(Clone, Debug, Insertable)]
-#[diesel(table_name = profile)]
-pub struct NewProfileDirect {
-	pub username:      String,
-	pub password_hash: String,
-	pub email:         Option<String>,
-	pub state:         ProfileState,
-}
-
-impl NewProfileDirect {
-	/// Insert this [`NewProfileDirect`]
-	#[instrument(skip(conn))]
-	pub async fn insert(
-		self,
-		conn: &DbConn,
-	) -> Result<PrimitiveProfile, Error> {
-		let profile = conn
-			.interact(|conn| {
-				use self::profile::dsl::*;
-
-				diesel::insert_into(profile)
-					.values(self)
-					.returning(PrimitiveProfile::as_returning())
-					.get_result(conn)
-			})
-			.await??;
-
-		info!("direct-inserted new profile with id {}", profile.id);
-
-		Ok(profile)
-	}
-}
-
-#[derive(AsChangeset, Clone, Debug, Deserialize, Serialize)]
-#[diesel(table_name = profile)]
-pub struct UpdateProfile {
-	pub username:      Option<String>,
-	pub pending_email: Option<String>,
-}
-
-impl UpdateProfile {
-	/// Update a [`Profile`] with the given changes
-	#[instrument(skip(conn))]
-	pub async fn apply_to(
-		self,
-		target_id: i32,
-		conn: &DbConn,
-	) -> Result<PrimitiveProfile, Error> {
-		let new = conn
-			.interact(move |conn| {
-				use self::profile::dsl::*;
-
-				diesel::update(profile.find(target_id))
-					.set(self)
-					.returning(PrimitiveProfile::as_returning())
-					.get_result(conn)
-			})
-			.await??;
-
-		Ok(new)
-	}
 }
 
 impl PrimitiveProfile {
@@ -594,5 +473,218 @@ impl PrimitiveProfile {
 			.await??;
 
 		Ok(image)
+	}
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct NewProfile {
+	pub username:                        String,
+	pub password:                        String,
+	pub pending_email:                   String,
+	pub email_confirmation_token:        String,
+	pub email_confirmation_token_expiry: NaiveDateTime,
+	pub first_name:                      String,
+	pub last_name:                       String,
+}
+
+#[derive(Clone, Debug, Insertable)]
+#[diesel(table_name = profile)]
+struct NewProfileHashed {
+	username:                        String,
+	password_hash:                   String,
+	pending_email:                   String,
+	email_confirmation_token:        String,
+	email_confirmation_token_expiry: NaiveDateTime,
+	first_name:                      String,
+	last_name:                       String,
+}
+
+impl NewProfile {
+	/// Insert this [`NewProfile`]
+	#[instrument(skip(conn))]
+	pub async fn insert(
+		self,
+		conn: &DbConn,
+	) -> Result<PrimitiveProfile, Error> {
+		let hash = PrimitiveProfile::hash_password(&self.password)?;
+
+		let insertable = NewProfileHashed {
+			username:                        self.username,
+			password_hash:                   hash,
+			pending_email:                   self.pending_email,
+			email_confirmation_token:        self.email_confirmation_token,
+			email_confirmation_token_expiry: self
+				.email_confirmation_token_expiry,
+			first_name:                      self.first_name,
+			last_name:                       self.last_name,
+		};
+
+		let profile = conn
+			.interact(|conn| {
+				use self::profile::dsl::*;
+
+				diesel::insert_into(profile)
+					.values(insertable)
+					.returning(PrimitiveProfile::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(profile)
+	}
+}
+
+/// A new insertable profile that bypasses email verification and has an
+/// explicit email
+///
+/// Used for SSO logins like OAuth/SAML
+#[derive(Clone, Debug, Insertable)]
+#[diesel(table_name = profile)]
+pub struct NewProfileDirect {
+	pub username:      String,
+	pub password_hash: String,
+	pub email:         Option<String>,
+	pub state:         ProfileState,
+}
+
+impl NewProfileDirect {
+	/// Insert this [`NewProfileDirect`]
+	#[instrument(skip(conn))]
+	pub async fn insert(
+		self,
+		conn: &DbConn,
+	) -> Result<PrimitiveProfile, Error> {
+		let profile = conn
+			.interact(|conn| {
+				use self::profile::dsl::*;
+
+				diesel::insert_into(profile)
+					.values(self)
+					.returning(PrimitiveProfile::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		info!("direct-inserted new profile with id {}", profile.id);
+
+		Ok(profile)
+	}
+}
+
+#[derive(AsChangeset, Clone, Debug, Deserialize, Serialize)]
+#[diesel(table_name = profile)]
+pub struct UpdateProfile {
+	pub username:      Option<String>,
+	pub pending_email: Option<String>,
+}
+
+impl UpdateProfile {
+	/// Update a [`Profile`] with the given changes
+	#[instrument(skip(conn))]
+	pub async fn apply_to(
+		self,
+		target_id: i32,
+		conn: &DbConn,
+	) -> Result<PrimitiveProfile, Error> {
+		let new = conn
+			.interact(move |conn| {
+				use self::profile::dsl::*;
+
+				diesel::update(profile.find(target_id))
+					.set(self)
+					.returning(PrimitiveProfile::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(new)
+	}
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ProfileStats {
+	pub total_reservations:      usize,
+	pub completed_reservations:  usize,
+	pub upcoming_reservations:   usize,
+	pub total_reservation_hours: usize,
+}
+
+impl ProfileStats {
+	/// Get reservation statistics for a profile
+	///
+	/// # Errors
+	/// Errors if interacting with the database fails
+	#[instrument(skip(conn))]
+	pub async fn for_profile(
+		profile_id: i32,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let reservation_data = conn
+			.interact(move |c| {
+				use location::dsl as l_dsl;
+				use opening_time::dsl as ot_dsl;
+				use reservation::dsl as r_dsl;
+
+				r_dsl::reservation
+					.inner_join(
+						ot_dsl::opening_time
+							.on(r_dsl::opening_time_id.eq(ot_dsl::id)),
+					)
+					.inner_join(
+						l_dsl::location.on(ot_dsl::location_id.eq(l_dsl::id)),
+					)
+					.filter(r_dsl::profile_id.eq(profile_id))
+					.select((
+						r_dsl::block_count,
+						l_dsl::reservation_block_size,
+						ot_dsl::day,
+						ot_dsl::end_time,
+						r_dsl::state,
+					))
+					.load::<(
+						i32,
+						i32,
+						chrono::NaiveDate,
+						chrono::NaiveTime,
+						ReservationState,
+					)>(c)
+			})
+			.await??;
+
+		let now = Utc::now().naive_utc();
+		let mut total_reservations = 0;
+		let mut completed_reservations = 0;
+		let mut upcoming_reservations = 0;
+		let mut total_reservation_hours = 0;
+
+		for data in reservation_data {
+			let (block_count, block_size_minutes, day, end_time, state) = data;
+
+			// Calculate total hours for this reservation
+			let reservation_minutes = block_count * block_size_minutes;
+			total_reservation_hours += (reservation_minutes / 60) as usize;
+
+			// Determine if reservation is past or future
+			let reservation_end = day.and_time(end_time);
+
+			if reservation_end > now {
+				if state != ReservationState::Cancelled {
+					upcoming_reservations += 1;
+				}
+			} else {
+				completed_reservations += 1;
+			}
+
+			total_reservations += 1;
+		}
+
+		let stats = ProfileStats {
+			total_reservations,
+			completed_reservations,
+			upcoming_reservations,
+			total_reservation_hours,
+		};
+
+		Ok(stats)
 	}
 }

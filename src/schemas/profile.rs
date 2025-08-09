@@ -4,6 +4,7 @@ use models::{
 	LocationPermissions,
 	PrimitiveProfile,
 	ProfileState,
+	ProfileStats,
 	UpdateProfile,
 };
 use serde::{Deserialize, Serialize};
@@ -99,6 +100,26 @@ impl From<UpdateProfileRequest> for UpdateProfile {
 		Self {
 			username:      request.username,
 			pending_email: request.pending_email,
+		}
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileStatsResponse {
+	pub total_reservations:      usize,
+	pub completed_reservations:  usize,
+	pub upcoming_reservations:   usize,
+	pub total_reservation_hours: usize,
+}
+
+impl From<ProfileStats> for ProfileStatsResponse {
+	fn from(stats: ProfileStats) -> Self {
+		Self {
+			total_reservations:      stats.total_reservations,
+			completed_reservations:  stats.completed_reservations,
+			upcoming_reservations:   stats.upcoming_reservations,
+			total_reservation_hours: stats.total_reservation_hours,
 		}
 	}
 }
