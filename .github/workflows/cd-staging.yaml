@@ -1,4 +1,4 @@
-name: Build and release a new docker image
+name: Build and release a new staging docker image
 
 permissions:
     packages: write
@@ -6,7 +6,7 @@ permissions:
 
 on:
     push:
-        branches: ["main", "staging"]
+        branches: ["staging"]
         paths-ignore:
           - ".github/**"
           - ".vscode/**"
@@ -26,7 +26,7 @@ jobs:
     ci:
         uses: ./.github/workflows/ci.yaml
 
-    release-backend-package:
+    build-staging-backend:
         runs-on: self-hosted
         needs: ci
         steps:
@@ -53,13 +53,13 @@ jobs:
           - name: Build and push
             uses: docker/build-push-action@v6
             with:
-                file: Dockerfile.prod
+                file: Dockerfile.staging
                 push: true
                 tags: ${{ steps.meta.outputs.tags }}
                 cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-backend:buildcache
                 cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-backend:buildcache,mode=max
 
-    release-migrations-package:
+    build-staging-migrations:
         runs-on: self-hosted
         needs: ci
         steps:
@@ -93,9 +93,8 @@ jobs:
                 cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-migrations:buildcache,mode=max
 
     deploy-staging:
-        if: ${{ startsWith(github.ref, 'refs/heads/staging') }}
         runs-on: self-hosted
-        needs: [release-backend-package, release-migrations-package]
+        needs: [build-staging-backend, build-staging-migrations]
         steps:
           - name: Run migrations
             uses: appleboy/ssh-action@v1.2.1
@@ -118,30 +117,3 @@ jobs:
                 script: |
                     docker compose -f /home/blokmap/deploy/production/compose.staging.yaml pull
                     docker compose -f /home/blokmap/deploy/production/compose.staging.yaml up blokmap-staging-backend -d
-
-    deploy-production:
-        if: ${{ startsWith(github.ref, 'refs/heads/main') }}
-        runs-on: self-hosted
-        needs: [release-backend-package, release-migrations-package]
-        steps:
-          - name: Run migrations
-            uses: appleboy/ssh-action@v1.2.1
-            with:
-                host: ${{ secrets.PRODUCTION_HOST }}
-                username: ${{ secrets.PRODUCTION_USERNAME }}
-                key: ${{ secrets.PRODUCTION_SSH_KEY }}
-                debug: true
-                script: |
-                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml pull
-                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml up blokmap-prod-migrations
-
-          - name: Deploy backend
-            uses: appleboy/ssh-action@v1.2.1
-            with:
-                host: ${{ secrets.PRODUCTION_HOST }}
-                username: ${{ secrets.PRODUCTION_USERNAME }}
-                key: ${{ secrets.PRODUCTION_SSH_KEY }}
-                debug: true
-                script: |
-                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml pull
-                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml up blokmap-prod-backend -d
