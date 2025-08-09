@@ -13,6 +13,8 @@ WORKDIR /blokmap
 
 COPY . .
 
+RUN cargo fetch
+
 
 FROM base AS lint
 
