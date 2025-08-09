@@ -43,8 +43,9 @@ pub fn make_cookie(
 
 #[allow(clippy::missing_panics_doc)]
 #[allow(clippy::missing_errors_doc)]
-#[instrument(skip(sso_config, jar))]
+#[instrument(skip(config, sso_config, jar))]
 pub async fn sso_login(
+	State(config): State<Config>,
 	State(sso_config): State<SsoConfig>,
 	Path(provider): Path<String>,
 	mut jar: PrivateCookieJar,
@@ -54,6 +55,8 @@ pub async fn sso_login(
 	if provider != "google" {
 		unimplemented!();
 	}
+
+	let domain = config.base_url.domain().unwrap().to_string();
 
 	let (auth_url, csrf_state, nonce) =
 		tokio::task::block_in_place(move || {
@@ -75,33 +78,36 @@ pub async fn sso_login(
 			)
 			.set_redirect_uri(
 				RedirectUrl::new(
-					"http://localhost:8000/auth/sso/callback".to_string(),
+					config.base_url.join("/auth/sso/callback")?.to_string(),
 				)
 				.unwrap(),
 			);
 
-			client
+			let data = client
 				.authorize_url(
 					AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
 					CsrfToken::new_random,
 					Nonce::new_random,
 				)
-				.add_scope(Scope::new("profile".to_string()))
 				.add_scope(Scope::new("email".to_string()))
-				.url()
-		});
+				.add_scope(Scope::new("profile".to_string()))
+				.add_scope(Scope::new("openid".to_string()))
+				.url();
+
+			Ok::<_, Error>(data)
+		})?;
 
 	let csrf_cookie = make_cookie(
 		"csrf-token".into(),
 		csrf_state.into_secret(),
-		".localhost".into(),
+		domain.clone(),
 		Duration::seconds(120),
 	);
 
 	let nonce_cookie = make_cookie(
 		"nonce-cookie".into(),
 		nonce.secret().to_owned(),
-		".localhost".into(),
+		domain,
 		Duration::seconds(120),
 	);
 
@@ -162,7 +168,7 @@ pub async fn sso_callback(
 		)
 		.set_redirect_uri(
 			RedirectUrl::new(
-				"http://localhost:8000/auth/sso/callback".to_string(),
+				config.base_url.join("/auth/sso/callback")?.to_string(),
 			)
 			.unwrap(),
 		);
@@ -175,14 +181,16 @@ pub async fn sso_callback(
 
 		let id_token_verifier = client.id_token_verifier();
 
-		token_response
+		let data = token_response
 			.extra_fields()
 			.id_token()
 			.unwrap()
 			.claims(&id_token_verifier, &Nonce::new(nonce))
 			.unwrap()
-			.to_owned()
-	});
+			.to_owned();
+
+		Ok::<_, Error>(data)
+	})?;
 
 	let conn = pool.get().await?;
 

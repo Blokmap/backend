@@ -318,6 +318,9 @@ pub enum InternalServerError {
 	/// authorized
 	#[error("attempted to extract session without checking authorization")]
 	SessionWithoutAuthError,
+	/// Failed to parse a url
+	#[error("could not parse url -- {0:?}")]
+	UrlParseError(url::ParseError),
 }
 
 // Map internal server errors to application errors
@@ -466,5 +469,11 @@ impl From<image::ImageError> for Error {
 impl From<fast_image_resize::ResizeError> for Error {
 	fn from(value: fast_image_resize::ResizeError) -> Self {
 		Self::InvalidImage(value.to_string())
+	}
+}
+
+impl From<url::ParseError> for Error {
+	fn from(err: url::ParseError) -> Self {
+		InternalServerError::UrlParseError(err).into()
 	}
 }
