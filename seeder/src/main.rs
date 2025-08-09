@@ -120,19 +120,19 @@ async fn main() -> Result<(), Error> {
 	Ok(())
 }
 
-/// Get an optimized database connection from the pool
+/// Get a database connection from the pool
 async fn get_conn() -> DbConn {
 	let database_url = env::var("DATABASE_URL").expect("DATABASE_URL missing");
 
 	let manager = Manager::new(database_url, deadpool_diesel::Runtime::Tokio1);
 
-	// Optimize pool configuration for bulk operations
+	// Pool configuration for bulk operations
 	let pool = Pool::builder(manager)
-		.max_size(16) // Increase pool size for better concurrency
+		.max_size(16)
 		.create_timeout(Some(std::time::Duration::from_secs(30)))
 		.wait_timeout(Some(std::time::Duration::from_secs(30)))
 		.recycle_timeout(Some(std::time::Duration::from_secs(30)))
-		.runtime(deadpool_diesel::Runtime::Tokio1) // Explicitly specify runtime
+		.runtime(deadpool_diesel::Runtime::Tokio1)
 		.build()
 		.expect("Failed to create pool");
 
@@ -346,8 +346,7 @@ async fn seed_random_reservations(
 	.await
 }
 
-/// Seed reservations for a specific profile, ensuring no time overlaps -
-/// Optimized version
+/// Seed reservations for a specific profile, ensuring no time overlaps
 async fn seed_reservations_for_profile(
 	conn: &DbConn,
 	profile_id: i32,
@@ -358,22 +357,19 @@ async fn seed_reservations_for_profile(
 		return Ok(0);
 	}
 
-	// Get existing reservations for this specific profile - optimized query
 	let existing_reservations =
-		get_existing_reservations_for_profile_optimized(conn, profile_id)
-			.await?;
+		get_existing_reservations_for_profile(conn, profile_id).await?;
 
 	let mut rng = rng();
 	let mut successful_reservations = Vec::with_capacity(count);
 	let mut created_reservations = existing_reservations;
 
-	// Pre-sort available times by location and day for better cache performance
 	let mut sorted_times = available_times;
 	sorted_times.sort_by_key(|&(opening_time_id, _, _, _, _, _, day)| {
 		(opening_time_id, day)
 	});
 
-	let max_attempts_per_reservation = 20; // Reduced from 50 for better performance
+	let max_attempts_per_reservation = 20;
 
 	for i in 0..count {
 		let mut attempts = 0;
@@ -413,7 +409,7 @@ async fn seed_reservations_for_profile(
 						block_size_minutes,
 					);
 
-				// Optimized overlap check - check only recent reservations
+				// Overlap check - check only recent reservations
 				// first (most likely to conflict)
 				let has_overlap =
 					created_reservations.iter().rev().take(50).any(
@@ -504,9 +500,7 @@ async fn get_available_opening_times(
 	.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))
 }
 
-/// Optimized helper function to get existing reservations for a specific
-/// profile Uses better indexing and limits results for performance
-async fn get_existing_reservations_for_profile_optimized(
+async fn get_existing_reservations_for_profile(
 	conn: &DbConn,
 	user_profile_id: i32,
 ) -> Result<Vec<(chrono::NaiveDateTime, chrono::NaiveDateTime)>, Error> {
