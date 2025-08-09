@@ -1,0 +1,13 @@
+[package]
+name = "utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+common = { path = "../common" }
+models = { path = "../models" }
+
+axum = { workspace = true }
+fast_image_resize = { workspace = true }
+image = { workspace = true }
+uuid = { workspace = true }

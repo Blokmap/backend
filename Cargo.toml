@@ -67,6 +67,7 @@ publish = false
 [dependencies]
 common = { path = "./libs/common" }
 models = { path = "./libs/models" }
+utils = { path = "./libs/utils" }
 
 argon2 = { workspace = true }
 axum = { workspace = true }

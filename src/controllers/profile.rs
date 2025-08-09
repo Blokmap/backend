@@ -27,9 +27,9 @@ use models::{
 	Review,
 	UpdateProfile,
 };
+use utils::image::{ImageOwner, generate_image_filepaths, resize_image};
 use uuid::Uuid;
 
-use crate::image::{ImageOwner, generate_image_filepaths, resize_image};
 use crate::mailer::Mailer;
 use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::location::LocationResponse;

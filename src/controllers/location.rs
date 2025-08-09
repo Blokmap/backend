@@ -25,8 +25,8 @@ use models::{
 	TimeFilter,
 };
 use rayon::prelude::*;
+use utils::image::{ImageOwner, generate_image_filepaths, resize_image};
 
-use crate::image::{ImageOwner, generate_image_filepaths, resize_image};
 use crate::schemas::location::{
 	CreateLocationMemberRequest,
 	CreateLocationRequest,
@@ -59,7 +59,7 @@ pub(crate) async fn create_location(
 }
 
 #[instrument(skip(pool, data))]
-pub(crate) async fn upload_location_image(
+pub(crate) async fn upload_location_images(
 	State(pool): State<DbPool>,
 	session: Session,
 	Path(id): Path<i32>,
