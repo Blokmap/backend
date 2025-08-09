@@ -10,7 +10,7 @@ RUN cargo new --vcs none --edition 2024 --bin blokmap
 WORKDIR /blokmap
 
 COPY ./.cargo ./Cargo.toml ./Cargo.lock ./
-COPY ./lib ./lib
+COPY ./libs ./libs
 
 # Cache dependencies
 RUN cargo build --release --bin blokmap

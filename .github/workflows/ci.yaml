@@ -78,4 +78,4 @@ jobs:
                 docker compose \
                 -f .github/compose.yaml \
                 --project-directory . \
-                down --remove-orphans
+                down --remove-orphans --rmi all
