@@ -28,6 +28,8 @@ jobs:
 
     path-filter:
         runs-on: self-hosted
+        outputs:
+            migrations: ${{ steps.filter.outputs.migrations }}
         steps:
           - name: Checkout code
             uses: actions/checkout@v4
@@ -75,8 +77,8 @@ jobs:
 
     build-staging-migrations:
         runs-on: self-hosted
-        if: steps.filter.outputs.migrations == 'true'
-        needs: ci
+        needs: [path-filter, ci]
+        if: needs.path-filter.outputs.migrations == 'true'
         steps:
           - name: Load docker metadata
             id: meta
@@ -109,10 +111,10 @@ jobs:
 
     deploy-staging:
         runs-on: self-hosted
-        needs: [build-staging-backend, build-staging-migrations]
+        needs: [path-filter, build-staging-backend, build-staging-migrations]
         steps:
           - name: Run migrations
-            if: steps.filter.outputs.migrations == 'true'
+            if: needs.path-filter.outputs.migrations == 'true'
             uses: appleboy/ssh-action@v1.2.1
             with:
                 host: ${{ secrets.STAGING_HOST }}
