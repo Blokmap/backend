@@ -61,3 +61,21 @@ jobs:
                   -f .github/compose.yaml \
                   --project-directory . \
                   run test
+
+    cleanup:
+        runs-on: self-hosted
+        needs: [lint, test]
+
+        steps:
+          - name: vague chown hack
+            run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+
+          - name: Checkout code
+            uses: actions/checkout@v4
+
+          - name: Remove docker containers
+            run: |
+                docker compose \
+                -f .github/compose.yaml \
+                --project-directory . \
+                down --remove-orphans
