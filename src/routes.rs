@@ -52,7 +52,7 @@ use crate::controllers::location::{
 	set_location_tags,
 	update_location,
 	update_location_member,
-	upload_location_image,
+	upload_location_images,
 };
 use crate::controllers::opening_time::{
 	create_location_time,
@@ -191,7 +191,7 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 			"/{id}/members/{profile_id}/permissions",
 			post(update_location_member),
 		)
-		.route("/{id}/images", post(upload_location_image))
+		.route("/{id}/images", post(upload_location_images))
 		.route("/{id}/images/{image_id}", delete(delete_location_image))
 		.route(
 			"/{id}/opening-times",

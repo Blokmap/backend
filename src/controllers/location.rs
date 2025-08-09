@@ -1,16 +1,10 @@
 //! Controllers for [`Location`]s
 
-use std::fs::File;
-use std::io::{BufWriter, Write};
-use std::path::PathBuf;
-
 use axum::Json;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
-use image::ImageEncoder;
-use image::codecs::webp::WebPEncoder;
 use models::{
 	AuthorityPermissions,
 	Image,
@@ -18,15 +12,13 @@ use models::{
 	LocationFilter,
 	LocationIncludes,
 	LocationPermissions,
-	NewImage,
 	Point,
 	PrimitiveOpeningTime,
 	Tag,
 	TimeFilter,
 };
-use rayon::prelude::*;
+use utils::image::{delete_image, store_location_images};
 
-use crate::image::{ImageOwner, generate_image_filepaths, resize_image};
 use crate::schemas::location::{
 	CreateLocationMemberRequest,
 	CreateLocationRequest,
@@ -59,14 +51,12 @@ pub(crate) async fn create_location(
 }
 
 #[instrument(skip(pool, data))]
-pub(crate) async fn upload_location_image(
+pub(crate) async fn upload_location_images(
 	State(pool): State<DbPool>,
 	session: Session,
 	Path(id): Path<i32>,
 	mut data: Multipart,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
 	let mut image_bytes = vec![];
 	while let Some(field) = data.next_field().await? {
 		if field.name().unwrap_or_default() != "image" {
@@ -76,37 +66,11 @@ pub(crate) async fn upload_location_image(
 		image_bytes.push(field.bytes().await?);
 	}
 
-	let new_images = image_bytes
-		.into_par_iter()
-		.map(|bytes| {
-			let (dst_image, dst_width, dst_height, dst_color) =
-				resize_image(bytes)?;
-			let (abs_filepath, rel_filepath) =
-				generate_image_filepaths(id, ImageOwner::Location)?;
+	let conn = pool.get().await?;
 
-			let mut file = BufWriter::new(File::create(&abs_filepath)?);
-
-			WebPEncoder::new_lossless(&mut file).write_image(
-				dst_image.buffer(),
-				dst_width,
-				dst_height,
-				dst_color.into(),
-			)?;
-
-			file.flush()?;
-
-			let new_image = NewImage {
-				file_path:   rel_filepath.to_string_lossy().into_owned(),
-				uploaded_by: session.data.profile_id,
-			};
-
-			Ok(new_image)
-		})
-		.collect::<Result<Vec<NewImage>, Error>>()?;
-
-	let images = Location::insert_images(id, new_images, &conn).await?;
-
-	let image_paths: Vec<_> = images.into_iter().map(|i| i.file_path).collect();
+	let profile_id = session.data.profile_id;
+	let image_paths =
+		store_location_images(profile_id, id, &image_bytes, &conn).await?;
 
 	Ok((StatusCode::CREATED, Json(image_paths)))
 }
@@ -138,12 +102,7 @@ pub async fn delete_location_image(
 		return Err(Error::Forbidden);
 	}
 
-	// Delete the image record before the file to prevent dangling
-	let image = Image::get_by_id(l_id, &conn).await?;
-	Image::delete_by_id(l_id, &conn).await?;
-
-	let filepath = PathBuf::from("/mnt/files/locations").join(&image.file_path);
-	std::fs::remove_file(filepath)?;
+	delete_image(img_id, &conn).await?;
 
 	Ok((StatusCode::NO_CONTENT, NoContent))
 }

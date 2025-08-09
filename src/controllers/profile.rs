@@ -1,23 +1,15 @@
 //! Controllers for [`Profile`]s
 
-use std::fs::File;
-use std::io::{BufWriter, Write};
-use std::path::PathBuf;
-
 use axum::Json;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error, RedisConn};
-use image::ImageEncoder;
-use image::codecs::webp::WebPEncoder;
 use models::{
 	Authority,
 	AuthorityIncludes,
-	Image,
 	Location,
 	LocationIncludes,
-	NewImage,
 	PrimitiveProfile,
 	ProfileState,
 	ProfileStats,
@@ -27,9 +19,9 @@ use models::{
 	Review,
 	UpdateProfile,
 };
+use utils::image::{delete_image, store_profile_image};
 use uuid::Uuid;
 
-use crate::image::{ImageOwner, generate_image_filepaths, resize_image};
 use crate::mailer::Mailer;
 use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::location::LocationResponse;
@@ -190,10 +182,7 @@ pub async fn upload_profile_avatar(
 		return Err(Error::Forbidden);
 	}
 
-	let conn = pool.get().await?;
-
 	let mut image_bytes = None;
-
 	while let Some(field) = data.next_field().await? {
 		if field.name().unwrap_or_default() != "image" {
 			continue;
@@ -208,28 +197,9 @@ pub async fn upload_profile_avatar(
 		return Err(Error::MissingRequestData("image".into()));
 	};
 
-	let (dst_image, dst_width, dst_height, dst_color) =
-		resize_image(image_bytes)?;
-	let (abs_filepath, rel_filepath) =
-		generate_image_filepaths(p_id, ImageOwner::Profile)?;
+	let conn = pool.get().await?;
 
-	let mut file = BufWriter::new(File::create(&abs_filepath)?);
-
-	WebPEncoder::new_lossless(&mut file).write_image(
-		dst_image.buffer(),
-		dst_width,
-		dst_height,
-		dst_color.into(),
-	)?;
-
-	file.flush()?;
-
-	let new_image = NewImage {
-		file_path:   rel_filepath.to_string_lossy().into_owned(),
-		uploaded_by: session.data.profile_id,
-	};
-
-	let image = PrimitiveProfile::insert_avatar(p_id, new_image, &conn).await?;
+	let image = store_profile_image(p_id, &image_bytes, &conn).await?;
 
 	Ok((StatusCode::CREATED, Json(image)))
 }
@@ -251,12 +221,7 @@ pub async fn delete_profile_avatar(
 		return Ok((StatusCode::NO_CONTENT, NoContent));
 	};
 
-	// Delete the image record before the file to prevent dangling
-	let image = Image::get_by_id(img_id, &conn).await?;
-	Image::delete_by_id(img_id, &conn).await?;
-
-	let filepath = PathBuf::from("/mnt/files").join(&image.file_path);
-	std::fs::remove_file(filepath)?;
+	delete_image(img_id, &conn).await?;
 
 	Ok((StatusCode::NO_CONTENT, NoContent))
 }
