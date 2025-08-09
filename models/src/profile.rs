@@ -615,7 +615,7 @@ impl ProfileStats {
 	/// # Errors
 	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
-    #[allow(clippy::cast_sign_loss)]
+	#[allow(clippy::cast_sign_loss)]
 	pub async fn for_profile(
 		profile_id: i32,
 		conn: &DbConn,

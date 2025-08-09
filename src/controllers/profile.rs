@@ -293,7 +293,7 @@ pub async fn activate_profile(
 	profile.state = ProfileState::Active;
 	profile.update(&conn).await?;
 
-	info!("disabled profile {profile_id}");
+	info!("activated profile {profile_id}");
 
 	Ok(NoContent)
 }
