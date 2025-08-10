@@ -42,7 +42,6 @@ pub fn make_cookie(
 }
 
 #[allow(clippy::missing_panics_doc)]
-#[allow(clippy::missing_errors_doc)]
 #[instrument(skip(config, sso_config, jar))]
 pub async fn sso_login(
 	State(config): State<Config>,
@@ -89,9 +88,9 @@ pub async fn sso_login(
 					CsrfToken::new_random,
 					Nonce::new_random,
 				)
+				.add_scope(Scope::new("openid".to_string()))
 				.add_scope(Scope::new("email".to_string()))
 				.add_scope(Scope::new("profile".to_string()))
-				.add_scope(Scope::new("openid".to_string()))
 				.url();
 
 			Ok::<_, Error>(data)
@@ -124,7 +123,6 @@ pub struct OAuthResponse {
 }
 
 #[allow(clippy::missing_panics_doc)]
-#[allow(clippy::missing_errors_doc)]
 #[instrument(skip(config, sso_config, pool, r_conn, jar))]
 pub async fn sso_callback(
 	State(config): State<Config>,
