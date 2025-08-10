@@ -52,7 +52,7 @@ pub async fn sso_login(
 	warn!("UNSTABLE SSO LOGIN USED");
 
 	if provider != "google" {
-		unimplemented!();
+		return Err(OAuthError::UnknownProvider(provider).into());
 	}
 
 	let domain = config.base_url.domain().unwrap().to_string();
