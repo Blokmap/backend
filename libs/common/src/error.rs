@@ -61,61 +61,76 @@ pub enum Error {
 impl Error {
 	/// Return a unique identifying code for this error
 	///
-	/// When modifying this function the error code should only ever incrrease,
-	/// an error code should never be reused once its assigned to avoid
+	/// An error code should never be reused once its assigned to avoid
 	/// unexpectedly breaking the frontend
-	fn code(&self) -> i32 {
+	fn code(&self) -> &'static str {
 		match self {
-			Self::Duplicate(_) => 1,
-			Self::Forbidden => 2,
-			Self::Infallible(_) => 3,
-			Self::InternalServerError => 4,
-			Self::InvalidImage(_) => 5,
-			Self::NotFound(_) => 6,
+			Self::Duplicate(_) => "duplicate",
+			Self::Forbidden => "forbidden",
+			Self::Infallible(_) => "infallible",
+			Self::InternalServerError => "internal_server_error",
+			Self::InvalidImage(_) => "invalid_image",
+			Self::NotFound(_) => "not_found",
 			Self::LoginError(e) => {
 				match e {
-					LoginError::UnknownUsername(_) => 7,
-					LoginError::UnknownEmail(_) => 8,
-					LoginError::InvalidPassword => 9,
-					LoginError::PendingEmailVerification => 10,
-					LoginError::Disabled => 11,
+					LoginError::UnknownUsername(_) => "unknown_username",
+					LoginError::UnknownEmail(_) => "unknown_email",
+					LoginError::InvalidPassword => "invalid_password",
+					LoginError::PendingEmailVerification => {
+						"pending_email_verification"
+					},
+					LoginError::Disabled => "disabled",
 				}
 			},
 			Self::OAuthError(e) => {
 				match e {
-					OAuthError::InvalidCSRFToken => 12,
-					OAuthError::MissingCSRFTokenCookie => 13,
-					OAuthError::MissingEmailField => 14,
-					OAuthError::MissingNonceCookie => 15,
-					OAuthError::UnknownProvider(_) => 30,
+					OAuthError::InvalidCSRFToken => "invalid_csrf_token",
+					OAuthError::MissingCSRFTokenCookie => {
+						"missing_csrf_token_cookie"
+					},
+					OAuthError::MissingEmailField => "missing_email_field",
+					OAuthError::MissingNonceCookie => "missing_nonce_cookie",
+					OAuthError::UnknownProvider(_) => "unknown_provider",
 				}
 			},
-			Self::MultipartError(_) => 16,
+			Self::MultipartError(_) => "multipart",
 			Self::TokenError(e) => {
 				match e {
-					TokenError::MissingAccessToken => 17,
-					TokenError::MissingSession => 18,
-					TokenError::ExpiredEmailToken => 19,
-					TokenError::ExpiredPasswordToken => 20,
+					TokenError::MissingAccessToken => "missing_access_token",
+					TokenError::MissingSession => "missing_session",
+					TokenError::ExpiredEmailToken => "expired_email_token",
+					TokenError::ExpiredPasswordToken => {
+						"expired_password_token"
+					},
 				}
 			},
 			Self::CreateReservationError(e) => {
 				match e {
-					CreateReservationError::OutOfBounds { .. } => 22,
-					CreateReservationError::NotReservableYet(_) => 23,
-					CreateReservationError::NotReservableAnymore(_) => 24,
-					CreateReservationError::ReservationTooShort(_) => 25,
-					CreateReservationError::ReservationTooLong(_) => 26,
-					CreateReservationError::Full(_) => 27,
+					CreateReservationError::OutOfBounds { .. } => {
+						"out_of_bounds"
+					},
+					CreateReservationError::NotReservableYet(_) => {
+						"not_reservable_yet"
+					},
+					CreateReservationError::NotReservableAnymore(_) => {
+						"not_reservable_anymore"
+					},
+					CreateReservationError::ReservationTooShort(_) => {
+						"reservation_too_short"
+					},
+					CreateReservationError::ReservationTooLong(_) => {
+						"reservation_too_long"
+					},
+					CreateReservationError::Full(_) => "full",
 				}
 			},
-			Self::ValidationError(_) => 21,
+			Self::ValidationError(_) => "validation_error",
 			Self::PaginationError(e) => {
 				match e {
-					PaginationError::OffsetTooLarge => 28,
+					PaginationError::OffsetTooLarge => "offset_too_large",
 				}
 			},
-			Self::MissingRequestData(_) => 29,
+			Self::MissingRequestData(_) => "missing_request_data",
 		}
 	}
 
