@@ -28,12 +28,13 @@ fn get_env_default(var: &str, default: impl Into<String>) -> String {
 pub struct Config {
 	pub database_url: String,
 	pub redis_url:    String,
-	pub backend_url:  Url,
 
 	pub production:  bool,
 	pub skip_verify: bool,
 
+	pub backend_url:  Url,
 	pub frontend_url: Url,
+	pub static_url:   Url,
 
 	pub email_confirmation_token_lifetime: Duration,
 	pub password_reset_token_lifetime:     Duration,
@@ -56,7 +57,6 @@ impl Config {
 	pub fn from_env() -> Self {
 		let database_url = get_env("DATABASE_URL");
 		let redis_url = get_env("REDIS_URL");
-		let base_url = get_env("BASE_URL").parse().expect("INVALID BASE URL");
 
 		let production =
 			get_env_default("PRODUCTION", "false").parse::<bool>().unwrap();
@@ -64,8 +64,12 @@ impl Config {
 		let skip_verify =
 			get_env_default("SKIP_VERIFY", "true").parse::<bool>().unwrap();
 
+		let backend_url =
+			get_env("BACKEND_URL").parse().expect("INVALID BASE URL");
 		let frontend_url =
 			get_env("FRONTEND_URL").parse().expect("INVALID FRONTEND URL");
+		let static_url =
+			get_env("STATIC_URL").parse().expect("INVALID STATIC URL");
 
 		let email_confirmation_token_lifetime = Duration::minutes(
 			get_env_default("EMAIL_CONFIRMATION_TOKEN_LIFETIME", "5")
@@ -109,10 +113,11 @@ impl Config {
 		Self {
 			database_url,
 			redis_url,
-			backend_url: base_url,
 			production,
 			skip_verify,
+			backend_url,
 			frontend_url,
+			static_url,
 			email_confirmation_token_lifetime,
 			password_reset_token_lifetime,
 			access_token_name,

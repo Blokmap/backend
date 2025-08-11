@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use validator::Validate;
 use validator_derive::Validate;
 
+use crate::schemas::BuildResponse;
 use crate::schemas::location::LocationResponse;
 use crate::schemas::profile::ProfileResponse;
 
@@ -44,16 +45,18 @@ pub struct ReviewLocationResponse {
 	pub location:   LocationResponse,
 }
 
-impl From<(Review, FullLocationData)> for ReviewLocationResponse {
-	fn from((review, location): (Review, FullLocationData)) -> Self {
-		Self {
+impl BuildResponse<ReviewLocationResponse> for (Review, FullLocationData) {
+	fn build_response(self, config: &crate::Config) -> ReviewLocationResponse {
+		let (review, location) = self;
+
+		ReviewLocationResponse {
 			id:         review.review.id,
 			created_by: review.created_by.into(),
 			rating:     review.review.rating,
 			body:       review.review.body,
 			created_at: review.review.created_at,
 			updated_at: review.review.updated_at,
-			location:   location.into(),
+			location:   location.build_response(config),
 		}
 	}
 }

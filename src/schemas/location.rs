@@ -9,16 +9,17 @@ use models::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::Config;
 use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::image::ImageResponse;
 use crate::schemas::opening_time::OpeningTimeResponse;
 use crate::schemas::profile::ProfileResponse;
-use crate::schemas::ser_includes;
 use crate::schemas::tag::TagResponse;
 use crate::schemas::translation::{
 	CreateTranslationRequest,
 	TranslationResponse,
 };
+use crate::schemas::{BuildResponse, ser_includes};
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -117,11 +118,11 @@ impl From<PrimitiveLocation> for LocationResponse {
 	}
 }
 
-impl From<FullLocationData> for LocationResponse {
-	fn from(
-		(location, (opening_times, tags, images)): FullLocationData,
-	) -> Self {
-		Self {
+impl BuildResponse<LocationResponse> for FullLocationData {
+	fn build_response(self, config: &Config) -> LocationResponse {
+		let (location, (opening_times, tags, images)) = self;
+
+		LocationResponse {
 			id:                     location.location.id,
 			name:                   location.location.name,
 			authority:              location
@@ -163,7 +164,10 @@ impl From<FullLocationData> for LocationResponse {
 
 			opening_times: opening_times.into_iter().map(Into::into).collect(),
 			tags:          tags.into_iter().map(Into::into).collect(),
-			images:        images.into_iter().map(Into::into).collect(),
+			images:        images
+				.into_iter()
+				.map(|i| i.build_response(config))
+				.collect(),
 		}
 	}
 }

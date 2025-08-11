@@ -23,6 +23,7 @@ use utils::image::{delete_image, store_profile_image};
 use uuid::Uuid;
 
 use crate::mailer::Mailer;
+use crate::schemas::BuildResponse;
 use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::location::LocationResponse;
 use crate::schemas::pagination::{PaginationOptions, PaginationResponse};
@@ -266,14 +267,16 @@ pub async fn activate_profile(
 #[instrument(skip(pool))]
 pub async fn get_profile_locations(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	Query(includes): Query<LocationIncludes>,
 	Path(profile_id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
+
 	let locations =
 		Location::get_by_profile_id(profile_id, includes, &conn).await?;
 	let response: Vec<LocationResponse> =
-		locations.into_iter().map(Into::into).collect();
+		locations.into_iter().map(|l| l.build_response(&config)).collect();
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -313,13 +316,14 @@ pub async fn get_profile_authorities(
 #[instrument(skip(pool))]
 pub async fn get_profile_reviews(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	Path(p_id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
 	let reviews = Review::for_profile(p_id, &conn).await?;
 	let response: Vec<ReviewLocationResponse> =
-		reviews.into_iter().map(Into::into).collect();
+		reviews.into_iter().map(|data| data.build_response(&config)).collect();
 
 	Ok((StatusCode::OK, Json(response)))
 }

@@ -11,8 +11,9 @@ services:
         environment:
             DATABASE_URL: postgresql://test:test@test-database:5432/test
             REDIS_URL: redis://test-redis:6379
+            BACKEND_URL: http://blokmap.local/api
             FRONTEND_URL: http://blokmap.local
-            BASE_URL: http://blokmap.local/api
+            STATIC_URL: http://blokmap.local/api/files
         depends_on:
             - test-database
             - test-redis

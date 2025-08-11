@@ -123,6 +123,7 @@ jobs:
                 key: ${{ secrets.PRODUCTION_SSH_KEY }}
                 debug: true
                 script: |
+                    cd /home/blokmap/deploy && git pull
                     docker compose -f /home/blokmap/deploy/production/compose.staging.yaml pull
                     docker compose -f /home/blokmap/deploy/production/compose.staging.yaml up blokmap-staging-migrations
 
@@ -134,6 +135,7 @@ jobs:
                 key: ${{ secrets.PRODUCTION_SSH_KEY }}
                 debug: true
                 script: |
+                    cd /home/blokmap/deploy && git pull
                     docker compose -f /home/blokmap/deploy/production/compose.staging.yaml pull
                     docker compose -f /home/blokmap/deploy/production/compose.staging.yaml up blokmap-staging-backend -d
 
@@ -150,5 +152,6 @@ jobs:
                 key: ${{ secrets.PRODUCTION_SSH_KEY }}
                 debug: true
                 script: |
+                    cd /home/blokmap/deploy && git pull
                     docker compose -f /home/blokmap/deploy/production/compose.staging.yaml pull
                     docker compose -f /home/blokmap/deploy/production/compose.staging.yaml up blokmap-staging-backend -d

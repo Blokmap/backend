@@ -19,6 +19,7 @@ use models::{
 };
 use utils::image::{delete_image, store_location_images};
 
+use crate::schemas::BuildResponse;
 use crate::schemas::location::{
 	CreateLocationMemberRequest,
 	CreateLocationRequest,
@@ -37,6 +38,7 @@ use crate::{AdminSession, Config, Session};
 #[instrument(skip(pool))]
 pub(crate) async fn create_location(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	session: Session,
 	Query(includes): Query<LocationIncludes>,
 	Json(request): Json<CreateLocationRequest>,
@@ -45,7 +47,7 @@ pub(crate) async fn create_location(
 
 	let new_location = request.to_insertable(session.data.profile_id);
 	let records = new_location.insert(includes, &conn).await?;
-	let response = LocationResponse::from(records);
+	let response: LocationResponse = records.build_response(&config);
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -111,13 +113,14 @@ pub async fn delete_location_image(
 #[instrument(skip(pool))]
 pub(crate) async fn get_location(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	Path(id): Path<i32>,
 	Query(includes): Query<LocationIncludes>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
 	let result = Location::get_by_id(id, includes, &conn).await?;
-	let response = LocationResponse::from(result);
+	let response: LocationResponse = result.build_response(&config);
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -142,6 +145,7 @@ pub(crate) async fn get_nearest_location(
 #[instrument(skip(pool))]
 pub(crate) async fn search_locations(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	Query(time_filter): Query<TimeFilter>,
 	Query(loc_filter): Query<LocationFilter>,
 	Query(includes): Query<LocationIncludes>,
@@ -174,7 +178,7 @@ pub(crate) async fn search_locations(
 	let locations = Location::group(locations, &times, &tags, &imgs);
 
 	let locations: Vec<LocationResponse> =
-		locations.into_iter().map(Into::into).collect();
+		locations.into_iter().map(|l| l.build_response(&config)).collect();
 
 	let paginated = p_opts.paginate(total, truncated, locations);
 
@@ -185,6 +189,7 @@ pub(crate) async fn search_locations(
 #[instrument(skip(pool))]
 pub(crate) async fn update_location(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	session: Session,
 	Path(id): Path<i32>,
 	Query(includes): Query<LocationIncludes>,
@@ -213,7 +218,7 @@ pub(crate) async fn update_location(
 
 	let loc_update = request.to_insertable(session.data.profile_id);
 	let updated_loc = loc_update.apply_to(id, includes, &conn).await?;
-	let response = LocationResponse::from(updated_loc);
+	let response: LocationResponse = updated_loc.build_response(&config);
 
 	Ok((StatusCode::OK, Json(response)))
 }
