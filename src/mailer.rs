@@ -7,6 +7,7 @@ use lettre::{Address, Message, SmtpTransport, Transport};
 use models::PrimitiveProfile;
 use parking_lot::{Condvar, Mutex};
 use tokio::sync::mpsc;
+use url::Url;
 
 use crate::Config;
 
@@ -145,7 +146,7 @@ impl Mailer {
 		&self,
 		profile: &PrimitiveProfile,
 		confirmation_token: &str,
-		frontend_url: &str,
+		frontend_url: &Url,
 	) -> Result<(), Error> {
 		let confirmation_url =
 			format!("{frontend_url}/confirm_email/{confirmation_token}");
@@ -171,7 +172,7 @@ impl Mailer {
 		&self,
 		profile: &PrimitiveProfile,
 		reset_token: &str,
-		frontend_url: &str,
+		frontend_url: &Url,
 	) -> Result<(), Error> {
 		let reset_url = format!("{frontend_url}/reset_password/{reset_token}",);
 

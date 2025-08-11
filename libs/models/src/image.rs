@@ -101,8 +101,6 @@ pub struct NewImage {
 
 impl NewImage {
 	/// Insert this list of [`NewImage`]s into the database.
-	///
-	/// # Errors
 	pub async fn bulk_insert(
 		v: Vec<Self>,
 		conn: &DbConn,
@@ -144,8 +142,6 @@ pub struct NewLocationImage {
 
 impl NewLocationImage {
 	/// Insert this list of [`NewLocationImage`]s into the database.
-	///
-	/// # Errors
 	pub async fn bulk_insert(
 		v: Vec<Self>,
 		conn: &DbConn,

@@ -75,10 +75,6 @@ pub struct SeedProfile {
 
 impl SeedProfile {
 	/// Insert this [`SeedProfile`]
-	///
-	/// # Errors
-	/// Errors if the password is invalid or if interacting with the database
-	/// fails
 	pub async fn insert(self, conn: &DbConn) -> Result<(), Error> {
 		conn.interact(|conn| {
 			use models::db::profile::dsl::*;

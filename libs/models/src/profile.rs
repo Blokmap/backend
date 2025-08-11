@@ -108,9 +108,6 @@ pub struct Profile {
 
 impl PrimitiveProfile {
 	/// Get a [`Profile`] given its id
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
 	pub async fn get(query_id: i32, conn: &DbConn) -> Result<Self, Error> {
 		let profiles = conn
@@ -125,9 +122,6 @@ impl PrimitiveProfile {
 	}
 
 	/// Update a given [`Profile`]
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
 	pub async fn update(self, conn: &DbConn) -> Result<Self, Error> {
 		let new = conn
@@ -145,9 +139,6 @@ impl PrimitiveProfile {
 	}
 
 	/// Get a list of all [`Profile`]s
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
 	pub async fn get_all(
 		limit: usize,
@@ -166,9 +157,6 @@ impl PrimitiveProfile {
 	}
 
 	/// Check if a [`Profile`] with a given id exists
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
 	pub async fn exists(query_id: i32, conn: &DbConn) -> Result<bool, Error> {
 		let exists = conn
@@ -184,9 +172,6 @@ impl PrimitiveProfile {
 	}
 
 	/// Get a [`Profile`] given its username
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
 	pub async fn get_by_username(
 		query_username: String,
@@ -204,9 +189,6 @@ impl PrimitiveProfile {
 	}
 
 	/// Get a [`Profile`] given its email
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
 	pub async fn get_by_email(
 		query_email: String,
@@ -224,9 +206,6 @@ impl PrimitiveProfile {
 	}
 
 	/// Get a [`Profile`] given a email or username.
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
 	pub async fn get_by_email_or_username(
 		query: String,
@@ -245,9 +224,6 @@ impl PrimitiveProfile {
 	}
 
 	/// Get a profile given its email confirmation token
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
 	#[instrument(skip(token, conn))]
 	pub async fn get_by_email_confirmation_token(
 		token: String,
@@ -265,9 +241,6 @@ impl PrimitiveProfile {
 	}
 
 	/// Get a profile given its password reset token
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
 	#[instrument(skip(token, conn))]
 	pub async fn get_by_password_reset_token(
 		token: String,
@@ -288,9 +261,6 @@ impl PrimitiveProfile {
 	///
 	/// # Panics
 	/// Panics if called on a [`Profile`] with no pending email
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
 	pub async fn confirm_email(&self, conn: &DbConn) -> Result<Self, Error> {
 		let self_id = self.id;
@@ -318,9 +288,6 @@ impl PrimitiveProfile {
 	}
 
 	/// Set a new email confirmation token and expiry for a [`Profile`]
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
 	#[instrument(skip(token, conn))]
 	pub async fn set_email_confirmation_token(
 		mut self,
@@ -338,9 +305,6 @@ impl PrimitiveProfile {
 	}
 
 	/// Set a new password reset token and expiry for a [`Profile`]
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
 	#[instrument(skip(token, conn))]
 	pub async fn set_password_reset_token(
 		mut self,
@@ -357,9 +321,6 @@ impl PrimitiveProfile {
 	}
 
 	/// Hash a password using Argon2
-	///
-	/// # Errors
-	/// Errors if hashing the password fails
 	pub fn hash_password(password: &str) -> Result<String, Error> {
 		let salt = SaltString::generate(&mut OsRng);
 		let hashed_password = Argon2::default()
@@ -370,9 +331,6 @@ impl PrimitiveProfile {
 	}
 
 	/// Change the password for a [`Profile`]
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
 	#[instrument(skip(new_password, conn))]
 	pub async fn change_password(
 		&self,
@@ -402,9 +360,6 @@ impl PrimitiveProfile {
 
 	/// Set the `last_login_at` field to the current datetime for the given
 	/// [`Profile`]
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
 	pub async fn update_last_login(
 		mut self,
@@ -611,9 +566,6 @@ pub struct ProfileStats {
 
 impl ProfileStats {
 	/// Get reservation statistics for a profile
-	///
-	/// # Errors
-	/// Errors if interacting with the database fails
 	#[instrument(skip(conn))]
 	#[allow(clippy::cast_sign_loss)]
 	pub async fn for_profile(

@@ -175,7 +175,7 @@ pub async fn get_authority_members(
 		.into_iter()
 		.map(|(p, img, perm)| {
 			let img =
-				img.map(|i| format!("{}{}", config.base_url, i.file_path));
+				img.map(|i| format!("{}{}", config.backend_url, i.file_path));
 
 			(p, img, perm)
 		})
@@ -209,7 +209,7 @@ pub(crate) async fn add_authority_member(
 
 	let new_auth_profile = request.to_insertable(id, actor_id);
 	let (member, img, perms) = new_auth_profile.insert(&conn).await?;
-	let img = img.map(|i| format!("{}{}", config.base_url, i.file_path));
+	let img = img.map(|i| format!("{}{}", config.backend_url, i.file_path));
 	let response = ProfilePermissionsResponse::from((member, img, perms));
 
 	Ok((StatusCode::CREATED, Json(response)))
@@ -263,7 +263,7 @@ pub async fn update_authority_member(
 	let auth_update = request.to_insertable(actor_id);
 	let (updated_member, img, perms) =
 		auth_update.apply_to(a_id, p_id, &conn).await?;
-	let img = img.map(|i| format!("{}{}", config.base_url, i.file_path));
+	let img = img.map(|i| format!("{}{}", config.backend_url, i.file_path));
 	let response: ProfilePermissionsResponse =
 		(updated_member, img, perms).into();
 

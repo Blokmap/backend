@@ -87,6 +87,7 @@ impl Error {
 					OAuthError::MissingCSRFTokenCookie => 13,
 					OAuthError::MissingEmailField => 14,
 					OAuthError::MissingNonceCookie => 15,
+					OAuthError::UnknownProvider(_) => 30,
 				}
 			},
 			Self::MultipartError(_) => 16,
@@ -153,6 +154,9 @@ impl Error {
 					},
 				}
 			},
+			Self::OAuthError(OAuthError::UnknownProvider(p)) => {
+				Some(serde_json::json!({"provider": p}).to_string())
+			},
 			_ => None,
 		}
 	}
@@ -181,12 +185,18 @@ impl IntoResponse for Error {
 			) => StatusCode::UNAUTHORIZED,
 			Self::Forbidden
 			| Self::LoginError(_)
-			| Self::OAuthError(_)
+			| Self::OAuthError(OAuthError::InvalidCSRFToken)
 			| Self::TokenError(_) => StatusCode::FORBIDDEN,
 			Self::MultipartError(_)
 			| Self::InvalidImage(_)
 			| Self::CreateReservationError(_)
-			| Self::PaginationError(_) => StatusCode::BAD_REQUEST,
+			| Self::PaginationError(_)
+			| Self::OAuthError(
+				OAuthError::MissingCSRFTokenCookie
+				| OAuthError::MissingEmailField
+				| OAuthError::MissingNonceCookie
+				| OAuthError::UnknownProvider(_),
+			) => StatusCode::BAD_REQUEST,
 			Self::NotFound(_) => StatusCode::NOT_FOUND,
 			Self::ValidationError(_) | Self::MissingRequestData(_) => {
 				StatusCode::UNPROCESSABLE_ENTITY
@@ -223,6 +233,8 @@ pub enum OAuthError {
 	MissingEmailField,
 	#[error("missing nonce cookie")]
 	MissingNonceCookie,
+	#[error("unknown OAuth provider: {0:?}")]
+	UnknownProvider(String),
 }
 
 /// Any error related to a token
@@ -318,6 +330,9 @@ pub enum InternalServerError {
 	/// authorized
 	#[error("attempted to extract session without checking authorization")]
 	SessionWithoutAuthError,
+	/// Failed to parse a url
+	#[error("could not parse url -- {0:?}")]
+	UrlParseError(url::ParseError),
 }
 
 // Map internal server errors to application errors
@@ -466,5 +481,11 @@ impl From<image::ImageError> for Error {
 impl From<fast_image_resize::ResizeError> for Error {
 	fn from(value: fast_image_resize::ResizeError) -> Self {
 		Self::InvalidImage(value.to_string())
+	}
+}
+
+impl From<url::ParseError> for Error {
+	fn from(err: url::ParseError) -> Self {
+		InternalServerError::UrlParseError(err).into()
 	}
 }

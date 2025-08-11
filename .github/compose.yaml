@@ -11,8 +11,8 @@ services:
         environment:
             DATABASE_URL: postgresql://test:test@test-database:5432/test
             REDIS_URL: redis://test-redis:6379
-            FRONTEND_URL: stub
-            BASE_URL: stub
+            FRONTEND_URL: http://blokmap.local
+            BASE_URL: http://blokmap.local/api
         depends_on:
             - test-database
             - test-redis
