@@ -9,6 +9,8 @@ use diesel_derive_enum::DbEnum;
 use lettre::message::Mailbox;
 use openidconnect::core::CoreGenderClaim;
 use openidconnect::{EmptyAdditionalClaims, IdTokenClaims};
+use rand::Rng;
+use rand::distr::Alphabetic;
 use serde::{Deserialize, Serialize};
 
 use crate::db::{location, opening_time, profile, reservation};
@@ -371,18 +373,6 @@ impl PrimitiveProfile {
 		self.update(conn).await
 	}
 
-	async fn count(conn: &DbConn) -> Result<i64, Error> {
-		let count = conn
-			.interact(move |conn| {
-				use self::profile::dsl::*;
-
-				profile.select(diesel::dsl::count_star()).first(conn)
-			})
-			.await??;
-
-		Ok(count)
-	}
-
 	/// Get or create a [`Profile`] from an external SSO provided email
 	#[instrument(skip(conn))]
 	pub async fn from_sso(
@@ -397,7 +387,10 @@ impl PrimitiveProfile {
 			n.to_string()
 		} else {
 			let prefix = user_email.split('@').next().unwrap().to_string();
-			let suffix = Self::count(conn).await?;
+
+			let mut rng = rand::rng();
+			let suffix: String =
+				(0..5).map(|_| rng.sample(Alphabetic) as char).collect();
 
 			format!("{prefix}.{suffix}")
 		};
