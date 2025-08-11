@@ -112,10 +112,10 @@ jobs:
 
     deploy-staging:
         runs-on: self-hosted
-        needs: [path-filter, build-staging-backend, build-staging-migrations]
+        needs: [path-filter, build-staging-migrations]
+        if: needs.path-filter.outputs.migrations == 'true'
         steps:
           - name: Run migrations
-            if: needs.path-filter.outputs.migrations == 'true'
             uses: appleboy/ssh-action@v1.2.1
             with:
                 host: ${{ secrets.STAGING_HOST }}
@@ -126,6 +126,22 @@ jobs:
                     docker compose -f /home/blokmap/deploy/production/compose.staging.yaml pull
                     docker compose -f /home/blokmap/deploy/production/compose.staging.yaml up blokmap-staging-migrations
 
+          - name: Deploy backend
+            uses: appleboy/ssh-action@v1.2.1
+            with:
+                host: ${{ secrets.STAGING_HOST }}
+                username: ${{ secrets.STAGING_USERNAME }}
+                key: ${{ secrets.PRODUCTION_SSH_KEY }}
+                debug: true
+                script: |
+                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml pull
+                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml up blokmap-staging-backend -d
+
+    deploy-staging-backend:
+        runs-on: self-hosted
+        needs: [path-filter, build-staging-backend]
+        if: needs.path-filter.outputs.migrations == 'false'
+        steps:
           - name: Deploy backend
             uses: appleboy/ssh-action@v1.2.1
             with:

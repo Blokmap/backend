@@ -113,9 +113,9 @@ jobs:
     deploy-prod:
         runs-on: self-hosted
         needs: [path-filter, build-prod-backend, build-prod-migrations]
+        if: needs.path-filter.outputs.migrations == 'true'
         steps:
           - name: Run migrations
-            if: needs.path-filter.outputs.migrations == 'true'
             uses: appleboy/ssh-action@v1.2.1
             with:
                 host: ${{ secrets.PRODUCTION_HOST }}
@@ -126,6 +126,22 @@ jobs:
                     docker compose -f /home/blokmap/deploy/production/compose.prod.yaml pull
                     docker compose -f /home/blokmap/deploy/production/compose.prod.yaml up blokmap-prod-migrations
 
+          - name: Deploy backend
+            uses: appleboy/ssh-action@v1.2.1
+            with:
+                host: ${{ secrets.PRODUCTION_HOST }}
+                username: ${{ secrets.PRODUCTION_USERNAME }}
+                key: ${{ secrets.PRODUCTION_SSH_KEY }}
+                debug: true
+                script: |
+                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml pull
+                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml up blokmap-prod-backend -d
+
+    deploy-prod-backend:
+        runs-on: self-hosted
+        needs: [path-filter, build-prod-backend]
+        if: needs.path-filter.outputs.migrations == 'false'
+        steps:
           - name: Deploy backend
             uses: appleboy/ssh-action@v1.2.1
             with:
