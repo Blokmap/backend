@@ -12,6 +12,7 @@ use models::{
 	NewAuthorityProfile,
 };
 
+use crate::schemas::BuildResponse;
 use crate::schemas::authority::{
 	AuthorityResponse,
 	CreateAuthorityMemberRequest,
@@ -123,14 +124,15 @@ pub async fn update_authority(
 #[instrument(skip(pool))]
 pub async fn get_authority_locations(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	Query(includes): Query<LocationIncludes>,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
 	let locations = Location::get_by_authority_id(id, includes, &conn).await?;
-	let response: Vec<_> =
-		locations.into_iter().map(LocationResponse::from).collect();
+	let response: Vec<LocationResponse> =
+		locations.into_iter().map(|l| l.build_response(&config)).collect();
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -138,6 +140,7 @@ pub async fn get_authority_locations(
 #[instrument(skip(pool))]
 pub(crate) async fn add_authority_location(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	session: Session,
 	Query(includes): Query<LocationIncludes>,
 	Path(id): Path<i32>,
@@ -157,7 +160,7 @@ pub(crate) async fn add_authority_location(
 
 	let new_location = request.to_insertable_for_authority(id, actor_id);
 	let records = new_location.insert(includes, &conn).await?;
-	let response = LocationResponse::from(records);
+	let response: LocationResponse = records.build_response(&config);
 
 	Ok((StatusCode::CREATED, Json(response)))
 }

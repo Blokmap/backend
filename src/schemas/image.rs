@@ -1,14 +1,18 @@
 use models::Image;
 use serde::{Deserialize, Serialize};
 
+use crate::Config;
+use crate::schemas::BuildResponse;
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ImageResponse {
-	id:        i32,
-	file_path: String,
+	url: String,
 }
 
-impl From<Image> for ImageResponse {
-	fn from(value: Image) -> Self {
-		Self { id: value.id, file_path: value.file_path }
+impl BuildResponse<ImageResponse> for Image {
+	fn build_response(self, config: &Config) -> ImageResponse {
+		ImageResponse {
+			url: config.static_url.join(&self.file_path).unwrap().to_string(),
+		}
 	}
 }

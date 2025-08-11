@@ -1,5 +1,7 @@
 use serde::de::Visitor;
 
+use crate::Config;
+
 pub mod auth;
 pub mod authority;
 pub mod image;
@@ -11,6 +13,10 @@ pub mod reservation;
 pub mod review;
 pub mod tag;
 pub mod translation;
+
+pub trait BuildResponse<R> {
+	fn build_response(self, config: &Config) -> R;
+}
 
 /// A visitor for bounded u32 values.
 struct BoundedU32Visitor {
