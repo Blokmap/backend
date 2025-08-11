@@ -355,7 +355,7 @@ pub async fn get_location_members(
 		.into_iter()
 		.map(|(m, img, perms)| {
 			let img =
-				img.map(|i| format!("{}{}", config.base_url, i.file_path));
+				img.map(|i| format!("{}{}", config.backend_url, i.file_path));
 
 			(m, img, perms)
 		})
@@ -390,7 +390,7 @@ pub async fn add_location_member(
 
 	let new_loc_profile = request.to_insertable(id, session.data.profile_id);
 	let (member, img, perms) = new_loc_profile.insert(&conn).await?;
-	let img = img.map(|i| format!("{}{}", config.base_url, i.file_path));
+	let img = img.map(|i| format!("{}{}", config.backend_url, i.file_path));
 	let response = ProfilePermissionsResponse::from((member, img, perms));
 
 	Ok((StatusCode::CREATED, Json(response)))
@@ -450,7 +450,7 @@ pub async fn update_location_member(
 	let loc_update = request.to_insertable(session.data.profile_id);
 	let (updated_member, img, perms) =
 		loc_update.apply_to(l_id, p_id, &conn).await?;
-	let img = img.map(|i| format!("{}{}", config.base_url, i.file_path));
+	let img = img.map(|i| format!("{}{}", config.backend_url, i.file_path));
 	let response: ProfilePermissionsResponse =
 		(updated_member, img, perms).into();
 

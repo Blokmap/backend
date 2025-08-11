@@ -28,7 +28,7 @@ fn get_env_default(var: &str, default: impl Into<String>) -> String {
 pub struct Config {
 	pub database_url: String,
 	pub redis_url:    String,
-	pub base_url:     Url,
+	pub backend_url:  Url,
 
 	pub production:  bool,
 	pub skip_verify: bool,
@@ -109,7 +109,7 @@ impl Config {
 		Self {
 			database_url,
 			redis_url,
-			base_url,
+			backend_url: base_url,
 			production,
 			skip_verify,
 			frontend_url,
