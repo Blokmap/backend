@@ -191,13 +191,7 @@ pub async fn sso_callback(
 
 	let conn = pool.get().await?;
 
-	let Some(email) = id_token_claims.email() else {
-		return Err(OAuthError::MissingEmailField.into());
-	};
-
-	let email = email.to_string();
-	let username = id_token_claims.preferred_username().map(|n| n.to_string());
-	let profile = PrimitiveProfile::from_sso(email, username, &conn).await?;
+	let profile = PrimitiveProfile::from_sso(id_token_claims, &conn).await?;
 
 	let session =
 		Session::create(config.access_token_lifetime, &profile, &mut r_conn)

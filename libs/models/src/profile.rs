@@ -2,11 +2,13 @@ use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::{Argon2, PasswordHasher};
 use chrono::{NaiveDateTime, TimeDelta, Utc};
-use common::{DbConn, Error};
+use common::{DbConn, Error, OAuthError};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel_derive_enum::DbEnum;
 use lettre::message::Mailbox;
+use openidconnect::core::CoreGenderClaim;
+use openidconnect::{EmptyAdditionalClaims, IdTokenClaims};
 use serde::{Deserialize, Serialize};
 
 use crate::db::{location, opening_time, profile, reservation};
@@ -369,20 +371,44 @@ impl PrimitiveProfile {
 		self.update(conn).await
 	}
 
+	async fn count(conn: &DbConn) -> Result<i64, Error> {
+		let count = conn
+			.interact(move |conn| {
+				use self::profile::dsl::*;
+
+				profile.select(diesel::dsl::count_star()).first(conn)
+			})
+			.await??;
+
+		Ok(count)
+	}
+
 	/// Get or create a [`Profile`] from an external SSO provided email
 	#[instrument(skip(conn))]
 	pub async fn from_sso(
-		query_email: String,
-		username: Option<String>,
+		claims: IdTokenClaims<EmptyAdditionalClaims, CoreGenderClaim>,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let query_email_ = query_email.clone();
+		let Some(user_email) = claims.email().map(|e| e.to_string()) else {
+			return Err(OAuthError::MissingEmailField.into());
+		};
+
+		let username = if let Some(n) = claims.preferred_username() {
+			n.to_string()
+		} else {
+			let prefix = user_email.split('@').next().unwrap().to_string();
+			let suffix = Self::count(conn).await?;
+
+			format!("{prefix}.{suffix}")
+		};
+
+		let user_email_ = user_email.clone();
 
 		let profile: Option<Self> = conn
 			.interact(|conn| {
 				use self::profile::dsl::*;
 
-				profile.filter(email.eq(query_email_)).first(conn).optional()
+				profile.filter(email.eq(user_email_)).first(conn).optional()
 			})
 			.await??;
 
@@ -391,10 +417,10 @@ impl PrimitiveProfile {
 		}
 
 		let new_profile = NewProfileDirect {
-			username:      username.unwrap_or_default(),
-			email:         Some(query_email),
+			username,
+			email: Some(user_email),
 			password_hash: String::new(),
-			state:         ProfileState::Active,
+			state: ProfileState::Active,
 		};
 
 		new_profile.insert(conn).await

@@ -31,6 +31,7 @@ chrono = { version = "0.4.41", features = ["serde"] }
 fast_image_resize = { version = "5.1.4", features = ["image", "rayon"] }
 image = "0.25.6"
 lettre = { version = "0.11.16", features = ["tracing"] }
+openidconnect = { version = "4.0.0", features = ["reqwest-blocking"] }
 rayon = "1.10.0"
 redis = { version = "0.31.0", features = ["tokio-comp", "uuid"] }
 serde = { version = "1.0.218", features = ["derive"] }
@@ -81,6 +82,7 @@ diesel-dynamic-schema = { workspace = true }
 fast_image_resize = { workspace = true }
 image = { workspace = true }
 lettre = { workspace = true }
+openidconnect = { workspace = true }
 rayon = { workspace = true }
 redis = { workspace = true }
 serde = { workspace = true }
@@ -94,7 +96,6 @@ uuid = { workspace = true }
 url = { workspace = true }
 validator = { workspace = true }
 
-openidconnect = { version = "4.0.0", features = ["reqwest-blocking"] }
 parking_lot = "0.12.4"
 regex = "1.11.1"
 tower = "0.5.2"

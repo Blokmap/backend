@@ -21,6 +21,7 @@ diesel = { workspace = true }
 diesel-derive-enum = { workspace = true }
 diesel-dynamic-schema = { workspace = true }
 lettre = { workspace = true }
+openidconnect = { workspace = true }
 rayon = { workspace = true }
 redis = { workspace = true }
 serde = { workspace = true }

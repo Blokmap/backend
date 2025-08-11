@@ -2056,6 +2056,7 @@ dependencies = [
  "diesel-derive-enum",
  "diesel-dynamic-schema",
  "lettre",
+ "openidconnect",
  "rayon",
  "redis",
  "serde",
