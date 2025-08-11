@@ -1,4 +1,3 @@
-use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::response::{IntoResponse, Redirect};
 use axum_extra::extract::PrivateCookieJar;
@@ -214,7 +213,9 @@ pub async fn sso_callback(
 
 	let profile = profile.update_last_login(&conn).await?;
 
-	info!("logged in profile {} from external SSO", profile.id);
+	info!("logged in profile {} from google SSO", profile.id);
 
-	Ok((jar, Json(profile)))
+	let redirect_url = config.frontend_url.join("auth/sso")?;
+
+	Ok((jar, Redirect::to(redirect_url.as_ref())))
 }
