@@ -77,7 +77,7 @@ pub async fn sso_login(
 			)
 			.set_redirect_uri(
 				RedirectUrl::new(
-					config.backend_url.join("/auth/sso/callback")?.to_string(),
+					config.backend_url.join("auth/sso/callback")?.to_string(),
 				)
 				.unwrap(),
 			);
@@ -166,7 +166,7 @@ pub async fn sso_callback(
 		)
 		.set_redirect_uri(
 			RedirectUrl::new(
-				config.backend_url.join("/auth/sso/callback")?.to_string(),
+				config.backend_url.join("auth/sso/callback")?.to_string(),
 			)
 			.unwrap(),
 		);
