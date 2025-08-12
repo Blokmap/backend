@@ -1,0 +1,13 @@
+CREATE TYPE INSTITUTION_CATEGORY AS ENUM (
+	'education',
+	'organisation',
+	'government'
+);
+
+ALTER TABLE institution
+	ADD COLUMN IF NOT EXISTS
+	category INSTITUTION_CATEGORY NOT NULL DEFAULT 'education';
+
+ALTER TABLE institution
+	ADD COLUMN IF NOT EXISTS
+	slug TEXT NOT NULL UNIQUE;

@@ -7,6 +7,8 @@ diesel::alias!(
 	translation as description: DescriptionAlias,
 	translation as excerpt: ExcerptAlias,
 	translation as tag_name: TagNameAlias,
+	translation as institution_name: InstitutionNameAlias,
+	translation as institution_slug: InstitutionSlugAlias,
 	profile as approver: ApproverAlias,
 	profile as rejecter: RejecterAlias,
 	profile as creator: CreatorAlias,

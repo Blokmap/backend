@@ -1,6 +1,5 @@
 --- Create the status enum
-DROP TYPE IF EXISTS reservation_state;
-CREATE TYPE reservation_state AS ENUM (
+CREATE TYPE reservation_state IF NOT EXISTS AS ENUM (
     'created',
     'cancelled',
     'absent',
@@ -8,5 +7,6 @@ CREATE TYPE reservation_state AS ENUM (
 );
 
 --- Add the new enum column to `reservation`
-ALTER TABLE reservation 
-    ADD COLUMN IF NOT EXISTS state reservation_state NOT NULL DEFAULT 'created';
+ALTER TABLE reservation
+	ADD COLUMN IF NOT EXISTS
+	state reservation_state NOT NULL DEFAULT 'created';

@@ -1,0 +1,5 @@
+ALTER TABLE institution DROP COLUMN slug;
+
+ALTER TABLE institution DROP COLUMN category;
+
+DROP TYPE INSTITUTION_CATEGORY;
