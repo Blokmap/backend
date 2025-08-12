@@ -1,5 +1,5 @@
 --- Create the status enum
-CREATE TYPE reservation_state IF NOT EXISTS AS ENUM (
+CREATE TYPE reservation_state AS ENUM (
     'created',
     'cancelled',
     'absent',
