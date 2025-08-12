@@ -23,6 +23,7 @@ diesel::table! {
 		created_by -> Nullable<Int4>,
 		updated_at -> Timestamp,
 		updated_by -> Nullable<Int4>,
+		institution_id -> Nullable<Int4>,
 	}
 }
 
@@ -234,6 +235,7 @@ diesel::table! {
 	}
 }
 
+diesel::joinable!(authority -> institution (institution_id));
 diesel::joinable!(authority_profile -> authority (authority_id));
 diesel::joinable!(institution -> translation (name_translation_id));
 diesel::joinable!(location -> authority (authority_id));

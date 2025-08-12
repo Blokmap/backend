@@ -11,6 +11,7 @@ use crate::db::{
 	authority_profile,
 	creator,
 	image,
+	institution,
 	profile,
 	updater,
 };
@@ -195,6 +196,7 @@ impl Authority {
 						PrimitiveAuthority::as_select(),
 						creator.fields(profile::all_columns).nullable(),
 						updater.fields(profile::all_columns).nullable(),
+						institution::all_columns.nullable(),
 					))
 					.get_results(conn)
 			})
