@@ -6,20 +6,11 @@ use diesel::sql_types::Bool;
 use diesel_derive_enum::DbEnum;
 use serde::{Deserialize, Serialize};
 
-use crate::db::{
-	creator,
-	institution,
-	institution_name,
-	institution_slug,
-	profile,
-	translation,
-	updater,
-};
+use crate::db::{creator, institution, profile, translation, updater};
 use crate::{PrimitiveProfile, PrimitiveTranslation, manual_pagination};
 
 pub type JoinedInstitutionData = (
 	PrimitiveInstitution,
-	PrimitiveTranslation,
 	PrimitiveTranslation,
 	Option<PrimitiveProfile>,
 	Option<PrimitiveProfile>,
@@ -40,7 +31,6 @@ pub struct InstitutionIncludes {
 pub struct Institution {
 	pub institution: PrimitiveInstitution,
 	pub name:        PrimitiveTranslation,
-	pub slug:        PrimitiveTranslation,
 	pub created_by:  Option<Option<PrimitiveProfile>>,
 	pub updated_by:  Option<Option<PrimitiveProfile>>,
 }
@@ -71,7 +61,6 @@ impl InstitutionCategory {
 pub struct PrimitiveInstitution {
 	pub id:                  i32,
 	pub name_translation_id: i32,
-	pub slug_translation_id: i32,
 	pub email:               Option<String>,
 	pub phone_number:        Option<String>,
 	pub street:              Option<String>,
@@ -102,12 +91,8 @@ impl Institution {
 
 		institution::table
 			.inner_join(
-				institution_name.on(institution::name_translation_id
-					.eq(institution_name.field(translation::id))),
-			)
-			.inner_join(
-				institution_slug.on(institution::slug_translation_id
-					.eq(institution_slug.field(translation::id))),
+				translation::table
+					.on(institution::name_translation_id.eq(translation::id)),
 			)
 			.left_outer_join(
 				creator.on(inc_created.into_sql::<Bool>().and(
@@ -132,9 +117,8 @@ impl Institution {
 		Self {
 			institution: data.0,
 			name:        data.1,
-			slug:        data.2,
-			created_by:  if includes.created_by { Some(data.3) } else { None },
-			updated_by:  if includes.updated_by { Some(data.4) } else { None },
+			created_by:  if includes.created_by { Some(data.2) } else { None },
+			updated_by:  if includes.updated_by { Some(data.3) } else { None },
 		}
 	}
 
@@ -152,8 +136,7 @@ impl Institution {
 				query
 					.select((
 						PrimitiveInstitution::as_select(),
-						institution_name.fields(translation::all_columns),
-						institution_slug.fields(translation::all_columns),
+						PrimitiveTranslation::as_select(),
 						creator.fields(profile::all_columns).nullable(),
 						updater.fields(profile::all_columns).nullable(),
 					))
@@ -184,8 +167,7 @@ impl Institution {
 					.filter(id.eq(i_id))
 					.select((
 						PrimitiveInstitution::as_select(),
-						institution_name.fields(translation::all_columns),
-						institution_slug.fields(translation::all_columns),
+						PrimitiveTranslation::as_select(),
 						creator.fields(profile::all_columns).nullable(),
 						updater.fields(profile::all_columns).nullable(),
 					))

@@ -1,3 +1,6 @@
+ALTER TABLE institution DROP CONSTRAINT fk__institution__slug_translation_id;
+ALTER TABLE institution DROP COLUMN slug_translation_id;
+
 CREATE TYPE INSTITUTION_CATEGORY AS ENUM (
 	'education',
 	'organisation',

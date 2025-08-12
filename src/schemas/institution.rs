@@ -12,7 +12,6 @@ use crate::schemas::translation::TranslationResponse;
 pub struct InstitutionResponse {
 	pub id:               i32,
 	pub name_translation: TranslationResponse,
-	pub slug_translation: TranslationResponse,
 	pub email:            Option<String>,
 	pub phone_number:     Option<String>,
 	pub street:           Option<String>,
@@ -36,7 +35,6 @@ impl From<Institution> for InstitutionResponse {
 		Self {
 			id:               value.institution.id,
 			name_translation: value.name.into(),
-			slug_translation: value.slug.into(),
 			email:            value.institution.email,
 			phone_number:     value.institution.phone_number,
 			street:           value.institution.street,
