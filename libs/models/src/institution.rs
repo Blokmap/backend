@@ -15,7 +15,7 @@ use crate::db::{
 	translation,
 	updater,
 };
-use crate::{PrimitiveProfile, PrimitiveTranslation};
+use crate::{PrimitiveProfile, PrimitiveTranslation, manual_pagination};
 
 pub type JoinedInstitutionData = (
 	PrimitiveInstitution,
@@ -56,29 +56,36 @@ pub enum InstitutionCategory {
 	Government,
 }
 
+impl InstitutionCategory {
+	#[must_use]
+	pub fn get_variants() -> [&'static str; 3] {
+		["education", "organisation", "government"]
+	}
+}
+
 #[derive(
 	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
 )]
 #[diesel(table_name = institution)]
 #[diesel(check_for_backend(Pg))]
 pub struct PrimitiveInstitution {
-	id:                  i32,
-	name_translation_id: i32,
-	slug_translation_id: i32,
-	email:               Option<String>,
-	phone_number:        Option<String>,
-	street:              Option<String>,
-	number:              Option<String>,
-	zip:                 Option<String>,
-	city:                Option<String>,
-	province:            Option<String>,
-	country:             Option<String>,
-	created_at:          NaiveDateTime,
-	created_by:          Option<i32>,
-	updated_at:          NaiveDateTime,
-	updated_by:          Option<i32>,
-	category:            InstitutionCategory,
-	slug:                String,
+	pub id:                  i32,
+	pub name_translation_id: i32,
+	pub slug_translation_id: i32,
+	pub email:               Option<String>,
+	pub phone_number:        Option<String>,
+	pub street:              Option<String>,
+	pub number:              Option<String>,
+	pub zip:                 Option<String>,
+	pub city:                Option<String>,
+	pub province:            Option<String>,
+	pub country:             Option<String>,
+	pub created_at:          NaiveDateTime,
+	pub created_by:          Option<i32>,
+	pub updated_at:          NaiveDateTime,
+	pub updated_by:          Option<i32>,
+	pub category:            InstitutionCategory,
+	pub slug:                String,
 }
 
 mod auto_type_helpers {
@@ -131,7 +138,36 @@ impl Institution {
 		}
 	}
 
-	/// Get a [`Reservation`] given its id
+	#[instrument(skip(conn))]
+	pub async fn get_all(
+		includes: InstitutionIncludes,
+		limit: usize,
+		offset: usize,
+		conn: &DbConn,
+	) -> Result<(usize, bool, Vec<Self>), Error> {
+		let query = Self::joined_query(includes);
+
+		let institutions = conn
+			.interact(move |conn| {
+				query
+					.select((
+						PrimitiveInstitution::as_select(),
+						institution_name.fields(translation::all_columns),
+						institution_slug.fields(translation::all_columns),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
+					))
+					.get_results(conn)
+			})
+			.await??
+			.into_iter()
+			.map(|data| Self::from_joined(includes, data))
+			.collect();
+
+		manual_pagination(institutions, limit, offset)
+	}
+
+	/// Get an [`Institution`] given its id
 	#[instrument(skip(conn))]
 	pub async fn get_by_id(
 		i_id: i32,
