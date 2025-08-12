@@ -74,6 +74,18 @@ diesel::table! {
 }
 
 diesel::table! {
+	institution_profile (institution_id, profile_id) {
+		institution_id -> Int4,
+		profile_id -> Int4,
+		added_at -> Timestamp,
+		added_by -> Nullable<Int4>,
+		updated_at -> Timestamp,
+		updated_by -> Nullable<Int4>,
+		permissions -> Int8,
+	}
+}
+
+diesel::table! {
 	location (id) {
 		id -> Int4,
 		name -> Text,
@@ -238,6 +250,7 @@ diesel::table! {
 diesel::joinable!(authority -> institution (institution_id));
 diesel::joinable!(authority_profile -> authority (authority_id));
 diesel::joinable!(institution -> translation (name_translation_id));
+diesel::joinable!(institution_profile -> institution (institution_id));
 diesel::joinable!(location -> authority (authority_id));
 diesel::joinable!(location_image -> image (image_id));
 diesel::joinable!(location_image -> location (location_id));
@@ -256,6 +269,7 @@ diesel::allow_tables_to_appear_in_same_query!(
 	authority_profile,
 	image,
 	institution,
+	institution_profile,
 	location,
 	location_image,
 	location_profile,

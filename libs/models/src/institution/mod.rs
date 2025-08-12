@@ -14,6 +14,10 @@ use crate::{
 	manual_pagination,
 };
 
+mod member;
+
+pub use member::*;
+
 pub type JoinedInstitutionData = (
 	PrimitiveInstitution,
 	PrimitiveTranslation,
