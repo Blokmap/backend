@@ -1,0 +1,182 @@
+use chrono::NaiveDateTime;
+use common::{DbConn, Error};
+use diesel::pg::Pg;
+use diesel::prelude::*;
+use diesel::sql_types::Bool;
+use diesel_derive_enum::DbEnum;
+use serde::{Deserialize, Serialize};
+
+use crate::db::{creator, institution, profile, translation, updater};
+use crate::{PrimitiveProfile, PrimitiveTranslation, manual_pagination};
+
+pub type JoinedInstitutionData = (
+	PrimitiveInstitution,
+	PrimitiveTranslation,
+	Option<PrimitiveProfile>,
+	Option<PrimitiveProfile>,
+);
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[allow(clippy::struct_excessive_bools)]
+#[serde(rename_all = "camelCase")]
+pub struct InstitutionIncludes {
+	#[serde(default)]
+	pub created_by: bool,
+	#[serde(default)]
+	pub updated_by: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Queryable, Serialize)]
+#[diesel(check_for_backend(Pg))]
+pub struct Institution {
+	pub institution: PrimitiveInstitution,
+	pub name:        PrimitiveTranslation,
+	pub created_by:  Option<Option<PrimitiveProfile>>,
+	pub updated_by:  Option<Option<PrimitiveProfile>>,
+}
+
+#[derive(
+	Clone, Copy, DbEnum, Debug, Default, Deserialize, PartialEq, Eq, Serialize,
+)]
+#[ExistingTypePath = "crate::db::sql_types::InstitutionCategory"]
+pub enum InstitutionCategory {
+	#[default]
+	Education,
+	Organisation,
+	Government,
+}
+
+impl InstitutionCategory {
+	#[must_use]
+	pub fn get_variants() -> [&'static str; 3] {
+		["education", "organisation", "government"]
+	}
+}
+
+#[derive(
+	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
+)]
+#[diesel(table_name = institution)]
+#[diesel(check_for_backend(Pg))]
+pub struct PrimitiveInstitution {
+	pub id:                  i32,
+	pub name_translation_id: i32,
+	pub email:               Option<String>,
+	pub phone_number:        Option<String>,
+	pub street:              Option<String>,
+	pub number:              Option<String>,
+	pub zip:                 Option<String>,
+	pub city:                Option<String>,
+	pub province:            Option<String>,
+	pub country:             Option<String>,
+	pub created_at:          NaiveDateTime,
+	pub created_by:          Option<i32>,
+	pub updated_at:          NaiveDateTime,
+	pub updated_by:          Option<i32>,
+	pub category:            InstitutionCategory,
+	pub slug:                String,
+}
+
+mod auto_type_helpers {
+	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
+}
+
+impl Institution {
+	/// Build a query with all required (dynamic) joins to select a full
+	/// institution data tuple
+	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
+	fn joined_query(includes: InstitutionIncludes) -> _ {
+		let inc_created: bool = includes.created_by;
+		let inc_updated: bool = includes.updated_by;
+
+		institution::table
+			.inner_join(
+				translation::table
+					.on(institution::name_translation_id.eq(translation::id)),
+			)
+			.left_outer_join(
+				creator.on(inc_created.into_sql::<Bool>().and(
+					institution::created_by
+						.eq(creator.field(profile::id).nullable()),
+				)),
+			)
+			.left_outer_join(
+				updater.on(inc_updated.into_sql::<Bool>().and(
+					institution::updated_by
+						.eq(updater.field(profile::id).nullable()),
+				)),
+			)
+	}
+
+	/// Construct a full [`Institution`] struct from the data returned by a
+	/// joined query
+	fn from_joined(
+		includes: InstitutionIncludes,
+		data: JoinedInstitutionData,
+	) -> Self {
+		Self {
+			institution: data.0,
+			name:        data.1,
+			created_by:  if includes.created_by { Some(data.2) } else { None },
+			updated_by:  if includes.updated_by { Some(data.3) } else { None },
+		}
+	}
+
+	#[instrument(skip(conn))]
+	pub async fn get_all(
+		includes: InstitutionIncludes,
+		limit: usize,
+		offset: usize,
+		conn: &DbConn,
+	) -> Result<(usize, bool, Vec<Self>), Error> {
+		let query = Self::joined_query(includes);
+
+		let institutions = conn
+			.interact(move |conn| {
+				query
+					.select((
+						PrimitiveInstitution::as_select(),
+						PrimitiveTranslation::as_select(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
+					))
+					.get_results(conn)
+			})
+			.await??
+			.into_iter()
+			.map(|data| Self::from_joined(includes, data))
+			.collect();
+
+		manual_pagination(institutions, limit, offset)
+	}
+
+	/// Get an [`Institution`] given its id
+	#[instrument(skip(conn))]
+	pub async fn get_by_id(
+		i_id: i32,
+		includes: InstitutionIncludes,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let query = Self::joined_query(includes);
+
+		let institution = conn
+			.interact(move |conn| {
+				use crate::db::institution::dsl::*;
+
+				query
+					.filter(id.eq(i_id))
+					.select((
+						PrimitiveInstitution::as_select(),
+						PrimitiveTranslation::as_select(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
+					))
+					.get_result(conn)
+			})
+			.await??;
+
+		let institution = Self::from_joined(includes, institution);
+
+		Ok(institution)
+	}
+}

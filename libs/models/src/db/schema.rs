@@ -2,6 +2,10 @@
 
 pub mod sql_types {
 	#[derive(diesel::sql_types::SqlType)]
+	#[diesel(postgres_type(name = "institution_category"))]
+	pub struct InstitutionCategory;
+
+	#[derive(diesel::sql_types::SqlType)]
 	#[diesel(postgres_type(name = "profile_state"))]
 	pub struct ProfileState;
 
@@ -44,10 +48,12 @@ diesel::table! {
 }
 
 diesel::table! {
+	use diesel::sql_types::*;
+	use super::sql_types::InstitutionCategory;
+
 	institution (id) {
 		id -> Int4,
 		name_translation_id -> Int4,
-		slug_translation_id -> Int4,
 		email -> Nullable<Text>,
 		phone_number -> Nullable<Text>,
 		street -> Nullable<Text>,
@@ -61,6 +67,8 @@ diesel::table! {
 		created_by -> Nullable<Int4>,
 		updated_at -> Timestamp,
 		updated_by -> Nullable<Int4>,
+		category -> InstitutionCategory,
+		slug -> Text,
 	}
 }
 
@@ -227,6 +235,7 @@ diesel::table! {
 }
 
 diesel::joinable!(authority_profile -> authority (authority_id));
+diesel::joinable!(institution -> translation (name_translation_id));
 diesel::joinable!(location -> authority (authority_id));
 diesel::joinable!(location_image -> image (image_id));
 diesel::joinable!(location_image -> location (location_id));

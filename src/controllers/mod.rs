@@ -9,6 +9,7 @@ use crate::DbPool;
 
 pub mod auth;
 pub mod authority;
+pub mod institution;
 pub mod location;
 pub mod opening_time;
 pub mod profile;

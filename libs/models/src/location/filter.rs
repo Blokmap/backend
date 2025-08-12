@@ -11,20 +11,20 @@ use serde_with::DisplayFromStr;
 use super::{description, excerpt};
 use crate::db::{
 	approver,
+	authority,
 	creator,
 	location,
 	opening_time,
 	profile,
 	rejecter,
+	translation,
 	updater,
 };
 use crate::{
 	BoxedCondition,
 	Location,
 	LocationIncludes,
-	PrimitiveAuthority,
 	PrimitiveLocation,
-	PrimitiveTranslation,
 	QUERY_HARD_LIMIT,
 	TimeBoundsFilter,
 	TimeFilter,
@@ -204,43 +204,22 @@ impl Location {
 
 				query
 					.filter(filter)
-					.filter(
-						diesel::dsl::exists(
-							opening_time::table
-								.filter(time_filter)
-								.filter(opening_time::location_id.eq(id))
-								.select(opening_time::id)
-						)
-					)
-					.select(
-						(
-							PrimitiveLocation::as_select(),
-							description
-								.fields(<PrimitiveTranslation as Selectable<
-								Pg,
-							>>::construct_selection()),
-							excerpt
-								.fields(<PrimitiveTranslation as Selectable<
-								Pg,
-							>>::construct_selection()),
-							<
-								PrimitiveAuthority as Selectable<Pg>
-							>
-							::construct_selection().nullable(),
-							approver
-								.fields(profile::all_columns)
-								.nullable(),
-							rejecter
-								.fields(profile::all_columns)
-								.nullable(),
-							creator
-								.fields(profile::all_columns)
-								.nullable(),
-							updater
-								.fields(profile::all_columns)
-								.nullable(),
-						),
-					)
+					.filter(diesel::dsl::exists(
+						opening_time::table
+							.filter(time_filter)
+							.filter(opening_time::location_id.eq(id))
+							.select(opening_time::id),
+					))
+					.select((
+						PrimitiveLocation::as_select(),
+						description.fields(translation::all_columns),
+						excerpt.fields(translation::all_columns),
+						authority::all_columns.nullable(),
+						approver.fields(profile::all_columns).nullable(),
+						rejecter.fields(profile::all_columns).nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
+					))
 					.order(id)
 					.limit(QUERY_HARD_LIMIT)
 					.get_results(conn)

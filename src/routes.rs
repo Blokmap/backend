@@ -36,6 +36,11 @@ use crate::controllers::authority::{
 	update_authority_member,
 };
 use crate::controllers::healthcheck;
+use crate::controllers::institution::{
+	get_all_institutions,
+	get_categories,
+	get_institution,
+};
 use crate::controllers::location::{
 	add_location_member,
 	approve_location,
@@ -114,7 +119,8 @@ pub fn get_app_router(state: AppState) -> Router {
 		.nest("/authorities", authority_routes(&state))
 		.nest("/locations", location_routes(&state))
 		.nest("/translations", translation_routes(&state))
-		.nest("/tags", tag_routes(&state));
+		.nest("/tags", tag_routes(&state))
+		.nest("/institutions", institution_routes(&state));
 
 	Router::new()
 		.merge(api_routes)
@@ -264,4 +270,12 @@ fn tag_routes(state: &AppState) -> Router<AppState> {
 		.route_layer(AuthLayer::new(state.clone()));
 
 	Router::new().route("/", get(get_all_tags)).merge(protected)
+}
+
+fn institution_routes(state: &AppState) -> Router<AppState> {
+	Router::new()
+		.route("/", get(get_all_institutions))
+		.route("/{id}", get(get_institution))
+		.route("/categories", get(get_categories))
+		.route_layer(AuthLayer::new(state.clone()))
 }

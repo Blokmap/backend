@@ -5,6 +5,7 @@ use crate::Config;
 pub mod auth;
 pub mod authority;
 pub mod image;
+pub mod institution;
 pub mod location;
 pub mod opening_time;
 pub mod pagination;

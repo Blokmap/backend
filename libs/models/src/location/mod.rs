@@ -349,20 +349,9 @@ impl Location {
 					.filter(id.eq(loc_id))
 					.select((
 						PrimitiveLocation::as_select(),
-						description.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
-						),
-						excerpt.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
-						),
-						<
-							PrimitiveAuthority as Selectable<Pg>
-						>
-						::construct_selection().nullable(),
+						description.fields(translation::all_columns),
+						excerpt.fields(translation::all_columns),
+						authority::all_columns.nullable(),
 						approver.fields(profile::all_columns).nullable(),
 						rejecter.fields(profile::all_columns).nullable(),
 						creator.fields(profile::all_columns).nullable(),
@@ -405,20 +394,9 @@ impl Location {
 					.filter(id.eq_any(loc_ids))
 					.select((
 						PrimitiveLocation::as_select(),
-						description.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
-						),
-						excerpt.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
-						),
-						<
-							PrimitiveAuthority as Selectable<Pg>
-						>
-						::construct_selection().nullable(),
+						description.fields(translation::all_columns),
+						excerpt.fields(translation::all_columns),
+						authority::all_columns.nullable(),
 						approver.fields(profile::all_columns).nullable(),
 						rejecter.fields(profile::all_columns).nullable(),
 						creator.fields(profile::all_columns).nullable(),
@@ -465,20 +443,9 @@ impl Location {
 					.filter(created_by.eq(profile_id))
 					.select((
 						PrimitiveLocation::as_select(),
-						description.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
-						),
-						excerpt.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
-						),
-						<
-							PrimitiveAuthority as Selectable<Pg>
-						>
-						::construct_selection().nullable(),
+						description.fields(translation::all_columns),
+						excerpt.fields(translation::all_columns),
+						authority::all_columns.nullable(),
 						approver.fields(profile::all_columns).nullable(),
 						rejecter.fields(profile::all_columns).nullable(),
 						creator.fields(profile::all_columns).nullable(),
@@ -552,20 +519,9 @@ impl Location {
 					.filter(authority_id.eq(auth_id))
 					.select((
 						PrimitiveLocation::as_select(),
-						description.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
-						),
-						excerpt.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
-						),
-						<
-							PrimitiveAuthority as Selectable<Pg>
-						>
-						::construct_selection().nullable(),
+						description.fields(translation::all_columns),
+						excerpt.fields(translation::all_columns),
+						authority::all_columns.nullable(),
 						approver.fields(profile::all_columns).nullable(),
 						rejecter.fields(profile::all_columns).nullable(),
 						creator.fields(profile::all_columns).nullable(),
@@ -601,20 +557,9 @@ impl Location {
 					.left_outer_join(opening_time::table)
 					.select((
 						PrimitiveLocation::as_select(),
-						description.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
-						),
-						excerpt.fields(
-							<
-								PrimitiveTranslation as Selectable<Pg>
-							>::construct_selection()
-						),
-						<
-							PrimitiveAuthority as Selectable<Pg>
-						>
-						::construct_selection().nullable(),
+						description.fields(translation::all_columns),
+						excerpt.fields(translation::all_columns),
+						authority::all_columns.nullable(),
 						approver.fields(profile::all_columns).nullable(),
 						rejecter.fields(profile::all_columns).nullable(),
 						creator.fields(profile::all_columns).nullable(),
