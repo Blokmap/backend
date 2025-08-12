@@ -5,8 +5,28 @@ use axum::response::IntoResponse;
 use common::{DbPool, Error};
 use models::{Institution, InstitutionCategory, InstitutionIncludes};
 
-use crate::schemas::institution::InstitutionResponse;
+use crate::Session;
+use crate::schemas::institution::{
+	CreateInstitutionRequest,
+	InstitutionResponse,
+};
 use crate::schemas::pagination::PaginationOptions;
+
+#[instrument(skip(pool))]
+pub async fn create_institution(
+	State(pool): State<DbPool>,
+	session: Session,
+	Query(includes): Query<InstitutionIncludes>,
+	Json(request): Json<CreateInstitutionRequest>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let new_institution = request.to_insertable(session.data.profile_id);
+	let institution = new_institution.insert(includes, &conn).await?;
+	let response: InstitutionResponse = institution.into();
+
+	Ok((StatusCode::CREATED, Json(response)))
+}
 
 #[instrument(skip(pool))]
 pub async fn get_all_institutions(

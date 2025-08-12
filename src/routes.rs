@@ -37,6 +37,7 @@ use crate::controllers::authority::{
 };
 use crate::controllers::healthcheck;
 use crate::controllers::institution::{
+	create_institution,
 	get_all_institutions,
 	get_categories,
 	get_institution,
@@ -274,7 +275,7 @@ fn tag_routes(state: &AppState) -> Router<AppState> {
 
 fn institution_routes(state: &AppState) -> Router<AppState> {
 	Router::new()
-		.route("/", get(get_all_institutions))
+		.route("/", get(get_all_institutions).post(create_institution))
 		.route("/{id}", get(get_institution))
 		.route("/categories", get(get_categories))
 		.route_layer(AuthLayer::new(state.clone()))

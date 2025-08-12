@@ -7,7 +7,12 @@ use diesel_derive_enum::DbEnum;
 use serde::{Deserialize, Serialize};
 
 use crate::db::{creator, institution, profile, translation, updater};
-use crate::{PrimitiveProfile, PrimitiveTranslation, manual_pagination};
+use crate::{
+	NewTranslation,
+	PrimitiveProfile,
+	PrimitiveTranslation,
+	manual_pagination,
+};
 
 pub type JoinedInstitutionData = (
 	PrimitiveInstitution,
@@ -31,7 +36,7 @@ pub struct InstitutionIncludes {
 pub struct Institution {
 	pub institution: PrimitiveInstitution,
 	pub name:        PrimitiveTranslation,
-	pub created_by:  Option<Option<PrimitiveProfile>>,
+	pub created_by:  Option<PrimitiveProfile>,
 	pub updated_by:  Option<Option<PrimitiveProfile>>,
 }
 
@@ -70,7 +75,7 @@ pub struct PrimitiveInstitution {
 	pub province:            Option<String>,
 	pub country:             Option<String>,
 	pub created_at:          NaiveDateTime,
-	pub created_by:          Option<i32>,
+	pub created_by:          i32,
 	pub updated_at:          NaiveDateTime,
 	pub updated_by:          Option<i32>,
 	pub category:            InstitutionCategory,
@@ -94,12 +99,11 @@ impl Institution {
 				translation::table
 					.on(institution::name_translation_id.eq(translation::id)),
 			)
-			.left_outer_join(
-				creator.on(inc_created.into_sql::<Bool>().and(
-					institution::created_by
-						.eq(creator.field(profile::id).nullable()),
-				)),
-			)
+			.left_outer_join(creator.on(
+				inc_created.into_sql::<Bool>().and(
+					institution::created_by.eq(creator.field(profile::id)),
+				),
+			))
 			.left_outer_join(
 				updater.on(inc_updated.into_sql::<Bool>().and(
 					institution::updated_by
@@ -117,7 +121,7 @@ impl Institution {
 		Self {
 			institution: data.0,
 			name:        data.1,
-			created_by:  if includes.created_by { Some(data.2) } else { None },
+			created_by:  if includes.created_by { data.2 } else { None },
 			updated_by:  if includes.updated_by { Some(data.3) } else { None },
 		}
 	}
@@ -176,6 +180,92 @@ impl Institution {
 			.await??;
 
 		let institution = Self::from_joined(includes, institution);
+
+		Ok(institution)
+	}
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct NewInstitution {
+	pub name_translation: NewTranslation,
+	pub email:            Option<String>,
+	pub phone_number:     Option<String>,
+	pub street:           Option<String>,
+	pub number:           Option<String>,
+	pub zip:              Option<String>,
+	pub city:             Option<String>,
+	pub province:         Option<String>,
+	pub country:          Option<String>,
+	pub created_by:       i32,
+	pub category:         InstitutionCategory,
+	pub slug:             String,
+}
+
+#[derive(Clone, Debug, Deserialize, Insertable, Serialize)]
+#[diesel(table_name = institution)]
+#[diesel(check_for_backend(Pg))]
+pub struct InsertableNewInstitution {
+	pub name_translation_id: i32,
+	pub email:               Option<String>,
+	pub phone_number:        Option<String>,
+	pub street:              Option<String>,
+	pub number:              Option<String>,
+	pub zip:                 Option<String>,
+	pub city:                Option<String>,
+	pub province:            Option<String>,
+	pub country:             Option<String>,
+	pub created_by:          i32,
+	pub category:            InstitutionCategory,
+	pub slug:                String,
+}
+
+impl NewInstitution {
+	#[instrument(skip(conn))]
+	pub async fn insert(
+		self,
+		includes: InstitutionIncludes,
+		conn: &DbConn,
+	) -> Result<Institution, Error> {
+		let institution = conn
+			.interact(move |conn| {
+				conn.transaction::<_, Error, _>(|conn| {
+					use crate::db::institution::dsl::institution;
+					use crate::db::translation::dsl::translation;
+
+					let name = diesel::insert_into(translation)
+						.values(self.name_translation)
+						.returning(PrimitiveTranslation::as_returning())
+						.get_result(conn)?;
+
+					let new_institution = InsertableNewInstitution {
+						name_translation_id: name.id,
+						email:               self.email,
+						phone_number:        self.phone_number,
+						street:              self.street,
+						number:              self.number,
+						zip:                 self.zip,
+						city:                self.city,
+						province:            self.province,
+						country:             self.country,
+						created_by:          self.created_by,
+						category:            self.category,
+						slug:                self.slug,
+					};
+
+					let inst = diesel::insert_into(institution)
+						.values(new_institution)
+						.returning(PrimitiveInstitution::as_returning())
+						.get_result(conn)?;
+
+					Ok(inst)
+				})
+			})
+			.await??;
+
+		let institution =
+			Institution::get_by_id(institution.id, includes, conn).await?;
+
+		info!("inserted new institution {institution:?}");
 
 		Ok(institution)
 	}

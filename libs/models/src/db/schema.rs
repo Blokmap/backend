@@ -64,7 +64,7 @@ diesel::table! {
 		#[max_length = 2]
 		country -> Nullable<Varchar>,
 		created_at -> Timestamp,
-		created_by -> Nullable<Int4>,
+		created_by -> Int4,
 		updated_at -> Timestamp,
 		updated_by -> Nullable<Int4>,
 		category -> InstitutionCategory,

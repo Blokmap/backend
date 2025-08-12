@@ -1,10 +1,13 @@
 use chrono::NaiveDateTime;
-use models::{Institution, InstitutionCategory};
+use models::{Institution, InstitutionCategory, NewInstitution};
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::profile::ProfileResponse;
 use crate::schemas::ser_includes;
-use crate::schemas::translation::TranslationResponse;
+use crate::schemas::translation::{
+	CreateTranslationRequest,
+	TranslationResponse,
+};
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -21,8 +24,7 @@ pub struct InstitutionResponse {
 	pub province:         Option<String>,
 	pub country:          Option<String>,
 	pub created_at:       NaiveDateTime,
-	#[serde(serialize_with = "ser_includes")]
-	pub created_by:       Option<Option<ProfileResponse>>,
+	pub created_by:       Option<ProfileResponse>,
 	pub updated_at:       NaiveDateTime,
 	#[serde(serialize_with = "ser_includes")]
 	pub updated_by:       Option<Option<ProfileResponse>>,
@@ -44,11 +46,47 @@ impl From<Institution> for InstitutionResponse {
 			province:         value.institution.province,
 			country:          value.institution.country,
 			created_at:       value.institution.created_at,
-			created_by:       value.created_by.map(|p| p.map(Into::into)),
+			created_by:       value.created_by.map(Into::into),
 			updated_at:       value.institution.updated_at,
 			updated_by:       value.updated_by.map(|p| p.map(Into::into)),
 			category:         value.institution.category,
 			slug:             value.institution.slug,
+		}
+	}
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateInstitutionRequest {
+	pub name_translation: CreateTranslationRequest,
+	pub email:            Option<String>,
+	pub phone_number:     Option<String>,
+	pub street:           Option<String>,
+	pub number:           Option<String>,
+	pub zip:              Option<String>,
+	pub city:             Option<String>,
+	pub province:         Option<String>,
+	pub country:          Option<String>,
+	pub category:         InstitutionCategory,
+	pub slug:             String,
+}
+
+impl CreateInstitutionRequest {
+	#[must_use]
+	pub fn to_insertable(self, created_by: i32) -> NewInstitution {
+		NewInstitution {
+			name_translation: self.name_translation.to_insertable(created_by),
+			email: self.email,
+			phone_number: self.phone_number,
+			street: self.street,
+			number: self.number,
+			zip: self.zip,
+			city: self.city,
+			province: self.province,
+			country: self.country,
+			created_by,
+			category: self.category,
+			slug: self.slug,
 		}
 	}
 }
