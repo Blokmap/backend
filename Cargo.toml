@@ -11,7 +11,7 @@ panic = "abort"
 codegen-units = 1
 
 [workspace]
-members = ["libs/*"]
+members = ["libs/*", "seeder"]
 resolver = "3"
 
 [workspace.dependencies]
