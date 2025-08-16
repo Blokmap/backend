@@ -52,7 +52,7 @@ jobs:
             uses: docker/metadata-action@v5
             with:
                 images: |
-                    ghcr.io/blokmap/blokmap-backend
+                    ghcr.io/blokmap/blokmap-staging-backend
                 tags: |
                     type=raw,value={{sha}}
                     type=raw,value=latest
