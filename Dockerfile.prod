@@ -11,6 +11,7 @@ WORKDIR /blokmap
 
 COPY ./.cargo ./Cargo.toml ./Cargo.lock ./
 COPY ./libs ./libs
+COPY ./seeder ./seeder
 
 # Cache dependencies
 RUN cargo build --release --bin blokmap
