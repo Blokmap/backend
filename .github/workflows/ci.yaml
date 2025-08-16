@@ -13,54 +13,57 @@ jobs:
         runs-on: self-hosted
 
         steps:
-            - name: vague chown hack
-              run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+          - name: vague chown hack
+            run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
 
-            - name: Checkout code
-              uses: actions/checkout@v4
+          - name: Checkout code
+            uses: actions/checkout@v4
 
-            - name: Build images
-              run: |
-                  docker compose \
-                  -f .github/compose.yaml \
-                  --project-directory . \
-                  build
+          - name: Build images
+            run: |
+                docker compose \
+                -p ci-${{ github.sha }}-${{ github.event_name }}
+                -f .github/compose.yaml \
+                --project-directory . \
+                build
 
     lint:
         runs-on: self-hosted
         needs: [setup]
 
         steps:
-            - name: vague chown hack
-              run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+          - name: vague chown hack
+            run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
 
-            - name: Checkout code
-              uses: actions/checkout@v4
+          - name: Checkout code
+            uses: actions/checkout@v4
 
-            - name: Lint code
-              run: |
-                  docker compose \
-                  -f .github/compose.yaml \
-                  --project-directory . \
-                  run lint
+          - name: Lint code
+            run: |
+                docker compose \
+                -p ci-${{ github.sha }}-${{ github.event_name }}
+                -f .github/compose.yaml \
+                --project-directory . \
+                run lint
 
     test:
         runs-on: self-hosted
         needs: [setup]
 
         steps:
-            - name: vague chown hack
-              run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
+          - name: vague chown hack
+            run: sudo chown -R $USER:$USER $GITHUB_WORKSPACE
 
-            - name: Checkout code
-              uses: actions/checkout@v4
+          - name: Checkout code
+            uses: actions/checkout@v4
 
-            - name: Run tests
-              run: |
-                  docker compose \
-                  -f .github/compose.yaml \
-                  --project-directory . \
-                  run test
+          - name: Run tests
+            run: |
+                docker compose \
+                -p ci-${{ github.sha }}-${{ github.event_name }}
+                -f .github/compose.yaml \
+                --project-directory . \
+                run test
 
     cleanup:
         runs-on: self-hosted
@@ -76,6 +79,7 @@ jobs:
           - name: Remove docker containers
             run: |
                 docker compose \
+                -p ci-${{ github.sha }}-${{ github.event_name }}
                 -f .github/compose.yaml \
                 --project-directory . \
                 down --remove-orphans --rmi all
