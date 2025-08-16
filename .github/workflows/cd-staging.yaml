@@ -86,7 +86,7 @@ jobs:
             uses: docker/metadata-action@v5
             with:
                 images: |
-                    ghcr.io/blokmap/blokmap-migrations
+                    ghcr.io/blokmap/blokmap-staging-migrations
                 tags: |
                     type=raw,value={{sha}}
                     type=raw,value=latest
@@ -109,3 +109,49 @@ jobs:
                 tags: ${{ steps.meta.outputs.tags }}
                 cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-staging-migrations:buildcache
                 cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-staging-migrations:buildcache,mode=max
+
+    deploy-staging:
+        runs-on: self-hosted
+        needs: [path-filter, build-staging-migrations]
+        if: needs.path-filter.outputs.migrations == 'true'
+        steps:
+          - name: Run migrations
+            uses: appleboy/ssh-action@v1.2.1
+            with:
+                host: ${{ secrets.STAGING_HOST }}
+                username: ${{ secrets.STAGING_USERNAME }}
+                key: ${{ secrets.PRODUCTION_SSH_KEY }}
+                debug: true
+                script: |
+                    cd /home/blokmap/deploy && git pull
+                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml pull
+                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml up blokmap-staging-migrations
+
+          - name: Deploy backend
+            uses: appleboy/ssh-action@v1.2.1
+            with:
+                host: ${{ secrets.STAGING_HOST }}
+                username: ${{ secrets.STAGING_USERNAME }}
+                key: ${{ secrets.PRODUCTION_SSH_KEY }}
+                debug: true
+                script: |
+                    cd /home/blokmap/deploy && git pull
+                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml pull
+                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml up blokmap-staging-backend -d
+
+    deploy-staging-backend:
+        runs-on: self-hosted
+        needs: [path-filter, build-staging-backend]
+        if: needs.path-filter.outputs.migrations == 'false'
+        steps:
+          - name: Deploy backend
+            uses: appleboy/ssh-action@v1.2.1
+            with:
+                host: ${{ secrets.STAGING_HOST }}
+                username: ${{ secrets.STAGING_USERNAME }}
+                key: ${{ secrets.PRODUCTION_SSH_KEY }}
+                debug: true
+                script: |
+                    cd /home/blokmap/deploy && git pull
+                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml pull
+                    docker compose -f /home/blokmap/deploy/production/compose.staging.yaml up blokmap-staging-backend -d
