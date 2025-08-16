@@ -73,8 +73,8 @@ jobs:
                 file: Dockerfile.prod
                 push: true
                 tags: ${{ steps.meta.outputs.tags }}
-                cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-backend:buildcache
-                cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-backend:buildcache,mode=max
+                cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-prod-backend:buildcache
+                cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-prod-backend:buildcache,mode=max
 
     build-prod-migrations:
         runs-on: self-hosted
@@ -107,5 +107,5 @@ jobs:
                 file: Dockerfile.migrations
                 push: true
                 tags: ${{ steps.meta.outputs.tags }}
-                cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-migrations:buildcache
-                cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-migrations:buildcache,mode=max
+                cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-prod-migrations:buildcache
+                cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-prod-migrations:buildcache,mode=max
