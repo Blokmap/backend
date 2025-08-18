@@ -46,18 +46,21 @@ pub struct ReviewLocationResponse {
 }
 
 impl BuildResponse<ReviewLocationResponse> for (Review, FullLocationData) {
-	fn build_response(self, config: &crate::Config) -> ReviewLocationResponse {
+	fn build_response(
+		self,
+		config: &crate::Config,
+	) -> Result<ReviewLocationResponse, Error> {
 		let (review, location) = self;
 
-		ReviewLocationResponse {
+		Ok(ReviewLocationResponse {
 			id:         review.review.id,
 			created_by: review.created_by.into(),
 			rating:     review.review.rating,
 			body:       review.review.body,
 			created_at: review.review.created_at,
 			updated_at: review.review.updated_at,
-			location:   location.build_response(config),
-		}
+			location:   location.build_response(config)?,
+		})
 	}
 }
 

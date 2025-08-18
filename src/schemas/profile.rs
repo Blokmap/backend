@@ -1,14 +1,18 @@
+use bitflags::Flags;
 use chrono::NaiveDateTime;
+use common::Error;
 use models::{
-	AuthorityPermissions,
-	InstitutionPermissions,
-	LocationPermissions,
+	Image,
 	PrimitiveProfile,
 	ProfileState,
 	ProfileStats,
 	UpdateProfile,
 };
 use serde::{Deserialize, Serialize};
+
+use crate::Config;
+use crate::schemas::BuildResponse;
+use crate::schemas::image::ImageResponse;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -43,7 +47,7 @@ impl From<PrimitiveProfile> for ProfileResponse {
 pub struct ProfilePermissionsResponse {
 	pub id:          i32,
 	pub username:    String,
-	pub avatar_url:  Option<String>,
+	pub avatar:      Option<ImageResponse>,
 	pub email:       Option<String>,
 	pub first_name:  Option<String>,
 	pub last_name:   Option<String>,
@@ -51,60 +55,28 @@ pub struct ProfilePermissionsResponse {
 	pub permissions: i64,
 }
 
-impl From<(PrimitiveProfile, Option<String>, AuthorityPermissions)>
-	for ProfilePermissionsResponse
+impl<F> BuildResponse<ProfilePermissionsResponse>
+	for (PrimitiveProfile, Option<Image>, F)
+where
+	F: Flags<Bits = i64>,
 {
-	fn from(
-		value: (PrimitiveProfile, Option<String>, AuthorityPermissions),
-	) -> Self {
-		Self {
-			id:          value.0.id,
-			username:    value.0.username,
-			avatar_url:  value.1,
-			email:       value.0.email,
-			first_name:  value.0.first_name,
-			last_name:   value.0.last_name,
-			state:       value.0.state,
-			permissions: value.2.bits(),
-		}
-	}
-}
-
-impl From<(PrimitiveProfile, Option<String>, LocationPermissions)>
-	for ProfilePermissionsResponse
-{
-	fn from(
-		value: (PrimitiveProfile, Option<String>, LocationPermissions),
-	) -> Self {
-		Self {
-			id:          value.0.id,
-			username:    value.0.username,
-			avatar_url:  value.1,
-			email:       value.0.email,
-			first_name:  value.0.first_name,
-			last_name:   value.0.last_name,
-			state:       value.0.state,
-			permissions: value.2.bits(),
-		}
-	}
-}
-
-impl From<(PrimitiveProfile, Option<String>, InstitutionPermissions)>
-	for ProfilePermissionsResponse
-{
-	fn from(
-		value: (PrimitiveProfile, Option<String>, InstitutionPermissions),
-	) -> Self {
-		Self {
-			id:          value.0.id,
-			username:    value.0.username,
-			avatar_url:  value.1,
-			email:       value.0.email,
-			first_name:  value.0.first_name,
-			last_name:   value.0.last_name,
-			state:       value.0.state,
-			permissions: value.2.bits(),
-		}
+	fn build_response(
+		self,
+		config: &Config,
+	) -> Result<ProfilePermissionsResponse, Error> {
+		Ok(ProfilePermissionsResponse {
+			id:          self.0.id,
+			username:    self.0.username,
+			avatar:      self
+				.1
+				.map(|i| i.build_response(config))
+				.transpose()?,
+			email:       self.0.email,
+			first_name:  self.0.first_name,
+			last_name:   self.0.last_name,
+			state:       self.0.state,
+			permissions: self.2.bits(),
+		})
 	}
 }
 

@@ -479,6 +479,7 @@ dependencies = [
  "axum",
  "axum-extra",
  "axum-test",
+ "bitflags 2.9.1",
  "chrono",
  "common",
  "deadpool-diesel",

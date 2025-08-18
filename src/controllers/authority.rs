@@ -131,8 +131,9 @@ pub async fn get_authority_locations(
 	let conn = pool.get().await?;
 
 	let locations = Location::get_by_authority_id(id, includes, &conn).await?;
-	let response: Vec<LocationResponse> =
+	let response: Result<Vec<LocationResponse>, Error> =
 		locations.into_iter().map(|l| l.build_response(&config)).collect();
+	let response = response?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -160,7 +161,7 @@ pub(crate) async fn add_authority_location(
 
 	let new_location = request.to_insertable_for_authority(id, actor_id);
 	let records = new_location.insert(includes, &conn).await?;
-	let response: LocationResponse = records.build_response(&config);
+	let response: LocationResponse = records.build_response(&config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -174,16 +175,10 @@ pub async fn get_authority_members(
 	let conn = pool.get().await?;
 
 	let members = Authority::get_members_with_permissions(id, &conn).await?;
-	let response: Vec<_> = members
+	let response: Vec<ProfilePermissionsResponse> = members
 		.into_iter()
-		.map(|(p, img, perm)| {
-			let img =
-				img.map(|i| format!("{}{}", config.backend_url, i.file_path));
-
-			(p, img, perm)
-		})
-		.map(ProfilePermissionsResponse::from)
-		.collect();
+		.map(|data| data.build_response(&config))
+		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -212,8 +207,8 @@ pub(crate) async fn add_authority_member(
 
 	let new_auth_profile = request.to_insertable(id, actor_id);
 	let (member, img, perms) = new_auth_profile.insert(&conn).await?;
-	let img = img.map(|i| format!("{}{}", config.backend_url, i.file_path));
-	let response = ProfilePermissionsResponse::from((member, img, perms));
+	let response: ProfilePermissionsResponse =
+		(member, img, perms).build_response(&config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -266,9 +261,8 @@ pub async fn update_authority_member(
 	let auth_update = request.to_insertable(actor_id);
 	let (updated_member, img, perms) =
 		auth_update.apply_to(a_id, p_id, &conn).await?;
-	let img = img.map(|i| format!("{}{}", config.backend_url, i.file_path));
 	let response: ProfilePermissionsResponse =
-		(updated_member, img, perms).into();
+		(updated_member, img, perms).build_response(&config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
