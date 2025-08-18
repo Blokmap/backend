@@ -5,31 +5,38 @@ use diesel::prelude::*;
 use diesel::sql_types::Bool;
 use serde::{Deserialize, Serialize};
 
-use crate::PrimitiveProfile;
-use crate::db::{authority, creator, profile, updater};
+use crate::db::{authority, creator, institution, profile, updater};
+use crate::{PrimitiveInstitution, PrimitiveProfile};
 
 mod member;
 
 pub use member::*;
 
-pub type JoinedAuthorityData =
-	(PrimitiveAuthority, Option<PrimitiveProfile>, Option<PrimitiveProfile>);
+pub type JoinedAuthorityData = (
+	PrimitiveAuthority,
+	Option<PrimitiveProfile>,
+	Option<PrimitiveProfile>,
+	Option<PrimitiveInstitution>,
+);
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct AuthorityIncludes {
 	#[serde(default)]
-	pub created_by: bool,
+	pub created_by:  bool,
 	#[serde(default)]
-	pub updated_by: bool,
+	pub updated_by:  bool,
+	#[serde(default)]
+	pub institution: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Queryable, Serialize)]
 #[diesel(table_name = authority)]
 #[diesel(check_for_backend(Pg))]
 pub struct Authority {
-	pub authority:  PrimitiveAuthority,
-	pub created_by: Option<Option<PrimitiveProfile>>,
-	pub updated_by: Option<Option<PrimitiveProfile>>,
+	pub authority:   PrimitiveAuthority,
+	pub created_by:  Option<Option<PrimitiveProfile>>,
+	pub updated_by:  Option<Option<PrimitiveProfile>>,
+	pub institution: Option<Option<PrimitiveInstitution>>,
 }
 
 #[derive(
@@ -38,13 +45,14 @@ pub struct Authority {
 #[diesel(table_name = authority)]
 #[diesel(check_for_backend(Pg))]
 pub struct PrimitiveAuthority {
-	pub id:          i32,
-	pub name:        String,
-	pub description: Option<String>,
-	pub created_at:  NaiveDateTime,
-	pub created_by:  Option<i32>,
-	pub updated_at:  NaiveDateTime,
-	pub updated_by:  Option<i32>,
+	pub id:             i32,
+	pub name:           String,
+	pub description:    Option<String>,
+	pub created_at:     NaiveDateTime,
+	pub created_by:     Option<i32>,
+	pub updated_at:     NaiveDateTime,
+	pub updated_by:     Option<i32>,
+	pub institution_id: Option<i32>,
 }
 
 mod auto_type_helpers {
@@ -56,6 +64,7 @@ impl Authority {
 	fn joined_query(includes: AuthorityIncludes) -> _ {
 		let inc_created_by: bool = includes.created_by;
 		let inc_updated_by: bool = includes.updated_by;
+		let inc_institution: bool = includes.institution;
 
 		authority::table
 			.left_outer_join(creator.on(inc_created_by.into_sql::<Bool>().and(
@@ -64,6 +73,11 @@ impl Authority {
 			.left_outer_join(updater.on(inc_updated_by.into_sql::<Bool>().and(
 				authority::updated_by.eq(updater.field(profile::id).nullable()),
 			)))
+			.left_outer_join(institution::table.on(
+				inc_institution.into_sql::<Bool>().and(
+					authority::institution_id.eq(institution::id.nullable()),
+				),
+			))
 	}
 
 	/// Construct a full [`Authority`] struct from the data returned by a
@@ -73,9 +87,10 @@ impl Authority {
 		data: JoinedAuthorityData,
 	) -> Self {
 		Self {
-			authority:  data.0,
-			created_by: if includes.created_by { Some(data.1) } else { None },
-			updated_by: if includes.updated_by { Some(data.2) } else { None },
+			authority:   data.0,
+			created_by:  if includes.created_by { Some(data.1) } else { None },
+			updated_by:  if includes.updated_by { Some(data.2) } else { None },
+			institution: if includes.institution { Some(data.3) } else { None },
 		}
 	}
 
@@ -96,6 +111,7 @@ impl Authority {
 						PrimitiveAuthority::as_select(),
 						creator.fields(profile::all_columns).nullable(),
 						updater.fields(profile::all_columns).nullable(),
+						institution::all_columns.nullable(),
 					))
 					.get_result(conn)
 			})
@@ -122,6 +138,7 @@ impl Authority {
 						PrimitiveAuthority::as_select(),
 						creator.fields(profile::all_columns).nullable(),
 						updater.fields(profile::all_columns).nullable(),
+						institution::all_columns.nullable(),
 					))
 					.load(c)
 			})
@@ -156,9 +173,10 @@ impl Authority {
 #[diesel(table_name = authority)]
 #[diesel(check_for_backend(Pg))]
 pub struct NewAuthority {
-	pub name:        String,
-	pub description: Option<String>,
-	pub created_by:  i32,
+	pub name:           String,
+	pub description:    Option<String>,
+	pub created_by:     i32,
+	pub institution_id: Option<i32>,
 }
 
 impl NewAuthority {
@@ -193,9 +211,10 @@ impl NewAuthority {
 #[diesel(table_name = authority)]
 #[diesel(check_for_backend(Pg))]
 pub struct AuthorityUpdate {
-	pub name:        Option<String>,
-	pub description: Option<String>,
-	pub updated_by:  i32,
+	pub name:           Option<String>,
+	pub description:    Option<String>,
+	pub updated_by:     i32,
+	pub institution_id: Option<i32>,
 }
 
 impl AuthorityUpdate {

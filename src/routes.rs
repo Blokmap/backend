@@ -37,9 +37,17 @@ use crate::controllers::authority::{
 };
 use crate::controllers::healthcheck;
 use crate::controllers::institution::{
+	add_institution_member,
+	create_institution,
+	create_institution_authority,
+	delete_institution_member,
+	get_all_institution_permissions,
 	get_all_institutions,
 	get_categories,
 	get_institution,
+	get_institution_members,
+	link_authority,
+	update_institution_member,
 };
 use crate::controllers::location::{
 	add_location_member,
@@ -274,8 +282,20 @@ fn tag_routes(state: &AppState) -> Router<AppState> {
 
 fn institution_routes(state: &AppState) -> Router<AppState> {
 	Router::new()
-		.route("/", get(get_all_institutions))
-		.route("/{id}", get(get_institution))
+		.route("/", get(get_all_institutions).post(create_institution))
+		.route("/permissions", get(get_all_institution_permissions))
 		.route("/categories", get(get_categories))
+		.route("/{id}", get(get_institution))
+		.route("/{id}/authority", post(create_institution_authority))
+		.route("/{i_id}/link/{a_id}", post(link_authority))
+		.route(
+			"/{id}/members",
+			get(get_institution_members).post(add_institution_member),
+		)
+		.route("/{i_id}/members/{p_id}", delete(delete_institution_member))
+		.route(
+			"/{i_id}/members/{p_id}/permissions",
+			put(update_institution_member),
+		)
 		.route_layer(AuthLayer::new(state.clone()))
 }
