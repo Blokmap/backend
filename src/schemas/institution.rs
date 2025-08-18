@@ -8,6 +8,7 @@ use models::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::schemas::authority::{AuthorityResponse, CreateAuthorityRequest};
 use crate::schemas::profile::ProfileResponse;
 use crate::schemas::ser_includes;
 use crate::schemas::translation::{
@@ -36,6 +37,7 @@ pub struct InstitutionResponse {
 	pub updated_by:       Option<Option<ProfileResponse>>,
 	pub category:         InstitutionCategory,
 	pub slug:             String,
+	pub authority:        Option<AuthorityResponse>,
 }
 
 impl From<Institution> for InstitutionResponse {
@@ -57,6 +59,7 @@ impl From<Institution> for InstitutionResponse {
 			updated_by:       value.updated_by.map(|p| p.map(Into::into)),
 			category:         value.institution.category,
 			slug:             value.institution.slug,
+			authority:        None,
 		}
 	}
 }
@@ -75,25 +78,34 @@ pub struct CreateInstitutionRequest {
 	pub country:          Option<String>,
 	pub category:         InstitutionCategory,
 	pub slug:             String,
+	pub authority:        Option<CreateAuthorityRequest>,
 }
 
 impl CreateInstitutionRequest {
 	#[must_use]
-	pub fn to_insertable(self, created_by: i32) -> NewInstitution {
-		NewInstitution {
-			name_translation: self.name_translation.to_insertable(created_by),
-			email: self.email,
-			phone_number: self.phone_number,
-			street: self.street,
-			number: self.number,
-			zip: self.zip,
-			city: self.city,
-			province: self.province,
-			country: self.country,
-			created_by,
-			category: self.category,
-			slug: self.slug,
-		}
+	pub fn to_insertable(
+		self,
+		created_by: i32,
+	) -> (NewInstitution, Option<CreateAuthorityRequest>) {
+		(
+			NewInstitution {
+				name_translation: self
+					.name_translation
+					.to_insertable(created_by),
+				email: self.email,
+				phone_number: self.phone_number,
+				street: self.street,
+				number: self.number,
+				zip: self.zip,
+				city: self.city,
+				province: self.province,
+				country: self.country,
+				created_by,
+				category: self.category,
+				slug: self.slug,
+			},
+			self.authority,
+		)
 	}
 }
 

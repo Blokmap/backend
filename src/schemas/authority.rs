@@ -101,6 +101,7 @@ impl CreateAuthorityRequest {
 			name: self.name,
 			description: self.description,
 			created_by,
+			institution_id: None,
 		}
 	}
 }
@@ -119,6 +120,7 @@ impl UpdateAuthorityRequest {
 			name: self.name,
 			description: self.description,
 			updated_by,
+			institution_id: None,
 		}
 	}
 }

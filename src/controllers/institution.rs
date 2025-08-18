@@ -4,6 +4,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
 use models::{
+	AuthorityIncludes,
 	Institution,
 	InstitutionCategory,
 	InstitutionIncludes,
@@ -29,9 +30,23 @@ pub async fn create_institution(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let new_institution = request.to_insertable(session.data.profile_id);
+	let (new_institution, authority_request) =
+		request.to_insertable(session.data.profile_id);
 	let institution = new_institution.insert(includes, &conn).await?;
-	let response: InstitutionResponse = institution.into();
+	let mut response: InstitutionResponse = institution.into();
+
+	if let Some(authority_request) = authority_request {
+		let mut new_authority =
+			authority_request.to_insertable(session.data.profile_id);
+		new_authority.institution_id = Some(response.id);
+
+		response.authority = Some(
+			new_authority
+				.insert(AuthorityIncludes::default(), &conn)
+				.await?
+				.into(),
+		);
+	}
 
 	Ok((StatusCode::CREATED, Json(response)))
 }

@@ -173,9 +173,10 @@ impl Authority {
 #[diesel(table_name = authority)]
 #[diesel(check_for_backend(Pg))]
 pub struct NewAuthority {
-	pub name:        String,
-	pub description: Option<String>,
-	pub created_by:  i32,
+	pub name:           String,
+	pub description:    Option<String>,
+	pub created_by:     i32,
+	pub institution_id: Option<i32>,
 }
 
 impl NewAuthority {
@@ -210,9 +211,10 @@ impl NewAuthority {
 #[diesel(table_name = authority)]
 #[diesel(check_for_backend(Pg))]
 pub struct AuthorityUpdate {
-	pub name:        Option<String>,
-	pub description: Option<String>,
-	pub updated_by:  i32,
+	pub name:           Option<String>,
+	pub description:    Option<String>,
+	pub updated_by:     i32,
+	pub institution_id: Option<i32>,
 }
 
 impl AuthorityUpdate {
