@@ -11,6 +11,7 @@ use models::{
 	InstitutionPermissions,
 };
 
+use crate::schemas::authority::{AuthorityResponse, CreateAuthorityRequest};
 use crate::schemas::institution::{
 	CreateInstitutionMemberRequest,
 	CreateInstitutionRequest,
@@ -30,6 +31,8 @@ pub async fn create_institution(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
+	// TODO: permissions
+
 	let (new_institution, authority_request) =
 		request.to_insertable(session.data.profile_id);
 	let institution = new_institution.insert(includes, &conn).await?;
@@ -47,6 +50,26 @@ pub async fn create_institution(
 				.into(),
 		);
 	}
+
+	Ok((StatusCode::CREATED, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn create_institution_authority(
+	State(pool): State<DbPool>,
+	session: Session,
+	Path(i_id): Path<i32>,
+	Query(includes): Query<AuthorityIncludes>,
+	Json(request): Json<CreateAuthorityRequest>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	// TODO: permissions
+
+	let mut new_authority = request.to_insertable(session.data.profile_id);
+	new_authority.institution_id = Some(i_id);
+	let new_authority = new_authority.insert(includes, &conn).await?;
+	let response: AuthorityResponse = new_authority.into();
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -130,6 +153,8 @@ pub(crate) async fn add_institution_member(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
+	// TODO: better permissions
+
 	let actor_id = session.data.profile_id;
 	let actor_perms =
 		Institution::get_member_permissions(id, actor_id, &conn).await?;
@@ -155,6 +180,8 @@ pub async fn delete_institution_member(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
+	// TODO: better permissions
+
 	let actor_id = session.data.profile_id;
 	let actor_perms =
 		Institution::get_member_permissions(i_id, actor_id, &conn).await?;
@@ -177,6 +204,8 @@ pub async fn update_institution_member(
 	Json(request): Json<UpdateInstitutionProfileRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
+
+	// TODO: better permissions
 
 	let actor_id = session.data.profile_id;
 	let actor_perms =

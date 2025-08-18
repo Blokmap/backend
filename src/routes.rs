@@ -39,6 +39,7 @@ use crate::controllers::healthcheck;
 use crate::controllers::institution::{
 	add_institution_member,
 	create_institution,
+	create_institution_authority,
 	delete_institution_member,
 	get_all_institution_permissions,
 	get_all_institutions,
@@ -284,6 +285,7 @@ fn institution_routes(state: &AppState) -> Router<AppState> {
 		.route("/permissions", get(get_all_institution_permissions))
 		.route("/categories", get(get_categories))
 		.route("/{id}", get(get_institution))
+		.route("/{id}/institution", post(create_institution_authority))
 		.route(
 			"/{id}/members",
 			get(get_institution_members).post(add_institution_member),
