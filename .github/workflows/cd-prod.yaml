@@ -52,7 +52,7 @@ jobs:
             uses: docker/metadata-action@v5
             with:
                 images: |
-                    ghcr.io/blokmap/blokmap-backend
+                    ghcr.io/blokmap/blokmap-production-backend
                 tags: |
                     type=raw,value={{sha}}
                     type=raw,value=latest
@@ -73,8 +73,8 @@ jobs:
                 file: Dockerfile.prod
                 push: true
                 tags: ${{ steps.meta.outputs.tags }}
-                cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-backend:buildcache
-                cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-backend:buildcache,mode=max
+                cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-prod-backend:buildcache
+                cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-prod-backend:buildcache,mode=max
 
     build-prod-migrations:
         runs-on: self-hosted
@@ -86,7 +86,7 @@ jobs:
             uses: docker/metadata-action@v5
             with:
                 images: |
-                    ghcr.io/blokmap/blokmap-migrations
+                    ghcr.io/blokmap/blokmap-production-migrations
                 tags: |
                     type=raw,value={{sha}}
                     type=raw,value=latest
@@ -107,51 +107,5 @@ jobs:
                 file: Dockerfile.migrations
                 push: true
                 tags: ${{ steps.meta.outputs.tags }}
-                cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-migrations:buildcache
-                cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-migrations:buildcache,mode=max
-
-    deploy-prod:
-        runs-on: self-hosted
-        needs: [path-filter, build-prod-backend, build-prod-migrations]
-        if: needs.path-filter.outputs.migrations == 'true'
-        steps:
-          - name: Run migrations
-            uses: appleboy/ssh-action@v1.2.1
-            with:
-                host: ${{ secrets.PRODUCTION_HOST }}
-                username: ${{ secrets.PRODUCTION_USERNAME }}
-                key: ${{ secrets.PRODUCTION_SSH_KEY }}
-                debug: true
-                script: |
-                    cd /home/blokmap/deploy && git pull
-                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml pull
-                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml up blokmap-prod-migrations
-
-          - name: Deploy backend
-            uses: appleboy/ssh-action@v1.2.1
-            with:
-                host: ${{ secrets.PRODUCTION_HOST }}
-                username: ${{ secrets.PRODUCTION_USERNAME }}
-                key: ${{ secrets.PRODUCTION_SSH_KEY }}
-                debug: true
-                script: |
-                    cd /home/blokmap/deploy && git pull
-                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml pull
-                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml up blokmap-prod-backend -d
-
-    deploy-prod-backend:
-        runs-on: self-hosted
-        needs: [path-filter, build-prod-backend]
-        if: needs.path-filter.outputs.migrations == 'false'
-        steps:
-          - name: Deploy backend
-            uses: appleboy/ssh-action@v1.2.1
-            with:
-                host: ${{ secrets.PRODUCTION_HOST }}
-                username: ${{ secrets.PRODUCTION_USERNAME }}
-                key: ${{ secrets.PRODUCTION_SSH_KEY }}
-                debug: true
-                script: |
-                    cd /home/blokmap/deploy && git pull
-                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml pull
-                    docker compose -f /home/blokmap/deploy/production/compose.prod.yaml up blokmap-prod-backend -d
+                cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-prod-migrations:buildcache
+                cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-prod-migrations:buildcache,mode=max

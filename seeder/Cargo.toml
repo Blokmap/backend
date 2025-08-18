@@ -11,8 +11,8 @@ license-file = "../LICENSE"
 publish = false
 
 [dependencies]
-common = { path = "../common" }
-models = { path = "../models" }
+common = { path = "../libs/common" }
+models = { path = "../libs/models" }
 
 chrono = { workspace = true }
 diesel = { workspace = true }

@@ -52,7 +52,7 @@ jobs:
             uses: docker/metadata-action@v5
             with:
                 images: |
-                    ghcr.io/blokmap/blokmap-backend
+                    ghcr.io/blokmap/blokmap-staging-backend
                 tags: |
                     type=raw,value={{sha}}
                     type=raw,value=latest
@@ -73,8 +73,8 @@ jobs:
                 file: Dockerfile.staging
                 push: true
                 tags: ${{ steps.meta.outputs.tags }}
-                cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-backend:buildcache
-                cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-backend:buildcache,mode=max
+                cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-staging-backend:buildcache
+                cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-staging-backend:buildcache,mode=max
 
     build-staging-migrations:
         runs-on: self-hosted
@@ -86,7 +86,7 @@ jobs:
             uses: docker/metadata-action@v5
             with:
                 images: |
-                    ghcr.io/blokmap/blokmap-migrations
+                    ghcr.io/blokmap/blokmap-staging-migrations
                 tags: |
                     type=raw,value={{sha}}
                     type=raw,value=latest
@@ -107,8 +107,8 @@ jobs:
                 file: Dockerfile.migrations
                 push: true
                 tags: ${{ steps.meta.outputs.tags }}
-                cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-migrations:buildcache
-                cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-migrations:buildcache,mode=max
+                cache-from: type=registry,ref=ghcr.io/blokmap/blokmap-staging-migrations:buildcache
+                cache-to: type=registry,ref=ghcr.io/blokmap/blokmap-staging-migrations:buildcache,mode=max
 
     deploy-staging:
         runs-on: self-hosted
