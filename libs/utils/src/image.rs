@@ -29,8 +29,9 @@ pub async fn store_location_images(
 			save_image_file(&abs_filepath, &image, color_type)?;
 
 			let new_image = NewImage {
-				file_path:   rel_filepath.to_string_lossy().into_owned(),
+				file_path:   Some(rel_filepath.to_string_lossy().into_owned()),
 				uploaded_by: uploader_id,
+				image_url:   None,
 			};
 
 			Ok(new_image)
@@ -55,8 +56,9 @@ pub async fn store_profile_image(
 	save_image_file(&abs_filepath, &image, color_type)?;
 
 	let new_image = NewImage {
-		file_path:   rel_filepath.to_string_lossy().into_owned(),
+		file_path:   Some(rel_filepath.to_string_lossy().into_owned()),
 		uploaded_by: profile_id,
+		image_url:   None,
 	};
 
 	let image =

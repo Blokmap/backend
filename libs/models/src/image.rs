@@ -96,8 +96,9 @@ impl Image {
 #[derive(Clone, Debug, Deserialize, Insertable, Serialize)]
 #[diesel(table_name = image)]
 pub struct NewImage {
-	pub file_path:   String,
+	pub file_path:   Option<String>,
 	pub uploaded_by: i32,
+	pub image_url:   Option<String>,
 }
 
 impl NewImage {
