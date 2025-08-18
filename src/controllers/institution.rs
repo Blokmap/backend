@@ -5,6 +5,7 @@ use axum::response::IntoResponse;
 use common::{DbPool, Error};
 use models::{
 	AuthorityIncludes,
+	AuthorityUpdate,
 	Institution,
 	InstitutionCategory,
 	InstitutionIncludes,
@@ -72,6 +73,29 @@ pub async fn create_institution_authority(
 	let response: AuthorityResponse = new_authority.into();
 
 	Ok((StatusCode::CREATED, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn link_authority(
+	State(pool): State<DbPool>,
+	session: Session,
+	Path((i_id, a_id)): Path<(i32, i32)>,
+	Query(includes): Query<AuthorityIncludes>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	// TODO: permissions
+
+	let update = AuthorityUpdate {
+		name:           None,
+		description:    None,
+		updated_by:     session.data.profile_id,
+		institution_id: Some(i_id),
+	};
+	let authority = update.apply_to(a_id, includes, &conn).await?;
+	let response: AuthorityResponse = authority.into();
+
+	Ok((StatusCode::OK, Json(response)))
 }
 
 #[instrument(skip(pool))]

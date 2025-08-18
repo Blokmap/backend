@@ -46,6 +46,7 @@ use crate::controllers::institution::{
 	get_categories,
 	get_institution,
 	get_institution_members,
+	link_authority,
 	update_institution_member,
 };
 use crate::controllers::location::{
@@ -286,6 +287,7 @@ fn institution_routes(state: &AppState) -> Router<AppState> {
 		.route("/categories", get(get_categories))
 		.route("/{id}", get(get_institution))
 		.route("/{id}/authority", post(create_institution_authority))
+		.route("/{i_id}/link/{a_id}", post(link_authority))
 		.route(
 			"/{id}/members",
 			get(get_institution_members).post(add_institution_member),
