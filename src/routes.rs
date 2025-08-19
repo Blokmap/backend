@@ -168,9 +168,9 @@ fn auth_routes(state: &AppState) -> Router<AppState> {
 
 /// Profile routes
 fn profile_routes(state: &AppState) -> Router<AppState> {
-	Router::new()
+	let protected = Router::new()
 		.route("/", get(get_all_profiles))
-		.route("/me", get(get_current_profile).patch(update_current_profile))
+		.route("/me", patch(update_current_profile))
 		.route("/{profile_id}", get(get_profile).patch(update_profile))
 		.route(
 			"/{profile_id}/avatar",
@@ -183,7 +183,9 @@ fn profile_routes(state: &AppState) -> Router<AppState> {
 		.route("/{profile_id}/reservations", get(get_profile_reservations))
 		.route("/{profile_id}/reviews", get(get_profile_reviews))
 		.route("/{profile_id}/stats", get(get_profile_stats))
-		.route_layer(AuthLayer::new(state.clone()))
+		.route_layer(AuthLayer::new(state.clone()));
+
+	Router::new().route("/me", get(get_current_profile)).merge(protected)
 }
 
 /// Location routes with auth protection for write operations
