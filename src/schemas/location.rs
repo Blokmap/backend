@@ -9,6 +9,7 @@ use models::{
 	PrimitiveLocation,
 };
 use serde::{Deserialize, Serialize};
+use validator_derive::Validate;
 
 use crate::Config;
 use crate::schemas::authority::AuthorityResponse;
@@ -176,7 +177,7 @@ impl BuildResponse<LocationResponse> for FullLocationData {
 	}
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateLocationRequest {
 	pub name:                   String,
@@ -192,6 +193,7 @@ pub struct CreateLocationRequest {
 	pub zip:                    String,
 	pub city:                   String,
 	pub province:               String,
+	#[validate(length(equal = 2))]
 	pub country:                String,
 	pub latitude:               f64,
 	pub longitude:              f64,

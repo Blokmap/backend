@@ -18,6 +18,7 @@ use models::{
 	TimeFilter,
 };
 use utils::image::{delete_image, store_location_images};
+use validator::Validate;
 
 use crate::schemas::BuildResponse;
 use crate::schemas::location::{
@@ -44,6 +45,8 @@ pub(crate) async fn create_location(
 	Json(request): Json<CreateLocationRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
+
+	request.validate()?;
 
 	let new_location = request.to_insertable(session.data.profile_id);
 	let records = new_location.insert(includes, &conn).await?;
