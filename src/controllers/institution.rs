@@ -12,6 +12,7 @@ use models::{
 	InstitutionPermissions,
 };
 
+use crate::schemas::BuildResponse;
 use crate::schemas::authority::{AuthorityResponse, CreateAuthorityRequest};
 use crate::schemas::institution::{
 	CreateInstitutionMemberRequest,
@@ -152,17 +153,10 @@ pub async fn get_institution_members(
 	let conn = pool.get().await?;
 
 	let members = Institution::get_members_with_permissions(id, &conn).await?;
-	let response: Vec<_> = members
+	let response: Vec<ProfilePermissionsResponse> = members
 		.into_iter()
-		.map(|(p, img, perm)| {
-			let img = img.map(|i| {
-				config.backend_url.join(&i.file_path).unwrap().to_string()
-			});
-
-			(p, img, perm)
-		})
-		.map(ProfilePermissionsResponse::from)
-		.collect();
+		.map(|data| data.build_response(&config))
+		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -189,9 +183,8 @@ pub(crate) async fn add_institution_member(
 
 	let new_inst_profile = request.to_insertable(id, actor_id);
 	let (member, img, perms) = new_inst_profile.insert(&conn).await?;
-	let img =
-		img.map(|i| config.backend_url.join(&i.file_path).unwrap().to_string());
-	let response = ProfilePermissionsResponse::from((member, img, perms));
+	let response: ProfilePermissionsResponse =
+		(member, img, perms).build_response(&config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -242,10 +235,8 @@ pub async fn update_institution_member(
 	let inst_update = request.to_insertable(actor_id);
 	let (updated_member, img, perms) =
 		inst_update.apply_to(i_id, p_id, &conn).await?;
-	let img =
-		img.map(|i| config.backend_url.join(&i.file_path).unwrap().to_string());
 	let response: ProfilePermissionsResponse =
-		(updated_member, img, perms).into();
+		(updated_member, img, perms).build_response(&config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }

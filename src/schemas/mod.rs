@@ -16,7 +16,7 @@ pub mod tag;
 pub mod translation;
 
 pub trait BuildResponse<R> {
-	fn build_response(self, config: &Config) -> R;
+	fn build_response(self, config: &Config) -> Result<R, common::Error>;
 }
 
 /// A visitor for bounded u32 values.

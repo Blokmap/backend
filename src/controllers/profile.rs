@@ -275,8 +275,9 @@ pub async fn get_profile_locations(
 
 	let locations =
 		Location::get_by_profile_id(profile_id, includes, &conn).await?;
-	let response: Vec<LocationResponse> =
+	let response: Result<Vec<LocationResponse>, _> =
 		locations.into_iter().map(|l| l.build_response(&config)).collect();
+	let response = response?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -322,8 +323,9 @@ pub async fn get_profile_reviews(
 	let conn = pool.get().await?;
 
 	let reviews = Review::for_profile(p_id, &conn).await?;
-	let response: Vec<ReviewLocationResponse> =
+	let response: Result<Vec<ReviewLocationResponse>, Error> =
 		reviews.into_iter().map(|data| data.build_response(&config)).collect();
+	let response = response?;
 
 	Ok((StatusCode::OK, Json(response)))
 }

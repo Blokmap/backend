@@ -18,7 +18,7 @@ pub async fn store_location_images(
 	location_id: i32,
 	bytes: &[Bytes],
 	conn: &DbConn,
-) -> Result<Vec<String>, Error> {
+) -> Result<Vec<models::Image>, Error> {
 	let images = bytes
 		.into_par_iter()
 		.map(|bytes| {
@@ -29,8 +29,9 @@ pub async fn store_location_images(
 			save_image_file(&abs_filepath, &image, color_type)?;
 
 			let new_image = NewImage {
-				file_path:   rel_filepath.to_string_lossy().into_owned(),
+				file_path:   Some(rel_filepath.to_string_lossy().into_owned()),
 				uploaded_by: uploader_id,
+				image_url:   None,
 			};
 
 			Ok(new_image)
@@ -39,9 +40,7 @@ pub async fn store_location_images(
 
 	let images = Location::insert_images(location_id, images, conn).await?;
 
-	let image_paths = images.into_iter().map(|i| i.file_path).collect();
-
-	Ok(image_paths)
+	Ok(images)
 }
 
 /// Store an image for the given profile
@@ -57,8 +56,9 @@ pub async fn store_profile_image(
 	save_image_file(&abs_filepath, &image, color_type)?;
 
 	let new_image = NewImage {
-		file_path:   rel_filepath.to_string_lossy().into_owned(),
+		file_path:   Some(rel_filepath.to_string_lossy().into_owned()),
 		uploaded_by: profile_id,
+		image_url:   None,
 	};
 
 	let image =
@@ -73,8 +73,10 @@ pub async fn delete_image(id: i32, conn: &DbConn) -> Result<(), Error> {
 	let image = models::Image::get_by_id(id, conn).await?;
 	models::Image::delete_by_id(id, conn).await?;
 
-	let filepath = PathBuf::from("/mnt/files").join(image.file_path);
-	std::fs::remove_file(filepath)?;
+	if let Some(file_path) = &image.file_path {
+		let filepath = PathBuf::from("/mnt/files").join(file_path);
+		std::fs::remove_file(filepath)?;
+	}
 
 	Ok(())
 }

@@ -42,9 +42,10 @@ diesel::table! {
 diesel::table! {
 	image (id) {
 		id -> Int4,
-		file_path -> Text,
+		file_path -> Nullable<Text>,
 		uploaded_at -> Timestamp,
 		uploaded_by -> Int4,
+		image_url -> Nullable<Text>,
 	}
 }
 

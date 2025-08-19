@@ -47,7 +47,7 @@ pub(crate) async fn create_location(
 
 	let new_location = request.to_insertable(session.data.profile_id);
 	let records = new_location.insert(includes, &conn).await?;
-	let response: LocationResponse = records.build_response(&config);
+	let response: LocationResponse = records.build_response(&config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -120,7 +120,7 @@ pub(crate) async fn get_location(
 	let conn = pool.get().await?;
 
 	let result = Location::get_by_id(id, includes, &conn).await?;
-	let response: LocationResponse = result.build_response(&config);
+	let response: LocationResponse = result.build_response(&config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -177,8 +177,9 @@ pub(crate) async fn search_locations(
 
 	let locations = Location::group(locations, &times, &tags, &imgs);
 
-	let locations: Vec<LocationResponse> =
+	let locations: Result<Vec<LocationResponse>, _> =
 		locations.into_iter().map(|l| l.build_response(&config)).collect();
+	let locations = locations?;
 
 	let paginated = p_opts.paginate(total, truncated, locations);
 
@@ -218,7 +219,7 @@ pub(crate) async fn update_location(
 
 	let loc_update = request.to_insertable(session.data.profile_id);
 	let updated_loc = loc_update.apply_to(id, includes, &conn).await?;
-	let response: LocationResponse = updated_loc.build_response(&config);
+	let response: LocationResponse = updated_loc.build_response(&config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -356,16 +357,10 @@ pub async fn get_location_members(
 	}
 
 	let members = Location::get_members(id, &conn).await?;
-	let response: Vec<_> = members
+	let response: Vec<ProfilePermissionsResponse> = members
 		.into_iter()
-		.map(|(m, img, perms)| {
-			let img =
-				img.map(|i| format!("{}{}", config.backend_url, i.file_path));
-
-			(m, img, perms)
-		})
-		.map(ProfilePermissionsResponse::from)
-		.collect();
+		.map(|data| data.build_response(&config))
+		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -395,8 +390,8 @@ pub async fn add_location_member(
 
 	let new_loc_profile = request.to_insertable(id, session.data.profile_id);
 	let (member, img, perms) = new_loc_profile.insert(&conn).await?;
-	let img = img.map(|i| format!("{}{}", config.backend_url, i.file_path));
-	let response = ProfilePermissionsResponse::from((member, img, perms));
+	let response: ProfilePermissionsResponse =
+		(member, img, perms).build_response(&config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -455,9 +450,8 @@ pub async fn update_location_member(
 	let loc_update = request.to_insertable(session.data.profile_id);
 	let (updated_member, img, perms) =
 		loc_update.apply_to(l_id, p_id, &conn).await?;
-	let img = img.map(|i| format!("{}{}", config.backend_url, i.file_path));
 	let response: ProfilePermissionsResponse =
-		(updated_member, img, perms).into();
+		(updated_member, img, perms).build_response(&config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }

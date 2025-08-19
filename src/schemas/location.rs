@@ -1,4 +1,5 @@
 use chrono::NaiveDateTime;
+use common::Error;
 use models::{
 	FullLocationData,
 	LocationProfileUpdate,
@@ -119,10 +120,13 @@ impl From<PrimitiveLocation> for LocationResponse {
 }
 
 impl BuildResponse<LocationResponse> for FullLocationData {
-	fn build_response(self, config: &Config) -> LocationResponse {
+	fn build_response(
+		self,
+		config: &Config,
+	) -> Result<LocationResponse, Error> {
 		let (location, (opening_times, tags, images)) = self;
 
-		LocationResponse {
+		Ok(LocationResponse {
 			id:                     location.location.id,
 			name:                   location.location.name,
 			authority:              location
@@ -167,8 +171,8 @@ impl BuildResponse<LocationResponse> for FullLocationData {
 			images:        images
 				.into_iter()
 				.map(|i| i.build_response(config))
-				.collect(),
-		}
+				.collect::<Result<_, _>>()?,
+		})
 	}
 }
 
