@@ -418,16 +418,16 @@ impl PrimitiveProfile {
 
 		let profile = new_profile.insert(conn).await?;
 
-		if let Some(avatar_url) = claims.picture() {
-			if let Some(avatar_url) = avatar_url.get(None) {
-				let avatar = NewImage {
-					file_path: None,
-					uploaded_by: profile.id,
-					image_url: Some(avatar_url.to_string()),
-				};
+		if let Some(avatar_url) = claims.picture()
+			&& let Some(avatar_url) = avatar_url.get(None)
+		{
+			let avatar = NewImage {
+				file_path:   None,
+				uploaded_by: profile.id,
+				image_url:   Some(avatar_url.to_string()),
+			};
 
-				Self::insert_avatar(profile.id, avatar, conn).await?;
-			}
+			Self::insert_avatar(profile.id, avatar, conn).await?;
 		}
 
 		Ok(profile)
