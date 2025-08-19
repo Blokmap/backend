@@ -308,7 +308,10 @@ async fn confirm_email() {
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
 	let response = env.app.get("/profiles/me").await;
-	let body = response.json::<ProfileResponse>();
+	let body = response.json::<Option<ProfileResponse>>();
+
+	assert!(body.is_some());
+	let body = body.unwrap();
 
 	assert_eq!(response.status_code(), StatusCode::OK);
 	assert_eq!(body.username, "bob".to_string());
@@ -452,7 +455,10 @@ async fn resend_confirmation_email() {
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
 	let response = env.app.get("/profiles/me").await;
-	let body = response.json::<ProfileResponse>();
+	let body = response.json::<Option<ProfileResponse>>();
+
+	assert!(body.is_some());
+	let body = body.unwrap();
 
 	assert_eq!(response.status_code(), StatusCode::OK);
 	assert_eq!(body.username, "bob".to_string());

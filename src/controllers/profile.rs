@@ -1,9 +1,10 @@
 //! Controllers for [`Profile`]s
 
-use axum::Json;
-use axum::extract::{Multipart, Path, Query, State};
+use axum::extract::{Multipart, Path, Query, Request, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
+use axum::{Json, RequestExt};
+use axum_extra::extract::PrivateCookieJar;
 use common::{DbPool, Error, RedisConn};
 use models::{
 	Authority,
@@ -34,7 +35,7 @@ use crate::schemas::profile::{
 };
 use crate::schemas::reservation::ReservationResponse;
 use crate::schemas::review::ReviewLocationResponse;
-use crate::{AdminSession, Config, Session};
+use crate::{AdminSession, AppState, Config, Session};
 
 /// Get all [`Profile`]s
 #[instrument(skip(pool))]
@@ -56,16 +57,36 @@ pub async fn get_all_profiles(
 	Ok(Json(paginated))
 }
 
-#[instrument(skip(pool))]
+#[instrument(skip(state, pool))]
 pub async fn get_current_profile(
+	State(state): State<AppState>,
 	State(pool): State<DbPool>,
-	session: Session,
-) -> Result<Json<ProfileResponse>, Error> {
+	mut req: Request,
+) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let profile = PrimitiveProfile::get(session.data.profile_id, &conn).await?;
+	let jar = req
+		.extract_parts_with_state::<PrivateCookieJar, _>(&state)
+		.await
+		.unwrap();
 
-	Ok(Json(profile.into()))
+	let mut r_conn = state.redis_connection;
+
+	let Some(access_token) = jar.get(&state.config.access_token_name) else {
+		return Ok((StatusCode::OK, Json(None)));
+	};
+
+	// Unwrap is safe as correctly signed access tokens are always i32
+	let session_id = access_token.value().parse::<i32>().unwrap();
+
+	let Ok(Some(session)) = Session::get(session_id, &mut r_conn).await else {
+		return Ok((StatusCode::OK, Json(None)));
+	};
+
+	let profile = PrimitiveProfile::get(session.data.profile_id, &conn).await?;
+	let response: ProfileResponse = profile.into();
+
+	Ok((StatusCode::OK, Json(Some(response))))
 }
 
 #[instrument(skip(pool))]
