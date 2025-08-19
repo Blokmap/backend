@@ -84,8 +84,9 @@ pub async fn get_current_profile(
 	};
 
 	let profile = PrimitiveProfile::get(session.data.profile_id, &conn).await?;
+	let response: ProfileResponse = profile.into();
 
-	Ok((StatusCode::OK, Json(profile.into())))
+	Ok((StatusCode::OK, Json(Some(response))))
 }
 
 #[instrument(skip(pool))]
