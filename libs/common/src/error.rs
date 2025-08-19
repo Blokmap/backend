@@ -73,9 +73,7 @@ impl Error {
 			Self::NotFound(_) => "not_found",
 			Self::LoginError(e) => {
 				match e {
-					LoginError::UnknownUsername(_) => "unknown_username",
-					LoginError::UnknownEmail(_) => "unknown_email",
-					LoginError::InvalidPassword => "invalid_password",
+					LoginError::UnknownProfile => "unknown_profile",
 					LoginError::PendingEmailVerification => {
 						"pending_email_verification"
 					},
@@ -140,9 +138,6 @@ impl Error {
 			Self::Duplicate(m)
 			| Self::InvalidImage(m)
 			| Self::NotFound(m)
-			| Self::LoginError(
-				LoginError::UnknownUsername(m) | LoginError::UnknownEmail(m),
-			)
 			| Self::ValidationError(m) => Some(m.to_owned()),
 			Self::CreateReservationError(e) => {
 				match e {
@@ -178,6 +173,7 @@ impl Error {
 }
 
 /// Convert an error into a [`Response`]
+#[rustfmt::skip]
 impl IntoResponse for Error {
 	fn into_response(self) -> Response {
 		error!("{self:?}");
@@ -198,6 +194,8 @@ impl IntoResponse for Error {
 			Self::TokenError(
 				TokenError::MissingAccessToken | TokenError::MissingSession,
 			) => StatusCode::UNAUTHORIZED,
+			Self::NotFound(_)
+			| Self::LoginError(LoginError::UnknownProfile) => StatusCode::NOT_FOUND,
 			Self::Forbidden
 			| Self::LoginError(_)
 			| Self::OAuthError(OAuthError::InvalidCSRFToken)
@@ -212,7 +210,6 @@ impl IntoResponse for Error {
 				| OAuthError::MissingNonceCookie
 				| OAuthError::UnknownProvider(_),
 			) => StatusCode::BAD_REQUEST,
-			Self::NotFound(_) => StatusCode::NOT_FOUND,
 			Self::ValidationError(_) | Self::MissingRequestData(_) => {
 				StatusCode::UNPROCESSABLE_ENTITY
 			},
@@ -225,12 +222,8 @@ impl IntoResponse for Error {
 /// Any error related to logging in
 #[derive(Debug, Error)]
 pub enum LoginError {
-	#[error("no profile with username '{0}' was found")]
-	UnknownUsername(String),
-	#[error("no profile with email '{0}' was found")]
-	UnknownEmail(String),
-	#[error("invalid password")]
-	InvalidPassword,
+	#[error("no profile with these login details was found")]
+	UnknownProfile,
 	#[error("profile is still awaiting email verification")]
 	PendingEmailVerification,
 	#[error("profile is disabled")]
@@ -383,7 +376,7 @@ impl From<argon2::password_hash::Error> for Error {
 	fn from(err: argon2::password_hash::Error) -> Self {
 		match err {
 			argon2::password_hash::Error::Password => {
-				LoginError::InvalidPassword.into()
+				LoginError::UnknownProfile.into()
 			},
 			_ => InternalServerError::HashError(err).into(),
 		}
