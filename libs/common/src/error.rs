@@ -478,6 +478,9 @@ impl From<image::ImageError> for Error {
 	fn from(value: image::ImageError) -> Self {
 		match value {
 			image::ImageError::Decoding(e) => Self::InvalidImage(e.to_string()),
+			image::ImageError::Unsupported(e) => {
+				Self::InvalidImage(e.to_string())
+			},
 			image::ImageError::IoError(e) => {
 				InternalServerError::IOError(e).into()
 			},
