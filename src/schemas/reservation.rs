@@ -1,5 +1,5 @@
 use chrono::{Duration, NaiveDateTime, NaiveTime};
-use models::{Reservation, ReservationState};
+use models::{RESERVATION_BLOCK_SIZE_MINUTES, Reservation, ReservationState};
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::location::LocationResponse;
@@ -36,18 +36,20 @@ impl From<Reservation> for ReservationResponse {
 
 		let reservation = value.reservation;
 
-		let block_size = location.reservation_block_size;
 		let block_day = opening_time.day;
 		let block_start_time = opening_time.start_time;
 
 		let base_idx = reservation.base_block_index;
 		let block_count = reservation.block_count;
 
-		let start_offset = Duration::minutes((base_idx * block_size).into());
+		let start_offset = Duration::minutes(
+			(base_idx * RESERVATION_BLOCK_SIZE_MINUTES).into(),
+		);
 		let start_time = block_day.and_time(block_start_time + start_offset);
 
-		let end_offset =
-			Duration::minutes(((base_idx + block_count) * block_size).into());
+		let end_offset = Duration::minutes(
+			((base_idx + block_count) * RESERVATION_BLOCK_SIZE_MINUTES).into(),
+		);
 		let end_time = start_time + end_offset;
 
 		Self {

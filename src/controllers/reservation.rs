@@ -14,6 +14,7 @@ use models::{
 	PrimitiveLocation,
 	PrimitiveOpeningTime,
 	PrimitiveReservation,
+	RESERVATION_BLOCK_SIZE_MINUTES,
 	Reservation,
 	ReservationFilter,
 	ReservationIncludes,
@@ -125,7 +126,7 @@ pub async fn create_reservation(
 
 	let loc = PrimitiveLocation::get_by_id(l_id, &conn).await?;
 
-	let block_size = i64::from(loc.reservation_block_size);
+	let block_size = i64::from(RESERVATION_BLOCK_SIZE_MINUTES);
 
 	let offset = (request.start_time - time.start_time).num_minutes();
 	#[allow(clippy::cast_possible_truncation)]
@@ -135,11 +136,7 @@ pub async fn create_reservation(
 	#[allow(clippy::cast_possible_truncation)]
 	let block_count = (span / block_size) as i32;
 
-	check_reservation_length(
-		loc.min_reservation_length,
-		loc.max_reservation_length,
-		block_count,
-	)?;
+	check_reservation_length(loc.max_reservation_length, block_count)?;
 
 	#[allow(clippy::cast_possible_truncation)]
 	let num_blocks =
@@ -205,23 +202,15 @@ fn check_reservation_period(
 	Ok(())
 }
 
-fn check_reservation_length(
-	min: Option<i32>,
-	max: Option<i32>,
-	len: i32,
-) -> Result<(), Error> {
-	#[allow(clippy::collapsible_if)]
-	if let Some(min) = min {
-		if len < min {
-			return Err(CreateReservationError::ReservationTooShort(min).into());
-		}
+fn check_reservation_length(max: Option<i32>, len: i32) -> Result<(), Error> {
+	if len < 1 {
+		return Err(CreateReservationError::ReservationTooShort(1).into());
 	}
 
-	#[allow(clippy::collapsible_if)]
-	if let Some(max) = max {
-		if len > max {
-			return Err(CreateReservationError::ReservationTooLong(max).into());
-		}
+	if let Some(max) = max
+		&& len > max
+	{
+		return Err(CreateReservationError::ReservationTooLong(max).into());
 	}
 
 	Ok(())
@@ -238,7 +227,7 @@ fn check_reservation_occupation(
 		let entry = occupation.entry(i).or_insert(0);
 
 		for span in spans {
-			if span.0 <= *entry && (span.0 + span.1) >= *entry {
+			if span.0 <= i && (span.0 + span.1) >= i {
 				*entry += 1;
 			}
 		}

@@ -20,6 +20,7 @@ use models::{
 	NewReservation,
 	NewTranslation,
 	ProfileState,
+	RESERVATION_BLOCK_SIZE_MINUTES,
 };
 use rand::seq::IndexedRandom;
 use rand::{Rng, rng};
@@ -234,8 +235,6 @@ async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 			let excerpt_id = excerpts[i % excerpts.len()];
 			let seat_count = (10..100).fake_with_rng(&mut rng);
 			let is_reservable = rng.random_bool(0.4);
-			let reservation_block_size = (15..120).fake_with_rng(&mut rng);
-			let min_reservation_length = (1..4).fake_with_rng(&mut rng);
 			let max_reservation_length = (2..24).fake_with_rng(&mut rng);
 			let street = StreetName(EN).fake::<String>();
 			let number = (1..200).fake_with_rng::<u32, _>(&mut rng).to_string();
@@ -254,8 +253,6 @@ async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 				excerpt_id,
 				seat_count,
 				is_reservable,
-				reservation_block_size,
-				min_reservation_length,
 				max_reservation_length,
 				street,
 				number,
@@ -310,23 +307,14 @@ async fn seed_random_reservations(
 	for _ in 0..count {
 		// Randomly pick a profile and opening time
 		let profile_id = *profile_ids.choose(&mut rng).unwrap();
-		let (
-			opening_time_id,
-			start_time,
-			end_time,
-			block_size_minutes,
-			min_length_opt,
-			max_length_opt,
-			day,
-		) = *available_times.choose(&mut rng).unwrap();
+		let (opening_time_id, start_time, end_time, max_length_opt, day) =
+			*available_times.choose(&mut rng).unwrap();
 
 		if let Some(reservation) = create_valid_reservation(
 			profile_id,
 			opening_time_id,
 			start_time,
 			end_time,
-			block_size_minutes,
-			min_length_opt,
 			max_length_opt,
 			day,
 			&mut rng,
@@ -365,9 +353,8 @@ async fn seed_reservations_for_profile(
 	let mut created_reservations = existing_reservations;
 
 	let mut sorted_times = available_times;
-	sorted_times.sort_by_key(|&(opening_time_id, _, _, _, _, _, day)| {
-		(opening_time_id, day)
-	});
+	sorted_times
+		.sort_by_key(|&(opening_time_id, _, _, _, day)| (opening_time_id, day));
 
 	let max_attempts_per_reservation = 20;
 
@@ -379,23 +366,14 @@ async fn seed_reservations_for_profile(
 			// Try locations in a somewhat ordered fashion for better
 			// performance
 			let time_index = (i * 7 + attempts) % sorted_times.len(); // Pseudo-random but deterministic
-			let (
-				opening_time_id,
-				start_time,
-				end_time,
-				block_size_minutes,
-				min_length_opt,
-				max_length_opt,
-				day,
-			) = sorted_times[time_index];
+			let (opening_time_id, start_time, end_time, max_length_opt, day) =
+				sorted_times[time_index];
 
 			if let Some(reservation) = create_valid_reservation(
 				profile_id,
 				opening_time_id,
 				start_time,
 				end_time,
-				block_size_minutes,
-				min_length_opt,
 				max_length_opt,
 				day,
 				&mut rng,
@@ -406,7 +384,6 @@ async fn seed_reservations_for_profile(
 						&reservation,
 						day,
 						start_time,
-						block_size_minutes,
 					);
 
 				// Overlap check - check only recent reservations
@@ -463,8 +440,6 @@ async fn get_available_opening_times(
 		i32,
 		chrono::NaiveTime,
 		chrono::NaiveTime,
-		i32,
-		Option<i32>,
 		Option<i32>,
 		chrono::NaiveDate,
 	)>,
@@ -480,8 +455,6 @@ async fn get_available_opening_times(
 				id,
 				start_time,
 				end_time,
-				loc_dsl::reservation_block_size,
-				loc_dsl::min_reservation_length,
 				loc_dsl::max_reservation_length,
 				day,
 			))
@@ -489,8 +462,6 @@ async fn get_available_opening_times(
 				i32,
 				chrono::NaiveTime,
 				chrono::NaiveTime,
-				i32,
-				Option<i32>,
 				Option<i32>,
 				chrono::NaiveDate,
 			)>(c)
@@ -524,11 +495,8 @@ async fn get_existing_reservations_for_profile(
 					ot_dsl::start_time,
 					base_block_index,
 					block_count,
-					loc_dsl::reservation_block_size,
 				))
-				.load::<(chrono::NaiveDate, chrono::NaiveTime, i32, i32, i32)>(
-					c,
-				)
+				.load::<(chrono::NaiveDate, chrono::NaiveTime, i32, i32)>(c)
 		})
 		.await
 		.map_err(|e| Error::raw(clap::error::ErrorKind::Io, e))?
@@ -537,11 +505,13 @@ async fn get_existing_reservations_for_profile(
 	let time_spans: Vec<(chrono::NaiveDateTime, chrono::NaiveDateTime)> =
 		reservations
 			.into_iter()
-			.map(|(day, opening_start, base_idx, block_cnt, block_size)| {
-				let start_offset =
-					chrono::Duration::minutes((base_idx * block_size).into());
+			.map(|(day, opening_start, base_idx, block_cnt)| {
+				let start_offset = chrono::Duration::minutes(
+					(base_idx * RESERVATION_BLOCK_SIZE_MINUTES).into(),
+				);
 				let end_offset = chrono::Duration::minutes(
-					((base_idx + block_cnt) * block_size).into(),
+					((base_idx + block_cnt) * RESERVATION_BLOCK_SIZE_MINUTES)
+						.into(),
 				);
 				let reservation_start =
 					day.and_time(opening_start + start_offset);
@@ -559,21 +529,19 @@ fn create_valid_reservation(
 	opening_time_id: i32,
 	start_time: chrono::NaiveTime,
 	end_time: chrono::NaiveTime,
-	block_size_minutes: i32,
-	min_length_opt: Option<i32>,
 	max_length_opt: Option<i32>,
 	_day: chrono::NaiveDate,
 	rng: &mut impl Rng,
 ) -> Option<NewReservation> {
 	// Calculate total available blocks in the opening time
 	let total_duration_minutes = (end_time - start_time).num_minutes();
-	let total_blocks =
-		(total_duration_minutes / i64::from(block_size_minutes)) as i32;
+	let total_blocks = (total_duration_minutes
+		/ i64::from(RESERVATION_BLOCK_SIZE_MINUTES)) as i32;
 
 	// Ensure reservation is at least 1 hour (60 minutes)
 	let min_blocks_for_1_hour =
-		(60.0 / f64::from(block_size_minutes)).ceil() as i32;
-	let min_length = min_length_opt.unwrap_or(1);
+		(60.0 / f64::from(RESERVATION_BLOCK_SIZE_MINUTES)).ceil() as i32;
+	let min_length = 1;
 	let max_length = max_length_opt.unwrap_or(total_blocks);
 
 	let min_blocks = std::cmp::max(min_blocks_for_1_hour, min_length);
@@ -608,14 +576,13 @@ fn calculate_reservation_time_span(
 	reservation: &NewReservation,
 	day: chrono::NaiveDate,
 	opening_start_time: chrono::NaiveTime,
-	block_size_minutes: i32,
 ) -> (chrono::NaiveDateTime, chrono::NaiveDateTime) {
 	let start_offset = chrono::Duration::minutes(
-		(reservation.base_block_index * block_size_minutes).into(),
+		(reservation.base_block_index * RESERVATION_BLOCK_SIZE_MINUTES).into(),
 	);
 	let end_offset = chrono::Duration::minutes(
 		((reservation.base_block_index + reservation.block_count)
-			* block_size_minutes)
+			* RESERVATION_BLOCK_SIZE_MINUTES)
 			.into(),
 	);
 	let reservation_start = day.and_time(opening_start_time + start_offset);

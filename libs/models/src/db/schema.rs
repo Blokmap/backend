@@ -95,8 +95,6 @@ diesel::table! {
 		excerpt_id -> Int4,
 		seat_count -> Int4,
 		is_reservable -> Bool,
-		reservation_block_size -> Int4,
-		min_reservation_length -> Nullable<Int4>,
 		max_reservation_length -> Nullable<Int4>,
 		is_visible -> Bool,
 		street -> Text,
