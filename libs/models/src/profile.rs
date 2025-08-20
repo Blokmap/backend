@@ -529,7 +529,7 @@ impl Profile {
 						.returning(Image::as_returning())
 						.get_result(conn)?;
 
-					diesel::update(profile.find(id))
+					diesel::update(profile.find(p_id))
 						.set(avatar_image_id.eq(image_record.id))
 						.execute(conn)?;
 
