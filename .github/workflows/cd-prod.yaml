@@ -52,7 +52,7 @@ jobs:
             uses: docker/metadata-action@v5
             with:
                 images: |
-                    ghcr.io/blokmap/blokmap-production-backend
+                    ghcr.io/blokmap/blokmap-prod-backend
                 tags: |
                     type=raw,value={{sha}}
                     type=raw,value=latest
@@ -86,7 +86,7 @@ jobs:
             uses: docker/metadata-action@v5
             with:
                 images: |
-                    ghcr.io/blokmap/blokmap-production-migrations
+                    ghcr.io/blokmap/blokmap-prod-migrations
                 tags: |
                     type=raw,value={{sha}}
                     type=raw,value=latest
