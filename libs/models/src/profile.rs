@@ -13,11 +13,12 @@ use rand::Rng;
 use rand::distr::Alphabetic;
 use serde::{Deserialize, Serialize};
 
-use crate::db::{image, location, opening_time, profile, reservation};
+use crate::db::{image, opening_time, profile, reservation};
 use crate::{
 	Image,
 	NewImage,
 	QUERY_HARD_LIMIT,
+	RESERVATION_BLOCK_SIZE_MINUTES,
 	ReservationState,
 	manual_pagination,
 };
@@ -685,7 +686,6 @@ impl ProfileStats {
 	) -> Result<Self, Error> {
 		let reservation_data = conn
 			.interact(move |c| {
-				use location::dsl as l_dsl;
 				use opening_time::dsl as ot_dsl;
 				use reservation::dsl as r_dsl;
 
@@ -694,19 +694,14 @@ impl ProfileStats {
 						ot_dsl::opening_time
 							.on(r_dsl::opening_time_id.eq(ot_dsl::id)),
 					)
-					.inner_join(
-						l_dsl::location.on(ot_dsl::location_id.eq(l_dsl::id)),
-					)
 					.filter(r_dsl::profile_id.eq(profile_id))
 					.select((
 						r_dsl::block_count,
-						l_dsl::reservation_block_size,
 						ot_dsl::day,
 						ot_dsl::end_time,
 						r_dsl::state,
 					))
 					.load::<(
-						i32,
 						i32,
 						chrono::NaiveDate,
 						chrono::NaiveTime,
@@ -722,10 +717,11 @@ impl ProfileStats {
 		let mut total_reservation_hours: usize = 0;
 
 		for data in reservation_data {
-			let (block_count, block_size_minutes, day, end_time, state) = data;
+			let (block_count, day, end_time, state) = data;
 
 			// Calculate total hours for this reservation
-			let reservation_minutes = block_count * block_size_minutes;
+			let reservation_minutes =
+				block_count * RESERVATION_BLOCK_SIZE_MINUTES;
 			total_reservation_hours += (reservation_minutes as usize) / 60;
 
 			// Determine if reservation is past or future

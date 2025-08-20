@@ -36,6 +36,8 @@ pub use review::*;
 pub use tag::*;
 pub use translation::*;
 
+pub const RESERVATION_BLOCK_SIZE_MINUTES: i32 = 5;
+
 const QUERY_HARD_LIMIT: i64 = 100;
 
 pub type BoxedCondition<S, T = Nullable<Bool>> =
