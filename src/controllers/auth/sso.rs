@@ -3,7 +3,7 @@ use axum::response::{IntoResponse, Redirect};
 use axum_extra::extract::PrivateCookieJar;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use common::{Error, OAuthError};
-use models::PrimitiveProfile;
+use models::Profile;
 use openidconnect::core::{CoreClient, CoreProviderMetadata, CoreResponseType};
 use openidconnect::reqwest::blocking::ClientBuilder;
 use openidconnect::reqwest::redirect::Policy;
@@ -191,7 +191,7 @@ pub async fn sso_callback(
 
 	let conn = pool.get().await?;
 
-	let profile = PrimitiveProfile::from_sso(id_token_claims, &conn).await?;
+	let profile = Profile::from_sso(id_token_claims, &conn).await?;
 
 	let session =
 		Session::create(config.access_token_lifetime, &profile, &mut r_conn)
@@ -207,7 +207,7 @@ pub async fn sso_callback(
 
 	let profile = profile.update_last_login(&conn).await?;
 
-	info!("logged in profile {} from google SSO", profile.id);
+	info!("logged in profile {} from google SSO", profile.profile.id);
 
 	let redirect_url = config.frontend_url.join("auth/sso")?;
 

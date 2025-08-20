@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use blokmap::schemas::auth::LoginRequest;
 use blokmap::schemas::pagination::{PaginationOptions, PaginationResponse};
 use blokmap::schemas::reservation::ReservationResponse;
-use models::{PrimitiveProfile, ProfileState};
+use models::{PrimitiveProfile, Profile, ProfileState};
 
 mod common;
 
@@ -133,9 +133,9 @@ async fn disable_profile() {
 
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
-	let bob = PrimitiveProfile::get(test_id, &conn).await.unwrap();
+	let bob = Profile::get(test_id, &conn).await.unwrap();
 
-	assert_eq!(bob.state, ProfileState::Disabled);
+	assert_eq!(bob.profile.state, ProfileState::Disabled);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -158,9 +158,9 @@ async fn disable_profile_not_admin() {
 
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
-	let bob = PrimitiveProfile::get(test_id, &conn).await.unwrap();
+	let bob = Profile::get(test_id, &conn).await.unwrap();
 
-	assert_eq!(bob.state, ProfileState::Active);
+	assert_eq!(bob.profile.state, ProfileState::Active);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -170,27 +170,23 @@ async fn activate_profile() {
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
 	let pagination = PaginationOptions::default();
-	let test = PrimitiveProfile::get_all(
-		pagination.limit(),
-		pagination.offset(),
-		&conn,
-	)
-	.await
-	.unwrap()
-	.2
-	.into_iter()
-	.find(|p| p.username == "test-disabled")
-	.unwrap();
+	let test = Profile::get_all(pagination.limit(), pagination.offset(), &conn)
+		.await
+		.unwrap()
+		.2
+		.into_iter()
+		.find(|p| p.profile.username == "test-disabled")
+		.unwrap();
 
-	let test_id = test.id;
+	let test_id = test.profile.id;
 
 	let response = env.app.post(&format!("/profiles/{test_id}/unblock")).await;
 
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
-	let bob = PrimitiveProfile::get(test_id, &conn).await.unwrap();
+	let bob = Profile::get(test_id, &conn).await.unwrap();
 
-	assert_eq!(bob.state, ProfileState::Active);
+	assert_eq!(bob.profile.state, ProfileState::Active);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -200,19 +196,15 @@ async fn activate_profile_not_admin() {
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
 	let pagination = PaginationOptions::default();
-	let test = PrimitiveProfile::get_all(
-		pagination.limit(),
-		pagination.offset(),
-		&conn,
-	)
-	.await
-	.unwrap()
-	.2
-	.into_iter()
-	.find(|p| p.username == "test-disabled")
-	.unwrap();
+	let test = Profile::get_all(pagination.limit(), pagination.offset(), &conn)
+		.await
+		.unwrap()
+		.2
+		.into_iter()
+		.find(|p| p.profile.username == "test-disabled")
+		.unwrap();
 
-	let test_id = test.id;
+	let test_id = test.profile.id;
 
 	let response = env.app.post(&format!("/profiles/{test_id}/unblock")).await;
 
@@ -220,9 +212,9 @@ async fn activate_profile_not_admin() {
 
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
-	let bob = PrimitiveProfile::get(test_id, &conn).await.unwrap();
+	let bob = Profile::get(test_id, &conn).await.unwrap();
 
-	assert_eq!(bob.state, ProfileState::Disabled);
+	assert_eq!(bob.profile.state, ProfileState::Disabled);
 }
 
 #[tokio::test(flavor = "multi_thread")]

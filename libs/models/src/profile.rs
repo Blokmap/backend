@@ -13,7 +13,7 @@ use rand::Rng;
 use rand::distr::Alphabetic;
 use serde::{Deserialize, Serialize};
 
-use crate::db::{location, opening_time, profile, reservation};
+use crate::db::{image, location, opening_time, profile, reservation};
 use crate::{
 	Image,
 	NewImage,
@@ -21,6 +21,8 @@ use crate::{
 	ReservationState,
 	manual_pagination,
 };
+
+pub type JoinedProfileData = (PrimitiveProfile, Option<Image>);
 
 #[derive(
 	Clone, Copy, DbEnum, Debug, Default, Deserialize, PartialEq, Eq, Serialize,
@@ -77,25 +79,27 @@ pub struct PrimitiveProfile {
 	pub last_login_at:                   NaiveDateTime,
 }
 
-impl TryFrom<&PrimitiveProfile> for Mailbox {
+impl TryFrom<&Profile> for Mailbox {
 	type Error = Error;
 
-	fn try_from(value: &PrimitiveProfile) -> Result<Mailbox, Error> {
-		if value.pending_email.is_some() {
+	fn try_from(value: &Profile) -> Result<Mailbox, Error> {
+		let profile = &value.profile;
+
+		if profile.pending_email.is_some() {
 			Ok(Mailbox::new(
-				Some(value.username.clone()),
-				value.pending_email.as_ref().unwrap().parse()?,
+				Some(profile.username.clone()),
+				profile.pending_email.as_ref().unwrap().parse()?,
 			))
-		} else if value.email.is_some() {
+		} else if profile.email.is_some() {
 			Ok(Mailbox::new(
-				Some(value.username.clone()),
-				value.email.as_ref().unwrap().parse()?,
+				Some(profile.username.clone()),
+				profile.email.as_ref().unwrap().parse()?,
 			))
 		} else {
 			error!(
 				"mailer error -- failed to create mailbox, no email found for \
 				 profile {}",
-				value.id
+				profile.id
 			);
 			Err(Error::InternalServerError)
 		}
@@ -106,40 +110,71 @@ impl TryFrom<&PrimitiveProfile> for Mailbox {
 #[diesel(table_name = profile)]
 #[diesel(check_for_backend(Pg))]
 pub struct Profile {
-	pub profile:    PrimitiveProfile,
-	pub avatar_url: Option<String>,
+	pub profile: PrimitiveProfile,
+	pub avatar:  Option<Image>,
 }
 
-impl PrimitiveProfile {
+mod auto_type_helpers {
+	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
+}
+
+impl Profile {
+	/// Build a query with all required (dynamic) joins to select a full
+	/// profile data tuple
+	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
+	fn joined_query() -> _ {
+		profile::table.left_outer_join(
+			image::table.on(profile::avatar_image_id.eq(image::id.nullable())),
+		)
+	}
+
+	/// Construct a full [`Profile`] struct from the data returned by a
+	/// joined query
+	fn from_joined(data: JoinedProfileData) -> Self {
+		Self { profile: data.0, avatar: data.1 }
+	}
+
 	/// Get a [`Profile`] given its id
 	#[instrument(skip(conn))]
 	pub async fn get(query_id: i32, conn: &DbConn) -> Result<Self, Error> {
-		let profiles = conn
-			.interact(move |conn| {
-				use self::profile::dsl::*;
+		let query = Self::joined_query();
 
-				profile.find(query_id).get_result(conn)
+		let profile = conn
+			.interact(move |conn| {
+				use crate::db::profile::dsl::*;
+
+				query
+					.filter(id.eq(query_id))
+					.select((
+						PrimitiveProfile::as_select(),
+						image::all_columns.nullable(),
+					))
+					.get_result(conn)
 			})
 			.await??;
 
-		Ok(profiles)
+		let profile = Self::from_joined(profile);
+
+		Ok(profile)
 	}
 
 	/// Update a given [`Profile`]
 	#[instrument(skip(conn))]
 	pub async fn update(self, conn: &DbConn) -> Result<Self, Error> {
-		let new = conn
-			.interact(|conn| {
-				use self::profile::dsl::*;
+		let self_id = self.profile.id;
 
-				diesel::update(profile.find(self.id))
-					.set(self)
-					.returning(PrimitiveProfile::as_returning())
-					.get_result(conn)
-			})
-			.await??;
+		conn.interact(|conn| {
+			use self::profile::dsl::*;
 
-		Ok(new)
+			diesel::update(profile.find(self.profile.id))
+				.set(self.profile)
+				.execute(conn)
+		})
+		.await??;
+
+		let profile = Self::get(self_id, conn).await?;
+
+		Ok(profile)
 	}
 
 	/// Get a list of all [`Profile`]s
@@ -149,13 +184,25 @@ impl PrimitiveProfile {
 		offset: usize,
 		conn: &DbConn,
 	) -> Result<(usize, bool, Vec<Self>), Error> {
-		use self::profile::dsl::*;
+		let query = Self::joined_query();
 
 		let profiles = conn
 			.interact(move |conn| {
-				profile.order_by(id).limit(QUERY_HARD_LIMIT).get_results(conn)
+				use self::profile::dsl::*;
+
+				query
+					.order_by(id)
+					.limit(QUERY_HARD_LIMIT)
+					.select((
+						PrimitiveProfile::as_select(),
+						image::all_columns.nullable(),
+					))
+					.get_results(conn)
 			})
-			.await??;
+			.await??
+			.into_iter()
+			.map(Self::from_joined)
+			.collect();
 
 		manual_pagination(profiles, limit, offset)
 	}
@@ -181,30 +228,23 @@ impl PrimitiveProfile {
 		query_username: String,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
+		let query = Self::joined_query();
+
 		let profile = conn
-			.interact(|conn| {
+			.interact(move |conn| {
 				use self::profile::dsl::*;
 
-				profile.filter(username.eq(query_username)).first(conn)
+				query
+					.filter(username.eq(query_username))
+					.select((
+						PrimitiveProfile::as_select(),
+						image::all_columns.nullable(),
+					))
+					.first(conn)
 			})
 			.await??;
 
-		Ok(profile)
-	}
-
-	/// Get a [`Profile`] given its email
-	#[instrument(skip(conn))]
-	pub async fn get_by_email(
-		query_email: String,
-		conn: &DbConn,
-	) -> Result<Self, Error> {
-		let profile = conn
-			.interact(|conn| {
-				use self::profile::dsl::*;
-
-				profile.filter(email.eq(query_email)).first(conn)
-			})
-			.await??;
+		let profile = Self::from_joined(profile);
 
 		Ok(profile)
 	}
@@ -212,17 +252,26 @@ impl PrimitiveProfile {
 	/// Get a [`Profile`] given a email or username.
 	#[instrument(skip(conn))]
 	pub async fn get_by_email_or_username(
-		query: String,
+		search: String,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
+		let query = Self::joined_query();
+
 		let profile = conn
 			.interact(move |conn| {
 				use self::profile::dsl::*;
-				profile
-					.filter(email.eq(&query).or(username.eq(&query)))
+
+				query
+					.filter(email.eq(&search).or(username.eq(&search)))
+					.select((
+						PrimitiveProfile::as_select(),
+						image::all_columns.nullable(),
+					))
 					.first(conn)
 			})
 			.await??;
+
+		let profile = Self::from_joined(profile);
 
 		Ok(profile)
 	}
@@ -233,13 +282,23 @@ impl PrimitiveProfile {
 		token: String,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
+		let query = Self::joined_query();
+
 		let profile = conn
-			.interact(|conn| {
+			.interact(move |conn| {
 				use self::profile::dsl::*;
 
-				profile.filter(email_confirmation_token.eq(token)).first(conn)
+				query
+					.filter(email_confirmation_token.eq(token))
+					.select((
+						PrimitiveProfile::as_select(),
+						image::all_columns.nullable(),
+					))
+					.first(conn)
 			})
 			.await??;
+
+		let profile = Self::from_joined(profile);
 
 		Ok(profile)
 	}
@@ -250,13 +309,23 @@ impl PrimitiveProfile {
 		token: String,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
+		let query = Self::joined_query();
+
 		let profile = conn
-			.interact(|conn| {
+			.interact(move |conn| {
 				use self::profile::dsl::*;
 
-				profile.filter(password_reset_token.eq(token)).first(conn)
+				query
+					.filter(password_reset_token.eq(token))
+					.select((
+						PrimitiveProfile::as_select(),
+						image::all_columns.nullable(),
+					))
+					.first(conn)
 			})
 			.await??;
+
+		let profile = Self::from_joined(profile);
 
 		Ok(profile)
 	}
@@ -267,26 +336,25 @@ impl PrimitiveProfile {
 	/// Panics if called on a [`Profile`] with no pending email
 	#[instrument(skip(conn))]
 	pub async fn confirm_email(&self, conn: &DbConn) -> Result<Self, Error> {
-		let self_id = self.id;
-		let pending = self.pending_email.clone().unwrap();
+		let self_id = self.profile.id;
+		let pending = self.profile.pending_email.clone().unwrap();
 
-		let profile = conn
-			.interact(move |conn| {
-				use self::profile::dsl::*;
+		conn.interact(move |conn| {
+			use self::profile::dsl::*;
 
-				diesel::update(profile.find(self_id))
-					.set((
-						email.eq(pending),
-						pending_email.eq(None::<String>),
-						email_confirmation_token.eq(None::<String>),
-						email_confirmation_token_expiry
-							.eq(None::<NaiveDateTime>),
-						state.eq(ProfileState::Active),
-					))
-					.returning(Self::as_returning())
-					.get_result(conn)
-			})
-			.await??;
+			diesel::update(profile.find(self_id))
+				.set((
+					email.eq(pending),
+					pending_email.eq(None::<String>),
+					email_confirmation_token.eq(None::<String>),
+					email_confirmation_token_expiry.eq(None::<NaiveDateTime>),
+					state.eq(ProfileState::Active),
+				))
+				.execute(conn)
+		})
+		.await??;
+
+		let profile = Self::get(self_id, conn).await?;
 
 		Ok(profile)
 	}
@@ -301,8 +369,8 @@ impl PrimitiveProfile {
 	) -> Result<Self, Error> {
 		let email_confirmation_token_expiry = Utc::now().naive_utc() + lifetime;
 
-		self.email_confirmation_token = Some(token.to_string());
-		self.email_confirmation_token_expiry =
+		self.profile.email_confirmation_token = Some(token.to_string());
+		self.profile.email_confirmation_token_expiry =
 			Some(email_confirmation_token_expiry);
 
 		self.update(conn).await
@@ -318,8 +386,9 @@ impl PrimitiveProfile {
 	) -> Result<Self, Error> {
 		let password_reset_token_expiry = Utc::now().naive_utc() + lifetime;
 
-		self.password_reset_token = Some(token.to_string());
-		self.password_reset_token_expiry = Some(password_reset_token_expiry);
+		self.profile.password_reset_token = Some(token.to_string());
+		self.profile.password_reset_token_expiry =
+			Some(password_reset_token_expiry);
 
 		self.update(conn).await
 	}
@@ -341,23 +410,23 @@ impl PrimitiveProfile {
 		new_password: &str,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let self_id = self.id;
+		let self_id = self.profile.id;
 		let new_password_hash = Self::hash_password(new_password)?;
 
-		let profile = conn
-			.interact(move |conn| {
-				use self::profile::dsl::*;
+		conn.interact(move |conn| {
+			use self::profile::dsl::*;
 
-				diesel::update(profile.find(self_id))
-					.set((
-						password_hash.eq(new_password_hash),
-						password_reset_token.eq(None::<String>),
-						password_reset_token_expiry.eq(None::<NaiveDateTime>),
-					))
-					.returning(PrimitiveProfile::as_returning())
-					.get_result(conn)
-			})
-			.await??;
+			diesel::update(profile.find(self_id))
+				.set((
+					password_hash.eq(new_password_hash),
+					password_reset_token.eq(None::<String>),
+					password_reset_token_expiry.eq(None::<NaiveDateTime>),
+				))
+				.execute(conn)
+		})
+		.await??;
+
+		let profile = Self::get(self_id, conn).await?;
 
 		Ok(profile)
 	}
@@ -369,7 +438,7 @@ impl PrimitiveProfile {
 		mut self,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		self.last_login_at = Utc::now().naive_utc();
+		self.profile.last_login_at = Utc::now().naive_utc();
 		self.update(conn).await
 	}
 
@@ -397,13 +466,23 @@ impl PrimitiveProfile {
 
 		let user_email_ = user_email.clone();
 
+		let query = Self::joined_query();
+
 		let profile: Option<Self> = conn
-			.interact(|conn| {
+			.interact(move |conn| {
 				use self::profile::dsl::*;
 
-				profile.filter(email.eq(user_email_)).first(conn).optional()
+				query
+					.filter(email.eq(user_email_))
+					.select((
+						PrimitiveProfile::as_select(),
+						image::all_columns.nullable(),
+					))
+					.first(conn)
+					.optional()
 			})
-			.await??;
+			.await??
+			.map(Self::from_joined);
 
 		if let Some(profile) = profile {
 			return Ok(profile);
@@ -423,11 +502,11 @@ impl PrimitiveProfile {
 		{
 			let avatar = NewImage {
 				file_path:   None,
-				uploaded_by: profile.id,
+				uploaded_by: profile.profile.id,
 				image_url:   Some(avatar_url.to_string()),
 			};
 
-			Self::insert_avatar(profile.id, avatar, conn).await?;
+			Self::insert_avatar(profile.profile.id, avatar, conn).await?;
 		}
 
 		Ok(profile)
@@ -443,15 +522,14 @@ impl PrimitiveProfile {
 		let image = conn
 			.interact(move |conn| {
 				conn.transaction::<Image, Error, _>(|conn| {
-					use crate::db::image::dsl::*;
 					use crate::db::profile::dsl::*;
 
-					let image_record = diesel::insert_into(image)
+					let image_record = diesel::insert_into(image::table)
 						.values(avatar)
 						.returning(Image::as_returning())
 						.get_result(conn)?;
 
-					diesel::update(profile)
+					diesel::update(profile.find(id))
 						.set(avatar_image_id.eq(image_record.id))
 						.execute(conn)?;
 
@@ -490,11 +568,8 @@ struct NewProfileHashed {
 impl NewProfile {
 	/// Insert this [`NewProfile`]
 	#[instrument(skip(conn))]
-	pub async fn insert(
-		self,
-		conn: &DbConn,
-	) -> Result<PrimitiveProfile, Error> {
-		let hash = PrimitiveProfile::hash_password(&self.password)?;
+	pub async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
+		let hash = Profile::hash_password(&self.password)?;
 
 		let insertable = NewProfileHashed {
 			username:                        self.username,
@@ -518,6 +593,8 @@ impl NewProfile {
 			})
 			.await??;
 
+		let profile = Profile::get(profile.id, conn).await?;
+
 		Ok(profile)
 	}
 }
@@ -538,22 +615,21 @@ pub struct NewProfileDirect {
 impl NewProfileDirect {
 	/// Insert this [`NewProfileDirect`]
 	#[instrument(skip(conn))]
-	pub async fn insert(
-		self,
-		conn: &DbConn,
-	) -> Result<PrimitiveProfile, Error> {
+	pub async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
 		let profile = conn
 			.interact(|conn| {
 				use self::profile::dsl::*;
 
 				diesel::insert_into(profile)
 					.values(self)
-					.returning(PrimitiveProfile::as_returning())
+					.returning(PrimitiveProfile::as_select())
 					.get_result(conn)
 			})
 			.await??;
 
-		info!("direct-inserted new profile with id {}", profile.id);
+		let profile = Profile::get(profile.id, conn).await?;
+
+		info!("direct-inserted new profile with id {}", profile.profile.id);
 
 		Ok(profile)
 	}
@@ -573,8 +649,8 @@ impl UpdateProfile {
 		self,
 		target_id: i32,
 		conn: &DbConn,
-	) -> Result<PrimitiveProfile, Error> {
-		let new = conn
+	) -> Result<Profile, Error> {
+		let profile = conn
 			.interact(move |conn| {
 				use self::profile::dsl::*;
 
@@ -585,7 +661,9 @@ impl UpdateProfile {
 			})
 			.await??;
 
-		Ok(new)
+		let profile = Profile::get(profile.id, conn).await?;
+
+		Ok(profile)
 	}
 }
 

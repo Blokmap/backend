@@ -4,6 +4,7 @@ use common::Error;
 use models::{
 	Image,
 	PrimitiveProfile,
+	Profile,
 	ProfileState,
 	ProfileStats,
 	UpdateProfile,
@@ -25,20 +26,41 @@ pub struct ProfileResponse {
 	pub is_admin:      bool,
 	pub created_at:    NaiveDateTime,
 	pub last_login_at: NaiveDateTime,
+	pub avatar_url:    Option<ImageResponse>,
 }
 
 impl From<PrimitiveProfile> for ProfileResponse {
-	fn from(profile: PrimitiveProfile) -> Self {
+	fn from(value: PrimitiveProfile) -> Self {
 		Self {
-			id:            profile.id,
-			username:      profile.username,
-			email:         profile.email,
-			first_name:    profile.first_name,
-			last_name:     profile.last_name,
-			is_admin:      profile.is_admin,
-			created_at:    profile.created_at,
-			last_login_at: profile.last_login_at,
+			id:            value.id,
+			username:      value.username,
+			email:         value.email,
+			first_name:    value.first_name,
+			last_name:     value.last_name,
+			is_admin:      value.is_admin,
+			created_at:    value.created_at,
+			last_login_at: value.last_login_at,
+			avatar_url:    None,
 		}
+	}
+}
+
+impl BuildResponse<ProfileResponse> for Profile {
+	fn build_response(self, config: &Config) -> Result<ProfileResponse, Error> {
+		Ok(ProfileResponse {
+			id:            self.profile.id,
+			username:      self.profile.username,
+			email:         self.profile.email,
+			first_name:    self.profile.first_name,
+			last_name:     self.profile.last_name,
+			is_admin:      self.profile.is_admin,
+			created_at:    self.profile.created_at,
+			last_login_at: self.profile.last_login_at,
+			avatar_url:    self
+				.avatar
+				.map(|i| i.build_response(config))
+				.transpose()?,
+		})
 	}
 }
 

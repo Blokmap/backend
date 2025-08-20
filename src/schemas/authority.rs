@@ -3,11 +3,9 @@ use models::{
 	Authority,
 	AuthorityProfileUpdate,
 	AuthorityUpdate,
-	Location,
 	NewAuthority,
 	NewAuthorityProfile,
 	PrimitiveAuthority,
-	PrimitiveProfile,
 };
 use serde::{Deserialize, Serialize};
 
@@ -50,39 +48,6 @@ impl From<PrimitiveAuthority> for AuthorityResponse {
 			created_by:  None,
 			updated_at:  value.updated_at,
 			updated_by:  None,
-		}
-	}
-}
-
-#[skip_serializing_none]
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FullAuthorityResponse {
-	pub id:          i32,
-	pub name:        String,
-	pub description: Option<String>,
-	pub created_at:  NaiveDateTime,
-	pub created_by:  Option<Option<ProfileResponse>>,
-	pub updated_at:  NaiveDateTime,
-	pub updated_by:  Option<Option<ProfileResponse>>,
-	pub members:     Vec<ProfileResponse>,
-	pub locations:   Vec<Location>,
-}
-
-impl From<(Authority, Vec<PrimitiveProfile>, Vec<Location>)>
-	for FullAuthorityResponse
-{
-	fn from(value: (Authority, Vec<PrimitiveProfile>, Vec<Location>)) -> Self {
-		Self {
-			id:          value.0.authority.id,
-			name:        value.0.authority.name,
-			description: value.0.authority.description,
-			created_at:  value.0.authority.created_at,
-			created_by:  value.0.created_by.map(|p| p.map(Into::into)),
-			updated_at:  value.0.authority.updated_at,
-			updated_by:  value.0.updated_by.map(|p| p.map(Into::into)),
-			members:     value.1.into_iter().map(Into::into).collect(),
-			locations:   value.2,
 		}
 	}
 }

@@ -5,7 +5,7 @@ use axum::extract::{FromRequestParts, State};
 use axum::http::request::Parts;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use common::{Error, InternalServerError, RedisConn};
-use models::PrimitiveProfile;
+use models::Profile;
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use time::Duration;
@@ -105,14 +105,16 @@ impl Session {
 	#[instrument(skip(conn))]
 	pub async fn create(
 		lifetime: Duration,
-		profile: &PrimitiveProfile,
+		profile: &Profile,
 		conn: &mut RedisConn,
 	) -> Result<Self, Error> {
-		let id = profile.id;
-		let profile_id = profile.id;
+		let id = profile.profile.id;
+		let profile_id = profile.profile.id;
 
-		let data =
-			SessionData { profile_id, profile_is_admin: profile.is_admin };
+		let data = SessionData {
+			profile_id,
+			profile_is_admin: profile.profile.is_admin,
+		};
 
 		let session = Self { id, data };
 
@@ -126,7 +128,10 @@ impl Session {
 		let _: bool = conn.set(id, &data).await?;
 		let _: bool = conn.expire(id, expiry).await?;
 
-		debug!("stored session {} in cache for profile {}", id, profile.id);
+		debug!(
+			"stored session {} in cache for profile {}",
+			id, profile.profile.id
+		);
 
 		Ok(session)
 	}

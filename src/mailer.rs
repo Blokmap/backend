@@ -4,7 +4,7 @@ use common::Error;
 use lettre::message::Mailbox;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Address, Message, SmtpTransport, Transport};
-use models::PrimitiveProfile;
+use models::Profile;
 use parking_lot::{Condvar, Mutex};
 use tokio::sync::mpsc;
 use url::Url;
@@ -144,7 +144,7 @@ impl Mailer {
 	#[instrument(skip(self))]
 	pub(crate) async fn send_confirm_email(
 		&self,
-		profile: &PrimitiveProfile,
+		profile: &Profile,
 		confirmation_token: &str,
 		frontend_url: &Url,
 	) -> Result<(), Error> {
@@ -161,7 +161,10 @@ impl Mailer {
 
 		self.send(mail).await?;
 
-		info!("sent new email confirmation email for profile {}", profile.id);
+		info!(
+			"sent new email confirmation email for profile {}",
+			profile.profile.id
+		);
 
 		Ok(())
 	}
@@ -170,7 +173,7 @@ impl Mailer {
 	#[instrument(skip(self))]
 	pub(crate) async fn send_reset_password(
 		&self,
-		profile: &PrimitiveProfile,
+		profile: &Profile,
 		reset_token: &str,
 		frontend_url: &Url,
 	) -> Result<(), Error> {
@@ -184,7 +187,7 @@ impl Mailer {
 
 		self.send(mail).await?;
 
-		info!("sent password reset email for profile {}", profile.id,);
+		info!("sent password reset email for profile {}", profile.profile.id,);
 
 		Ok(())
 	}

@@ -8,7 +8,7 @@ use fast_image_resize::images::Image;
 use fast_image_resize::{IntoImageView, Resizer};
 use image::codecs::webp::WebPEncoder;
 use image::{ColorType, ImageEncoder, ImageReader};
-use models::{Location, NewImage, PrimitiveProfile};
+use models::{Location, NewImage, Profile};
 use rayon::prelude::*;
 use uuid::Uuid;
 
@@ -61,8 +61,7 @@ pub async fn store_profile_image(
 		image_url:   None,
 	};
 
-	let image =
-		PrimitiveProfile::insert_avatar(profile_id, new_image, conn).await?;
+	let image = Profile::insert_avatar(profile_id, new_image, conn).await?;
 
 	Ok(image)
 }

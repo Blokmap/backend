@@ -17,7 +17,6 @@ use crate::schemas::authority::{
 	AuthorityResponse,
 	CreateAuthorityMemberRequest,
 	CreateAuthorityRequest,
-	FullAuthorityResponse,
 	UpdateAuthorityProfileRequest,
 	UpdateAuthorityRequest,
 };
@@ -80,15 +79,7 @@ pub async fn get_authority(
 	let conn = pool.get().await?;
 
 	let authority = Authority::get_by_id(id, includes, &conn).await?;
-	let members = Authority::get_members(id, &conn).await?;
-	let locations = Location::get_simple_by_authority_id(
-		id,
-		LocationIncludes::default(),
-		&conn,
-	)
-	.await?;
-
-	let response = FullAuthorityResponse::from((authority, members, locations));
+	let response = AuthorityResponse::from(authority);
 
 	Ok((StatusCode::OK, Json(response)))
 }

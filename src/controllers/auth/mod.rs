@@ -9,23 +9,25 @@ use axum_extra::extract::PrivateCookieJar;
 use axum_extra::extract::cookie::Cookie;
 use chrono::Utc;
 use common::{DbPool, Error, LoginError, RedisConn, TokenError};
-use models::{NewProfile, PrimitiveProfile, ProfileState};
+use models::{NewProfile, Profile, ProfileState};
 use time::Duration;
 use uuid::Uuid;
 use validator::Validate;
 
 use crate::mailer::Mailer;
+use crate::schemas::BuildResponse;
 use crate::schemas::auth::{
 	LoginRequest,
 	PasswordResetData,
 	PasswordResetRequest,
 	RegisterRequest,
 };
+use crate::schemas::profile::ProfileResponse;
 use crate::{Config, Session};
 
 pub mod sso;
 
-#[instrument(skip_all)]
+#[instrument(skip(pool, r_conn, config, mailer, jar))]
 pub(crate) async fn register_profile(
 	State(pool): State<DbPool>,
 	State(mut r_conn): State<RedisConn>,
@@ -64,7 +66,7 @@ pub(crate) async fn register_profile(
 		.await?;
 
 		let access_token_cookie = session.to_access_token_cookie(
-			config.access_token_name,
+			config.access_token_name.clone(),
 			config.access_token_lifetime,
 			config.production,
 		);
@@ -73,14 +75,16 @@ pub(crate) async fn register_profile(
 
 		let profile = profile.update_last_login(&conn).await?;
 
-		info!("confirmed email for profile {}", profile.id);
+		info!("confirmed email for profile {}", profile.profile.id);
 
-		Ok((StatusCode::CREATED, jar, Json(profile)).into_response())
+		let response: ProfileResponse = profile.build_response(&config)?;
+
+		Ok((StatusCode::CREATED, jar, Json(response)).into_response())
 	} else {
 		// Unwrap is safe as the token was explicitly set in the insertable
 		// profile
 		let confirmation_token =
-			new_profile.email_confirmation_token.clone().unwrap();
+			new_profile.profile.email_confirmation_token.clone().unwrap();
 
 		mailer
 			.send_confirm_email(
@@ -92,12 +96,14 @@ pub(crate) async fn register_profile(
 
 		info!(
 			"registered new profile id: {} username: {} email: {}",
-			new_profile.id,
-			new_profile.username,
-			new_profile.pending_email.clone().unwrap()
+			new_profile.profile.id,
+			new_profile.profile.username,
+			new_profile.profile.pending_email.clone().unwrap()
 		);
 
-		Ok((StatusCode::CREATED, Json(new_profile)).into_response())
+		let response: ProfileResponse = new_profile.build_response(&config)?;
+
+		Ok((StatusCode::CREATED, Json(response)).into_response())
 	}
 }
 
@@ -108,7 +114,7 @@ pub(crate) async fn resend_confirmation_email(
 	Path(profile_id): Path<i32>,
 ) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;
-	let profile = PrimitiveProfile::get(profile_id, &conn).await?;
+	let profile = Profile::get(profile_id, &conn).await?;
 
 	let email_confirmation_token = Uuid::new_v4().to_string();
 
@@ -141,11 +147,11 @@ pub(crate) async fn confirm_email(
 ) -> Result<(PrivateCookieJar, NoContent), Error> {
 	let conn = pool.get().await?;
 	let profile =
-		PrimitiveProfile::get_by_email_confirmation_token(token, &conn).await?;
+		Profile::get_by_email_confirmation_token(token, &conn).await?;
 
 	// Unwrap is safe because profiles with a confirmation token will always
 	// have a token expiry
-	let expiry = profile.email_confirmation_token_expiry.unwrap();
+	let expiry = profile.profile.email_confirmation_token_expiry.unwrap();
 	if Utc::now().naive_utc() > expiry {
 		return Err(TokenError::ExpiredEmailToken.into());
 	}
@@ -166,7 +172,7 @@ pub(crate) async fn confirm_email(
 
 	let profile = profile.update_last_login(&conn).await?;
 
-	info!("confirmed email for profile {}", profile.id);
+	info!("confirmed email for profile {}", profile.profile.id);
 
 	Ok((jar, NoContent))
 }
@@ -179,8 +185,7 @@ pub(crate) async fn request_password_reset(
 	Json(request): Json<PasswordResetRequest>,
 ) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;
-	let profile =
-		PrimitiveProfile::get_by_username(request.username, &conn).await?;
+	let profile = Profile::get_by_username(request.username, &conn).await?;
 
 	let password_reset_token = Uuid::new_v4().to_string();
 
@@ -215,12 +220,11 @@ pub(crate) async fn reset_password(
 
 	let conn = pool.get().await?;
 	let profile =
-		PrimitiveProfile::get_by_password_reset_token(request.token, &conn)
-			.await?;
+		Profile::get_by_password_reset_token(request.token, &conn).await?;
 
 	// Unwrap is safe because profiles with a reset token will always
 	// have a token expiry
-	let expiry = profile.password_reset_token_expiry.unwrap();
+	let expiry = profile.profile.password_reset_token_expiry.unwrap();
 	if Utc::now().naive_utc() > expiry {
 		return Err(TokenError::ExpiredPasswordToken.into());
 	}
@@ -241,7 +245,7 @@ pub(crate) async fn reset_password(
 
 	let profile = profile.update_last_login(&conn).await?;
 
-	info!("reset password for profile {}", profile.id);
+	info!("reset password for profile {}", profile.profile.id);
 
 	Ok((jar, NoContent))
 }
@@ -256,10 +260,9 @@ pub(crate) async fn login_profile(
 ) -> Result<(PrivateCookieJar, NoContent), Error> {
 	let conn = pool.get().await?;
 	let profile =
-		PrimitiveProfile::get_by_email_or_username(login_data.username, &conn)
-			.await?;
+		Profile::get_by_email_or_username(login_data.username, &conn).await?;
 
-	match profile.state {
+	match profile.profile.state {
 		ProfileState::Active => (),
 		ProfileState::Disabled => return Err(LoginError::Disabled.into()),
 		ProfileState::PendingEmailVerification => {
@@ -267,7 +270,7 @@ pub(crate) async fn login_profile(
 		},
 	}
 
-	let password_hash = PasswordHash::new(&profile.password_hash)?;
+	let password_hash = PasswordHash::new(&profile.profile.password_hash)?;
 
 	Argon2::default()
 		.verify_password(login_data.password.as_bytes(), &password_hash)?;
@@ -291,7 +294,7 @@ pub(crate) async fn login_profile(
 
 	let profile = profile.update_last_login(&conn).await?;
 
-	info!("logged in profile {} with username", profile.id);
+	info!("logged in profile {} with username", profile.profile.id);
 
 	Ok((jar, NoContent))
 }

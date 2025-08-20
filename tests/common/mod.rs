@@ -18,6 +18,7 @@ use models::{
 	OpeningTime,
 	OpeningTimeIncludes,
 	PrimitiveProfile,
+	Profile,
 	TagIncludes,
 	Translation,
 	TranslationIncludes,
@@ -246,9 +247,8 @@ impl TestEnv {
 	) -> Result<PrimitiveProfile, Error> {
 		let conn = self.db_guard.create_pool().get().await.unwrap();
 		let profile =
-			PrimitiveProfile::get_by_username(username.to_string(), &conn)
-				.await?;
-		Ok(profile)
+			Profile::get_by_username(username.to_string(), &conn).await?;
+		Ok(profile.profile)
 	}
 
 	/// Get a test admin profile from the test database
@@ -256,9 +256,8 @@ impl TestEnv {
 	pub async fn get_admin_profile(&self) -> Result<PrimitiveProfile, Error> {
 		let conn = self.db_guard.create_pool().get().await.unwrap();
 		let profile =
-			PrimitiveProfile::get_by_username("test-admin".to_string(), &conn)
-				.await?;
-		Ok(profile)
+			Profile::get_by_username("test-admin".to_string(), &conn).await?;
+		Ok(profile.profile)
 	}
 
 	/// Get a test translation in the test database

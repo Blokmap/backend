@@ -32,7 +32,7 @@ async fn register() {
 		})
 		.await;
 
-	let body = response.json::<PrimitiveProfile>();
+	let body = response.json::<ProfileResponse>();
 
 	assert!(response.maybe_cookie("blokmap_access_token").is_none());
 

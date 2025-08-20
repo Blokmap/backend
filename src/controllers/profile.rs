@@ -11,7 +11,7 @@ use models::{
 	AuthorityIncludes,
 	Location,
 	LocationIncludes,
-	PrimitiveProfile,
+	Profile,
 	ProfileState,
 	ProfileStats,
 	Reservation,
@@ -38,28 +38,31 @@ use crate::schemas::review::ReviewLocationResponse;
 use crate::{AdminSession, AppState, Config, Session};
 
 /// Get all [`Profile`]s
-#[instrument(skip(pool))]
+#[instrument(skip(pool, config))]
 pub async fn get_all_profiles(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	Query(p_opts): Query<PaginationOptions>,
 ) -> Result<Json<PaginationResponse<Vec<ProfileResponse>>>, Error> {
 	let conn = pool.get().await?;
 
 	let (total, truncated, profiles) =
-		PrimitiveProfile::get_all(p_opts.limit(), p_opts.offset(), &conn)
-			.await?;
+		Profile::get_all(p_opts.limit(), p_opts.offset(), &conn).await?;
 
-	let profiles: Vec<ProfileResponse> =
-		profiles.into_iter().map(Into::into).collect();
+	let profiles: Vec<ProfileResponse> = profiles
+		.into_iter()
+		.map(|data| data.build_response(&config))
+		.collect::<Result<_, _>>()?;
 
 	let paginated = p_opts.paginate(total, truncated, profiles);
 
 	Ok(Json(paginated))
 }
 
-#[instrument(skip(state, pool))]
+#[instrument(skip(state, config, pool))]
 pub async fn get_current_profile(
 	State(state): State<AppState>,
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	mut req: Request,
 ) -> Result<impl IntoResponse, Error> {
@@ -83,27 +86,29 @@ pub async fn get_current_profile(
 		return Ok((StatusCode::OK, Json(None)));
 	};
 
-	let profile = PrimitiveProfile::get(session.data.profile_id, &conn).await?;
-	let response: ProfileResponse = profile.into();
+	let profile = Profile::get(session.data.profile_id, &conn).await?;
+	let response: ProfileResponse = profile.build_response(&config)?;
 
 	Ok((StatusCode::OK, Json(Some(response))))
 }
 
-#[instrument(skip(pool))]
+#[instrument(skip(pool, config))]
 pub async fn get_profile(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	session: Session,
 	Path(p_id): Path<i32>,
-) -> Result<Json<ProfileResponse>, Error> {
+) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
 	if !session.data.profile_is_admin && p_id != session.data.profile_id {
 		return Err(Error::Forbidden);
 	}
 
-	let profile = PrimitiveProfile::get(p_id, &conn).await?;
+	let profile = Profile::get(p_id, &conn).await?;
+	let response: ProfileResponse = profile.build_response(&config)?;
 
-	Ok(Json(profile.into()))
+	Ok((StatusCode::OK, Json(response)))
 }
 
 #[instrument(skip(pool, config, mailer))]
@@ -113,17 +118,18 @@ pub async fn update_current_profile(
 	State(mailer): State<Mailer>,
 	session: Session,
 	Json(update): Json<UpdateProfileRequest>,
-) -> Result<Json<ProfileResponse>, Error> {
+) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let old_profile =
-		PrimitiveProfile::get(session.data.profile_id, &conn).await?;
+	let old_profile = Profile::get(session.data.profile_id, &conn).await?;
 
 	let mut updated_profile = UpdateProfile::from(update)
 		.apply_to(session.data.profile_id, &conn)
 		.await?;
 
-	if old_profile.pending_email != updated_profile.pending_email {
+	if old_profile.profile.pending_email
+		!= updated_profile.profile.pending_email
+	{
 		let email_confirmation_token = Uuid::new_v4().to_string();
 
 		updated_profile = updated_profile
@@ -142,10 +148,15 @@ pub async fn update_current_profile(
 			)
 			.await?;
 
-		info!("set new pending email for profile {}", updated_profile.id);
+		info!(
+			"set new pending email for profile {}",
+			updated_profile.profile.id
+		);
 	}
 
-	Ok(Json(updated_profile.into()))
+	let response: ProfileResponse = updated_profile.build_response(&config)?;
+
+	Ok((StatusCode::OK, Json(response)))
 }
 
 #[instrument(skip(pool, config, mailer))]
@@ -156,19 +167,21 @@ pub async fn update_profile(
 	session: Session,
 	Path(p_id): Path<i32>,
 	Json(update): Json<UpdateProfileRequest>,
-) -> Result<Json<ProfileResponse>, Error> {
+) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
 	if !session.data.profile_is_admin && p_id != session.data.profile_id {
 		return Err(Error::Forbidden);
 	}
 
-	let old_profile = PrimitiveProfile::get(p_id, &conn).await?;
+	let old_profile = Profile::get(p_id, &conn).await?;
 
 	let mut updated_profile =
 		UpdateProfile::from(update).apply_to(p_id, &conn).await?;
 
-	if old_profile.pending_email != updated_profile.pending_email {
+	if old_profile.profile.pending_email
+		!= updated_profile.profile.pending_email
+	{
 		let email_confirmation_token = Uuid::new_v4().to_string();
 
 		updated_profile = updated_profile
@@ -187,10 +200,15 @@ pub async fn update_profile(
 			)
 			.await?;
 
-		info!("set new pending email for profile {}", updated_profile.id);
+		info!(
+			"set new pending email for profile {}",
+			updated_profile.profile.id
+		);
 	}
 
-	Ok(Json(updated_profile.into()))
+	let response: ProfileResponse = updated_profile.build_response(&config)?;
+
+	Ok((StatusCode::OK, Json(response)))
 }
 
 #[instrument(skip(pool))]
@@ -238,8 +256,8 @@ pub async fn delete_profile_avatar(
 
 	let conn = pool.get().await?;
 
-	let profile = PrimitiveProfile::get(p_id, &conn).await?;
-	let Some(img_id) = profile.avatar_image_id else {
+	let profile = Profile::get(p_id, &conn).await?;
+	let Some(img_id) = profile.profile.avatar_image_id else {
 		return Ok((StatusCode::NO_CONTENT, NoContent));
 	};
 
@@ -256,9 +274,9 @@ pub async fn disable_profile(
 	Path(profile_id): Path<i32>,
 ) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;
-	let mut profile = PrimitiveProfile::get(profile_id, &conn).await?;
+	let mut profile = Profile::get(profile_id, &conn).await?;
 
-	profile.state = ProfileState::Disabled;
+	profile.profile.state = ProfileState::Disabled;
 	profile.update(&conn).await?;
 
 	Session::delete(profile_id, &mut r_conn).await?;
@@ -275,9 +293,9 @@ pub async fn activate_profile(
 	Path(profile_id): Path<i32>,
 ) -> Result<NoContent, Error> {
 	let conn = pool.get().await?;
-	let mut profile = PrimitiveProfile::get(profile_id, &conn).await?;
+	let mut profile = Profile::get(profile_id, &conn).await?;
 
-	profile.state = ProfileState::Active;
+	profile.profile.state = ProfileState::Active;
 	profile.update(&conn).await?;
 
 	info!("activated profile {profile_id}");
