@@ -385,29 +385,25 @@ pub struct NewOpeningTime {
 }
 
 impl NewOpeningTime {
-	/// Insert this [`NewOpeningTime`] into the database.
+	/// Insert a list of [`NewOpeningTime`] into the database.
 	#[instrument(skip(conn))]
-	pub async fn insert(
-		self,
+	pub async fn bulk_insert(
+		times: Vec<Self>,
 		includes: OpeningTimeIncludes,
 		conn: &DbConn,
-	) -> Result<OpeningTime, Error> {
-		let time = conn
+	) -> Result<Vec<PrimitiveOpeningTime>, Error> {
+		let times = conn
 			.interact(|conn| {
 				use self::opening_time::dsl::*;
 
 				diesel::insert_into(opening_time)
-					.values(self)
+					.values(times)
 					.returning(PrimitiveOpeningTime::as_returning())
-					.get_result(conn)
+					.get_results(conn)
 			})
 			.await??;
 
-		let time = OpeningTime::get_by_id(time.id, includes, conn).await?;
-
-		info!("created opening_time {time:?}");
-
-		Ok(time)
+		Ok(times)
 	}
 }
 

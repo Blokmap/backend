@@ -3,7 +3,12 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
-use models::{OpeningTime, OpeningTimeIncludes, TimeBoundsFilter};
+use models::{
+	NewOpeningTime,
+	OpeningTime,
+	OpeningTimeIncludes,
+	TimeBoundsFilter,
+};
 
 use crate::Session;
 use crate::schemas::opening_time::{
@@ -30,18 +35,23 @@ pub async fn get_location_times(
 }
 
 #[instrument(skip(pool))]
-pub async fn create_location_time(
+pub async fn create_location_times(
 	State(pool): State<DbPool>,
 	session: Session,
 	Path(id): Path<i32>,
 	Query(includes): Query<OpeningTimeIncludes>,
-	Json(request): Json<CreateOpeningTimeRequest>,
+	Json(request): Json<Vec<CreateOpeningTimeRequest>>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let new_time = request.to_insertable(id, session.data.profile_id);
-	let new_time = new_time.insert(includes, &conn).await?;
-	let response = OpeningTimeResponse::from(new_time);
+	let new_times: Vec<_> = request
+		.into_iter()
+		.map(|t| t.to_insertable(id, session.data.profile_id))
+		.collect();
+	let new_times =
+		NewOpeningTime::bulk_insert(new_times, includes, &conn).await?;
+	let response: Vec<OpeningTimeResponse> =
+		new_times.into_iter().map(Into::into).collect();
 
 	Ok((StatusCode::CREATED, Json(response)))
 }

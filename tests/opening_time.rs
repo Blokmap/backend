@@ -29,14 +29,14 @@ async fn test_create_opening_time() {
 
 	let location = env.get_location().await.unwrap();
 
-	let create_req = serde_json::json!({
+	let create_req = serde_json::json!([{
 		"day":             "2025-01-01",
 		"startTime":       "08:30:00",
 		"endTime":         "22:00:00",
 		"seatCount":       25,
 		"reservableFrom":  "2024-12-01T08:30:00",
 		"reservableUntil": "2024-12-30T22:00:00",
-	});
+	}]);
 
 	let response = env
 		.app
@@ -46,13 +46,14 @@ async fn test_create_opening_time() {
 
 	assert_eq!(response.status_code(), StatusCode::CREATED);
 
-	let body = response.json::<OpeningTimeResponse>();
+	let body = response.json::<Vec<OpeningTimeResponse>>();
+	let first = &body[0];
 
-	assert!(body.id > 0);
-	assert_eq!(body.day, "2025-01-01".parse().unwrap());
-	assert_eq!(body.start_time, "08:30:00".parse().unwrap());
-	assert_eq!(body.end_time, "22:00:00".parse().unwrap());
-	assert_eq!(body.seat_count, Some(25));
+	assert!(first.id > 0);
+	assert_eq!(first.day, "2025-01-01".parse().unwrap());
+	assert_eq!(first.start_time, "08:30:00".parse().unwrap());
+	assert_eq!(first.end_time, "22:00:00".parse().unwrap());
+	assert_eq!(first.seat_count, Some(25));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -61,14 +62,14 @@ async fn test_update_opening_time() {
 
 	let location = env.get_location().await.unwrap();
 
-	let create_request = serde_json::json!({
+	let create_request = serde_json::json!([{
 		"day":             "2025-01-01",
 		"startTime":       "08:30:00",
 		"endTime":         "22:00:00",
 		"seatCount":       25,
 		"reservableFrom":  "2024-12-01T08:30:00",
 		"reservableUntil": "2024-12-30T22:00:00",
-	});
+	}]);
 
 	let create_response = env
 		.app
@@ -77,7 +78,8 @@ async fn test_update_opening_time() {
 		.await;
 
 	assert_eq!(create_response.status_code(), StatusCode::CREATED);
-	let created = create_response.json::<OpeningTimeResponse>();
+	let created = create_response.json::<Vec<OpeningTimeResponse>>();
+	let first = &created[0];
 
 	let update_request = serde_json::json!({
 		"day": "2025-02-02",
@@ -90,7 +92,7 @@ async fn test_update_opening_time() {
 		.app
 		.patch(&format!(
 			"/locations/{}/opening-times/{}",
-			location.location.id, created.id
+			location.location.id, first.id
 		))
 		.json(&update_request)
 		.await;
@@ -98,13 +100,13 @@ async fn test_update_opening_time() {
 	assert_eq!(update_response.status_code(), StatusCode::OK);
 	let updated = update_response.json::<OpeningTimeResponse>();
 
-	assert_eq!(updated.id, created.id);
+	assert_eq!(updated.id, first.id);
 	assert_eq!(updated.day, "2025-02-02".parse().unwrap());
 	assert_eq!(updated.start_time, "07:30:00".parse().unwrap());
 	assert_eq!(updated.end_time, "23:30:00".parse().unwrap());
 	assert_eq!(updated.seat_count, Some(100));
-	assert_eq!(updated.reservable_from, created.reservable_from);
-	assert_eq!(updated.reservable_until, created.reservable_until);
+	assert_eq!(updated.reservable_from, first.reservable_from);
+	assert_eq!(updated.reservable_until, first.reservable_until);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -113,14 +115,14 @@ async fn test_delete_location_time() {
 
 	let location = env.get_location().await.unwrap();
 
-	let create_request = serde_json::json!({
+	let create_request = serde_json::json!([{
 		"day":             "2025-01-01",
 		"startTime":       "08:30:00",
 		"endTime":         "22:00:00",
 		"seatCount":       25,
 		"reservableFrom":  "2024-12-01T08:30:00",
 		"reservableUntil": "2024-12-30T22:00:00",
-	});
+	}]);
 
 	let create_response = env
 		.app
@@ -129,13 +131,15 @@ async fn test_delete_location_time() {
 		.await;
 
 	assert_eq!(create_response.status_code(), StatusCode::CREATED);
-	let created = create_response.json::<OpeningTimeResponse>();
+	let created = create_response.json::<Vec<OpeningTimeResponse>>();
+
+	let first = &created[0];
 
 	let delete_response = env
 		.app
 		.delete(&format!(
 			"/locations/{}/opening-times/{}",
-			location.location.id, created.id
+			location.location.id, first.id
 		))
 		.await;
 

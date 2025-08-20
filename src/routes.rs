@@ -65,7 +65,7 @@ use crate::controllers::location::{
 	upload_location_images,
 };
 use crate::controllers::opening_time::{
-	create_location_time,
+	create_location_times,
 	delete_location_time,
 	get_location_times,
 	update_location_time,
@@ -199,7 +199,7 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 		.route("/{id}/images/{image_id}", delete(delete_location_image))
 		.route(
 			"/{id}/opening-times",
-			get(get_location_times).post(create_location_time),
+			get(get_location_times).post(create_location_times),
 		)
 		.route(
 			"/{id}/opening-times/{time_id}",
