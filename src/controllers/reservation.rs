@@ -42,7 +42,7 @@ pub async fn get_reservation_for_location(
 		can_manage = true;
 	}
 
-	can_manage |= Location::admin_or(
+	can_manage |= Location::owner_or_admin_or(
 		session.data.profile_id,
 		loc_id,
 		AuthorityPermissions::ManageLocation
@@ -80,7 +80,7 @@ pub async fn get_reservation_for_opening_time(
 		can_manage = true;
 	}
 
-	can_manage |= Location::admin_or(
+	can_manage |= Location::owner_or_admin_or(
 		session.data.profile_id,
 		l_id,
 		AuthorityPermissions::ManageLocation
@@ -266,7 +266,7 @@ pub async fn delete_reservation(
 		can_manage = true;
 	}
 
-	can_manage |= Location::admin_or(
+	can_manage |= Location::owner_or_admin_or(
 		session.data.profile_id,
 		l_id,
 		AuthorityPermissions::ManageLocation

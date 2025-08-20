@@ -41,7 +41,7 @@ impl LocationPermissions {
 }
 
 impl Location {
-	/// Check if the given profile is an admin/owner of the given location or
+	/// Check if the given profile is an admin of the given location or
 	/// if they meet the given permissions
 	#[instrument(skip(conn))]
 	pub async fn admin_or(
@@ -52,18 +52,6 @@ impl Location {
 		conn: &DbConn,
 	) -> Result<bool, Error> {
 		let mut can_manage = false;
-
-		let perm_includes =
-			LocationIncludes { created_by: true, ..Default::default() };
-		let (location, ..) =
-			Location::get_by_id(l_id, perm_includes, conn).await?;
-
-		#[allow(clippy::collapsible_if)]
-		if let Some(Some(cr)) = location.created_by {
-			if cr.id == p_id {
-				can_manage = true;
-			}
-		}
 
 		let (auth_perms, loc_perms) =
 			Location::get_profile_permissions(l_id, p_id, conn).await?;
@@ -90,6 +78,35 @@ impl Location {
 				can_manage = true;
 			}
 		}
+
+		Ok(can_manage)
+	}
+
+	/// Check if the given profile is an owner or admin of the given location or
+	/// if they meet the given permissions
+	#[instrument(skip(conn))]
+	pub async fn owner_or_admin_or(
+		p_id: i32,
+		l_id: i32,
+		other_auth: AuthorityPermissions,
+		other_loc: LocationPermissions,
+		conn: &DbConn,
+	) -> Result<bool, Error> {
+		let mut can_manage = false;
+
+		let perm_includes =
+			LocationIncludes { created_by: true, ..Default::default() };
+		let (location, ..) =
+			Location::get_by_id(l_id, perm_includes, conn).await?;
+
+		if let Some(Some(cr)) = location.created_by
+			&& cr.id == p_id
+		{
+			can_manage = true;
+		}
+
+		can_manage |=
+			Self::admin_or(p_id, l_id, other_auth, other_loc, conn).await?;
 
 		Ok(can_manage)
 	}

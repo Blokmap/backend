@@ -94,7 +94,7 @@ pub async fn delete_location_image(
 		can_manage = true;
 	}
 
-	can_manage |= Location::admin_or(
+	can_manage |= Location::owner_or_admin_or(
 		session.data.profile_id,
 		l_id,
 		AuthorityPermissions::ManageLocation,
@@ -207,7 +207,7 @@ pub(crate) async fn update_location(
 		can_manage = true;
 	}
 
-	can_manage |= Location::admin_or(
+	can_manage |= Location::owner_or_admin_or(
 		session.data.profile_id,
 		id,
 		AuthorityPermissions::ManageLocation,
@@ -312,7 +312,7 @@ pub async fn set_location_tags(
 		can_manage = true;
 	}
 
-	can_manage |= Location::admin_or(
+	can_manage |= Location::owner_or_admin_or(
 		session.data.profile_id,
 		id,
 		AuthorityPermissions::ManageLocation,
@@ -346,7 +346,7 @@ pub async fn get_location_members(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let can_manage = Location::admin_or(
+	let can_manage = Location::owner_or_admin_or(
 		session.data.profile_id,
 		id,
 		AuthorityPermissions::ManageLocation,
@@ -378,7 +378,7 @@ pub async fn add_location_member(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let can_manage = Location::admin_or(
+	let can_manage = Location::owner_or_admin_or(
 		session.data.profile_id,
 		id,
 		AuthorityPermissions::ManageLocation,
@@ -407,7 +407,7 @@ pub async fn delete_location_member(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let can_manage = Location::admin_or(
+	let can_manage = Location::owner_or_admin_or(
 		session.data.profile_id,
 		l_id,
 		AuthorityPermissions::ManageLocation,
@@ -436,7 +436,7 @@ pub async fn update_location_member(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let can_manage = Location::admin_or(
+	let can_manage = Location::owner_or_admin_or(
 		session.data.profile_id,
 		l_id,
 		AuthorityPermissions::ManageLocation,
@@ -474,7 +474,7 @@ pub(crate) async fn delete_location(
 		can_manage = true;
 	}
 
-	can_manage |= Location::admin_or(
+	can_manage |= Location::owner_or_admin_or(
 		session.data.profile_id,
 		id,
 		AuthorityPermissions::ManageLocation
