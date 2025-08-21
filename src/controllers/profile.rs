@@ -223,10 +223,14 @@ pub async fn upload_profile_avatar(
 		return Err(Error::Forbidden);
 	}
 
-	let image_request = CreateImageRequest::parse(&mut data).await?;
-
 	let conn = pool.get().await?;
 
+	let profile = Profile::get(p_id, &conn).await?;
+	if let Some(img_id) = profile.profile.avatar_image_id {
+		delete_image(img_id, &conn).await?;
+	}
+
+	let image_request = CreateImageRequest::parse(&mut data).await?;
 	let image = store_profile_image(p_id, image_request.into(), &conn).await?;
 
 	Ok((StatusCode::CREATED, Json(image)))
