@@ -1,7 +1,7 @@
 //! Controllers for [`Location`]s
 
 use axum::Json;
-use axum::extract::{Multipart, Path, Query, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
@@ -20,8 +20,10 @@ use models::{
 use utils::image::{delete_image, store_location_images};
 use validator::Validate;
 
+use crate::controllers::TypedMultipart;
 use crate::schemas::BuildResponse;
 use crate::schemas::location::{
+	CreateLocationImageRequest,
 	CreateLocationMemberRequest,
 	CreateLocationRequest,
 	LocationResponse,
@@ -55,27 +57,24 @@ pub(crate) async fn create_location(
 	Ok((StatusCode::CREATED, Json(response)))
 }
 
-#[instrument(skip(pool, data))]
+#[instrument(skip(pool, request))]
 pub(crate) async fn upload_location_images(
 	State(pool): State<DbPool>,
 	session: Session,
 	Path(id): Path<i32>,
-	mut data: Multipart,
+	request: TypedMultipart<CreateLocationImageRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	let mut image_bytes = vec![];
-	while let Some(field) = data.next_field().await? {
-		if field.name().unwrap_or_default() != "image" {
-			continue;
-		}
+	let mut images = vec![];
 
-		image_bytes.push(field.bytes().await?);
+	for image_bytes in request.data.bytes {
+		images.push(image_bytes.contents);
 	}
 
 	let conn = pool.get().await?;
 
 	let profile_id = session.data.profile_id;
 	let image_paths =
-		store_location_images(profile_id, id, &image_bytes, &conn).await?;
+		store_location_images(profile_id, id, &images, &conn).await?;
 
 	Ok((StatusCode::CREATED, Json(image_paths)))
 }

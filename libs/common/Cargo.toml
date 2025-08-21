@@ -13,6 +13,7 @@ publish = false
 [dependencies]
 argon2 = { workspace = true }
 axum = { workspace = true }
+axum_typed_multipart = { workspace = true }
 chrono = { workspace = true }
 deadpool-diesel = { workspace = true }
 diesel = { workspace = true }

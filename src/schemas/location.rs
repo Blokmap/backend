@@ -1,3 +1,5 @@
+use axum::body::Bytes;
+use axum_typed_multipart::{FieldData, TryFromMultipart};
 use chrono::NaiveDateTime;
 use common::Error;
 use models::{
@@ -169,6 +171,13 @@ impl BuildResponse<LocationResponse> for FullLocationData {
 				.collect::<Result<_, _>>()?,
 		})
 	}
+}
+
+#[derive(Debug, TryFromMultipart)]
+#[try_from_multipart(rename_all = "camelCase")]
+pub struct CreateLocationImageRequest {
+	pub bytes: Vec<FieldData<Bytes>>,
+	pub index: Vec<i32>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]

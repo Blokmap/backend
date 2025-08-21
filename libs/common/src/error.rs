@@ -3,9 +3,10 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use axum::extract::multipart::MultipartError;
+// use axum::extract::multipart::MultipartError;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use axum_typed_multipart::TypedMultipartError;
 use chrono::{NaiveDateTime, NaiveTime};
 use diesel::result::DatabaseErrorKind;
 use thiserror::Error;
@@ -40,7 +41,7 @@ pub enum Error {
 	MissingRequestData(String),
 	/// Any error related to parsing multipart data
 	#[error(transparent)]
-	MultipartError(#[from] MultipartError),
+	MultipartError(#[from] TypedMultipartError),
 	/// Any error related to OAuth login
 	#[error(transparent)]
 	OAuthError(#[from] OAuthError),
