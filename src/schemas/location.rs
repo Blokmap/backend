@@ -1,5 +1,4 @@
-use axum::body::Bytes;
-use axum_typed_multipart::TryFromMultipart;
+use axum::extract::Multipart;
 use chrono::NaiveDateTime;
 use common::Error;
 use models::{
@@ -16,7 +15,7 @@ use validator_derive::Validate;
 
 use crate::Config;
 use crate::schemas::authority::AuthorityResponse;
-use crate::schemas::image::ImageResponse;
+use crate::schemas::image::{CreateImageRequest, ImageResponse};
 use crate::schemas::opening_time::OpeningTimeResponse;
 use crate::schemas::profile::ProfileResponse;
 use crate::schemas::tag::TagResponse;
@@ -174,10 +173,22 @@ impl BuildResponse<LocationResponse> for FullLocationData {
 	}
 }
 
-#[derive(Debug, TryFromMultipart)]
-#[try_from_multipart(rename_all = "camelCase")]
-pub struct CreateLocationImageRequest {
-	pub image: Vec<Bytes>,
+#[derive(Clone, Debug)]
+pub struct CreateLocationImagesRequest {
+	pub images: Vec<CreateImageRequest>,
+}
+
+impl CreateLocationImagesRequest {
+	pub async fn parse(multipart: &mut Multipart) -> Result<Self, Error> {
+		let mut images = vec![];
+
+		while let Some(field) = multipart.next_field().await? {
+			let image = CreateImageRequest::from_field(field).await?;
+			images.push(image);
+		}
+
+		Ok(Self { images })
+	}
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

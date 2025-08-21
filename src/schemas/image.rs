@@ -1,6 +1,10 @@
-use common::Error;
+use axum::body::Bytes;
+use axum::extract::Multipart;
+use axum::extract::multipart::Field;
+use common::{Error, MultipartParseError};
 use models::{Image, OrderedImage};
 use serde::{Deserialize, Serialize};
+use utils::image::ImageVariant;
 
 use crate::Config;
 use crate::schemas::BuildResponse;
@@ -47,3 +51,91 @@ impl BuildResponse<ImageResponse> for OrderedImage {
 		Ok(response)
 	}
 }
+
+#[derive(Clone, Debug)]
+pub enum CreateImageRequest {
+	Image(Bytes),
+	Url(String),
+}
+
+impl CreateImageRequest {
+	pub async fn parse(multipart: &mut Multipart) -> Result<Self, Error> {
+		let Some(field) = multipart.next_field().await? else {
+			return Err(MultipartParseError::MissingField {
+				expected_field: "image or url".to_string(),
+			}
+			.into());
+		};
+
+		Self::from_field(field).await
+	}
+
+	pub async fn from_field(field: Field<'_>) -> Result<Self, Error> {
+		let Some(name) = field.name() else {
+			return Err(MultipartParseError::NamelessField.into());
+		};
+
+		let image = match name {
+			"image" => {
+				let bytes = field.bytes().await?;
+
+				Self::Image(bytes)
+			},
+			"url" => {
+				let text = field.text().await?;
+
+				Self::Url(text)
+			},
+			n => {
+				return Err(MultipartParseError::UnknownField {
+					field_name: n.to_string(),
+				}
+				.into());
+			},
+		};
+
+		Ok(image)
+	}
+}
+
+impl From<CreateImageRequest> for ImageVariant {
+	fn from(value: CreateImageRequest) -> Self {
+		match value {
+			CreateImageRequest::Url(f) => Self::Url(f),
+			CreateImageRequest::Image(b) => Self::Image(b),
+		}
+	}
+}
+
+// #[async_trait]
+// impl TryFromChunks for CreateImageRequest {
+// 	async fn try_from_chunks(
+// 		chunks: impl Stream<Item = Result<Bytes, TypedMultipartError>> + Send +
+// Sync + Unpin, 		metadata: FieldMetadata,
+// 	) ->  Result<Self, TypedMultipartError> {
+// 		let field_name: &str = match metadata.name.as_ref() {
+// 			Some(s) => s,
+// 			None => {
+// 				return Err(TypedMultipartError::NamelessField);
+// 			},
+// 		};
+
+// 		let field = match field_name {
+// 			"image" => {
+// 				let bytes = Bytes::try_from_chunks(chunks, metadata).await?;
+
+// 				Self::Image(bytes)
+// 			},
+// 			"file" => {
+// 				let string = String::try_from_chunks(chunks, metadata).await?;
+
+// 				Self::File(string)
+// 			},
+// 			n => {
+// 				return Err(TypedMultipartError::UnknownField { field_name: n.to_string()
+// }); 			}
+// 		};
+
+// 		Ok(field)
+// 	}
+// }

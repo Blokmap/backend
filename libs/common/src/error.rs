@@ -3,10 +3,9 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-// use axum::extract::multipart::MultipartError;
+use axum::extract::multipart::MultipartError;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum_typed_multipart::TypedMultipartError;
 use chrono::{NaiveDateTime, NaiveTime};
 use diesel::result::DatabaseErrorKind;
 use thiserror::Error;
@@ -39,9 +38,12 @@ pub enum Error {
 	/// Some data in the request was missing
 	#[error("{0}")]
 	MissingRequestData(String),
+	/// Any error related to deserializing multipart data
+	#[error(transparent)]
+	MultipartSerializationError(#[from] MultipartError),
 	/// Any error related to parsing multipart data
 	#[error(transparent)]
-	MultipartError(#[from] TypedMultipartError),
+	MultipartParseError(#[from] MultipartParseError),
 	/// Any error related to OAuth login
 	#[error(transparent)]
 	OAuthError(#[from] OAuthError),
@@ -92,7 +94,23 @@ impl Error {
 					OAuthError::UnknownProvider(_) => "unknown_provider",
 				}
 			},
-			Self::MultipartError(_) => "multipart",
+			Self::MultipartSerializationError(_) => "multipart_serialization",
+			Self::MultipartParseError(e) => {
+				match e {
+					MultipartParseError::MissingField { .. } => {
+						"multipart_missing_field"
+					},
+					MultipartParseError::NamelessField => {
+						"multipart_nameless_field"
+					},
+					MultipartParseError::UnknownField { .. } => {
+						"multipart_unknown_field"
+					},
+					MultipartParseError::WrongFieldType { .. } => {
+						"multipart_wrong_type"
+					},
+				}
+			},
 			Self::TokenError(e) => {
 				match e {
 					TokenError::MissingAccessToken => "missing_access_token",
@@ -168,6 +186,40 @@ impl Error {
 			Self::OAuthError(OAuthError::UnknownProvider(p)) => {
 				Some(serde_json::json!({"provider": p}).to_string())
 			},
+			Self::MultipartParseError(e) => {
+				match e {
+					MultipartParseError::MissingField { expected_field } => {
+						Some(
+							serde_json::json!({
+								"expected_field": expected_field,
+							})
+							.to_string(),
+						)
+					},
+					MultipartParseError::UnknownField { field_name } => {
+						Some(
+							serde_json::json!({
+								"field_name": field_name,
+							})
+							.to_string(),
+						)
+					},
+					MultipartParseError::WrongFieldType {
+						field_name,
+						expected_ty,
+						..
+					} => {
+						Some(
+							serde_json::json!({
+								"field_name": field_name,
+								"expected_type": expected_ty,
+							})
+							.to_string(),
+						)
+					},
+					MultipartParseError::NamelessField => None,
+				}
+			},
 			_ => None,
 		}
 	}
@@ -201,7 +253,7 @@ impl IntoResponse for Error {
 			| Self::LoginError(_)
 			| Self::OAuthError(OAuthError::InvalidCSRFToken)
 			| Self::TokenError(_) => StatusCode::FORBIDDEN,
-			Self::MultipartError(_)
+			Self::MultipartSerializationError(_)
 			| Self::InvalidImage(_)
 			| Self::CreateReservationError(_)
 			| Self::PaginationError(_)
@@ -211,7 +263,7 @@ impl IntoResponse for Error {
 				| OAuthError::MissingNonceCookie
 				| OAuthError::UnknownProvider(_),
 			) => StatusCode::BAD_REQUEST,
-			Self::ValidationError(_) | Self::MissingRequestData(_) => {
+			Self::ValidationError(_) | Self::MissingRequestData(_) | Self::MultipartParseError(_) => {
 				StatusCode::UNPROCESSABLE_ENTITY
 			},
 		};
@@ -258,6 +310,20 @@ pub enum TokenError {
 	ExpiredEmailToken,
 	#[error("password reset token has expired")]
 	ExpiredPasswordToken,
+}
+
+#[derive(Debug, Error)]
+pub enum MultipartParseError {
+	#[error(
+		"incorrect field type for '{field_name}', expected '{expected_ty}'"
+	)]
+	WrongFieldType { field_name: String, expected_ty: String },
+	#[error("missing field '{expected_field}'")]
+	MissingField { expected_field: String },
+	#[error("unknown field '{field_name}'")]
+	UnknownField { field_name: String },
+	#[error("nameless field")]
+	NamelessField,
 }
 
 #[derive(Debug, Error)]

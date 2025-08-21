@@ -2,7 +2,6 @@
 
 use axum::extract::State;
 use axum::response::NoContent;
-use axum_typed_multipart::BaseMultipart;
 use common::Error;
 use diesel::{RunQueryDsl, sql_query};
 
@@ -18,8 +17,6 @@ pub mod reservation;
 pub mod review;
 pub mod tag;
 pub mod translation;
-
-pub type TypedMultipart<T> = BaseMultipart<T, Error>;
 
 /// Check if the database connection and webserver are functional
 pub(crate) async fn healthcheck(
