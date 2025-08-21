@@ -33,7 +33,7 @@ impl ImageVariant {
 		owner_id: i32,
 	) -> Result<NewImage, Error> {
 		let (file_path, image_url) = match self {
-			ImageVariant::Url(file) => (Some(file), None),
+			ImageVariant::Url(url) => (None, Some(url)),
 			ImageVariant::Image(bytes) => {
 				let (image, color_type) = resize_image(&bytes)?;
 				let (abs_filepath, rel_filepath) =
@@ -43,7 +43,7 @@ impl ImageVariant {
 
 				let image_url = rel_filepath.to_string_lossy().into_owned();
 
-				(None, Some(image_url))
+				(Some(image_url), None)
 			},
 		};
 
