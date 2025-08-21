@@ -69,6 +69,8 @@ pub async fn upload_location_images(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
+	// TODO: permissions
+
 	let profile_id = session.data.profile_id;
 	let images =
 		store_location_images(profile_id, id, &request.data.image, &conn)
