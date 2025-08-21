@@ -1,7 +1,7 @@
 //! Controllers for [`Location`]s
 
 use axum::Json;
-use axum::extract::{Multipart, Path, Query, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
@@ -20,10 +20,14 @@ use models::{
 use utils::image::{delete_image, store_location_images};
 use validator::Validate;
 
+use crate::controllers::TypedMultipart;
 use crate::schemas::BuildResponse;
+use crate::schemas::image::ImageResponse;
 use crate::schemas::location::{
+	CreateLocationImageRequest,
 	CreateLocationMemberRequest,
 	CreateLocationRequest,
+	LocationImageOrderUpdate,
 	LocationResponse,
 	NearestLocationResponse,
 	RejectLocationRequest,
@@ -55,29 +59,71 @@ pub(crate) async fn create_location(
 	Ok((StatusCode::CREATED, Json(response)))
 }
 
-#[instrument(skip(pool, data))]
-pub(crate) async fn upload_location_images(
+#[instrument(skip(pool, config, request))]
+pub async fn upload_location_images(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	session: Session,
 	Path(id): Path<i32>,
-	mut data: Multipart,
+	request: TypedMultipart<CreateLocationImageRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	let mut image_bytes = vec![];
-	while let Some(field) = data.next_field().await? {
-		if field.name().unwrap_or_default() != "image" {
-			continue;
-		}
-
-		image_bytes.push(field.bytes().await?);
-	}
-
 	let conn = pool.get().await?;
 
 	let profile_id = session.data.profile_id;
-	let image_paths =
-		store_location_images(profile_id, id, &image_bytes, &conn).await?;
+	let images =
+		store_location_images(profile_id, id, &request.data.image, &conn)
+			.await?;
 
-	Ok((StatusCode::CREATED, Json(image_paths)))
+	let response: Vec<ImageResponse> = images
+		.into_iter()
+		.map(|i| i.build_response(&config))
+		.collect::<Result<_, _>>()?;
+
+	Ok((StatusCode::CREATED, Json(response)))
+}
+
+pub async fn reorder_location_images(
+	State(pool): State<DbPool>,
+	State(config): State<Config>,
+	session: Session,
+	Path(id): Path<i32>,
+	Json(new_order): Json<Vec<LocationImageOrderUpdate>>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	// TODO: only allow reordering if the current images are approved
+	// TODO: only allow reordering if {current_image_ids} =
+	// {reordered_image_ids}
+
+	let mut can_manage = false;
+
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
+	can_manage |= Location::owner_or_admin_or(
+		session.data.profile_id,
+		id,
+		AuthorityPermissions::ManageLocation,
+		LocationPermissions::ManageLocation,
+		&conn,
+	)
+	.await?;
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
+
+	let new_order =
+		new_order.into_iter().map(|o| o.to_insertable(id)).collect();
+	let images = Image::reorder(id, new_order, &conn).await?;
+
+	let response: Vec<ImageResponse> = images
+		.into_iter()
+		.map(|i| i.build_response(&config))
+		.collect::<Result<_, _>>()?;
+
+	Ok((StatusCode::OK, Json(response)))
 }
 
 #[instrument(skip(pool))]

@@ -58,6 +58,7 @@ use crate::controllers::location::{
 	get_location_members,
 	get_nearest_location,
 	reject_location,
+	reorder_location_images,
 	search_locations,
 	set_location_tags,
 	update_location,
@@ -197,6 +198,7 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 		)
 		.route("/{id}/images", post(upload_location_images))
 		.route("/{id}/images/{image_id}", delete(delete_location_image))
+		.route("/{id}/images/reorder", post(reorder_location_images))
 		.route(
 			"/{id}/opening-times",
 			get(get_location_times).post(create_location_times),

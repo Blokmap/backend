@@ -30,6 +30,7 @@ use crate::{
 	NewImage,
 	NewLocationImage,
 	NewTranslation,
+	OrderedImage,
 	PrimitiveAuthority,
 	PrimitiveOpeningTime,
 	PrimitiveProfile,
@@ -62,7 +63,7 @@ pub type LocationBackfill = (
 );
 
 pub type FullLocationData =
-	(Location, (Vec<PrimitiveOpeningTime>, Vec<Tag>, Vec<Image>));
+	(Location, (Vec<PrimitiveOpeningTime>, Vec<Tag>, Vec<OrderedImage>));
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[allow(clippy::struct_excessive_bools)]
@@ -248,7 +249,7 @@ impl Location {
 		locs: Vec<Location>,
 		times: &[(i32, PrimitiveOpeningTime)],
 		tags: &[(i32, Tag)],
-		imgs: &[(i32, Image)],
+		imgs: &[(i32, OrderedImage)],
 	) -> Vec<FullLocationData> {
 		locs.into_par_iter()
 			.map(|l| {
@@ -657,10 +658,10 @@ impl Location {
 		loc_id: i32,
 		images: Vec<NewImage>,
 		conn: &DbConn,
-	) -> Result<Vec<Image>, Error> {
+	) -> Result<Vec<OrderedImage>, Error> {
 		let inserted_images = conn
 			.interact(move |conn| {
-				conn.transaction::<Vec<Image>, Error, _>(|conn| {
+				conn.transaction::<_, Error, _>(|conn| {
 					use crate::db::image::dsl::*;
 					use crate::db::location_image::dsl::*;
 
@@ -671,10 +672,16 @@ impl Location {
 
 					let location_images = images
 						.iter()
-						.map(|i| {
+						.enumerate()
+						.map(|(idx, img)| {
+							#[allow(clippy::cast_possible_truncation)]
+							#[allow(clippy::cast_possible_wrap)]
+							let idx = idx as i32;
+
 							NewLocationImage {
 								location_id: loc_id,
-								image_id:    i.id,
+								image_id:    img.id,
+								index:       idx,
 							}
 						})
 						.collect::<Vec<_>>();
@@ -683,10 +690,17 @@ impl Location {
 						.values(location_images)
 						.execute(conn)?;
 
-					Ok(images)
+					image
+						.inner_join(location_image.on(image_id.eq(id)))
+						.select((Image::as_select(), index))
+						.get_results(conn)
+						.map_err(Into::into)
 				})
 			})
-			.await??;
+			.await??
+			.into_iter()
+			.map(|(image, index)| OrderedImage { image, index })
+			.collect();
 
 		Ok(inserted_images)
 	}

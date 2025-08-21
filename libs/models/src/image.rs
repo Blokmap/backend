@@ -20,6 +20,12 @@ pub struct Image {
 	pub image_url:   Option<String>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct OrderedImage {
+	pub image: Image,
+	pub index: i32,
+}
+
 impl Image {
 	pub async fn get_by_id(img_id: i32, conn: &DbConn) -> Result<Self, Error> {
 		let img = conn
@@ -49,21 +55,23 @@ impl Image {
 	pub async fn get_for_location(
 		l_id: i32,
 		conn: &DbConn,
-	) -> Result<Vec<Self>, Error> {
+	) -> Result<Vec<OrderedImage>, Error> {
 		let imgs = conn
 			.interact(move |conn| {
 				use crate::db::image::dsl::*;
-				use crate::db::location;
 				use crate::db::location_image::dsl::*;
 
-				location::table
-					.find(l_id)
-					.inner_join(location_image.on(location_id.eq(location::id)))
+				location_image
+					.filter(location_id.eq(l_id))
 					.inner_join(image.on(image_id.eq(id)))
-					.select(Self::as_select())
+					.order(index.asc())
+					.select((Self::as_select(), index))
 					.get_results(conn)
 			})
-			.await??;
+			.await??
+			.into_iter()
+			.map(|(image, index)| OrderedImage { image, index })
+			.collect();
 
 		Ok(imgs)
 	}
@@ -73,7 +81,7 @@ impl Image {
 	pub async fn get_for_locations(
 		l_ids: Vec<i32>,
 		conn: &DbConn,
-	) -> Result<Vec<(i32, Self)>, Error> {
+	) -> Result<Vec<(i32, OrderedImage)>, Error> {
 		let imgs = conn
 			.interact(move |conn| {
 				use crate::db::image::dsl::*;
@@ -84,12 +92,59 @@ impl Image {
 					.filter(location::id.eq_any(l_ids))
 					.inner_join(location_image.on(location_id.eq(location::id)))
 					.inner_join(image.on(image_id.eq(id)))
-					.select((location::id, Self::as_select()))
+					.select((location::id, Self::as_select(), index))
 					.get_results(conn)
 			})
-			.await??;
+			.await??
+			.into_iter()
+			.map(|(id, image, index)| (id, OrderedImage { image, index }))
+			.collect();
 
 		Ok(imgs)
+	}
+
+	/// Reorder the images for the [`Location`](crate::Location) with the given
+	/// id
+	///
+	/// # Warning
+	/// This overwrites the entire list of `location_image`s for the location,
+	/// and so may hide/delete images if the input doesn't refer to all images
+	#[instrument(skip(conn))]
+	pub async fn reorder(
+		l_id: i32,
+		new_order: Vec<NewLocationImage>,
+		conn: &DbConn,
+	) -> Result<Vec<OrderedImage>, Error> {
+		// TODO: reordered images should be approved
+
+		let images = conn
+			.interact(move |conn| {
+				conn.transaction::<_, Error, _>(|conn| {
+					use crate::db::image::dsl::*;
+					use crate::db::location_image::dsl::*;
+
+					diesel::delete(location_image.filter(location_id.eq(l_id)))
+						.execute(conn)?;
+
+					diesel::insert_into(location_image)
+						.values(new_order)
+						.execute(conn)?;
+
+					location_image
+						.filter(location_id.eq(l_id))
+						.inner_join(image.on(image_id.eq(id)))
+						.order(index.asc())
+						.select((Self::as_select(), index))
+						.get_results(conn)
+						.map_err(Into::into)
+				})
+			})
+			.await??
+			.into_iter()
+			.map(|(image, index)| OrderedImage { image, index })
+			.collect();
+
+		Ok(images)
 	}
 }
 
@@ -133,6 +188,7 @@ pub struct LocationImage {
 	pub image_id:    i32,
 	pub approved_at: Option<NaiveDateTime>,
 	pub approved_by: Option<i32>,
+	pub index:       i32,
 }
 
 #[derive(Clone, Debug, Deserialize, Insertable, Serialize)]
@@ -140,6 +196,7 @@ pub struct LocationImage {
 pub struct NewLocationImage {
 	pub location_id: i32,
 	pub image_id:    i32,
+	pub index:       i32,
 }
 
 impl NewLocationImage {

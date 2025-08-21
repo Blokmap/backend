@@ -1,3 +1,5 @@
+use axum::body::Bytes;
+use axum_typed_multipart::TryFromMultipart;
 use chrono::NaiveDateTime;
 use common::Error;
 use models::{
@@ -5,6 +7,7 @@ use models::{
 	LocationProfileUpdate,
 	LocationUpdate,
 	NewLocation,
+	NewLocationImage,
 	NewLocationProfile,
 	PrimitiveLocation,
 };
@@ -168,6 +171,30 @@ impl BuildResponse<LocationResponse> for FullLocationData {
 				.map(|i| i.build_response(config))
 				.collect::<Result<_, _>>()?,
 		})
+	}
+}
+
+#[derive(Debug, TryFromMultipart)]
+#[try_from_multipart(rename_all = "camelCase")]
+pub struct CreateLocationImageRequest {
+	pub image: Vec<Bytes>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocationImageOrderUpdate {
+	pub image_id: i32,
+	pub index:    i32,
+}
+
+impl LocationImageOrderUpdate {
+	#[must_use]
+	pub fn to_insertable(self, location_id: i32) -> NewLocationImage {
+		NewLocationImage {
+			location_id,
+			image_id: self.image_id,
+			index: self.index,
+		}
 	}
 }
 
