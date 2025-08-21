@@ -124,6 +124,7 @@ diesel::table! {
 		image_id -> Int4,
 		approved_at -> Nullable<Timestamp>,
 		approved_by -> Nullable<Int4>,
+		index -> Int4,
 	}
 }
 

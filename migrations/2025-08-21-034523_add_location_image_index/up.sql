@@ -1,0 +1,1 @@
+ALTER TABLE location_image ADD COLUMN index INTEGER NOT NULL;

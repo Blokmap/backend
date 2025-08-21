@@ -8,7 +8,7 @@ use fast_image_resize::images::Image;
 use fast_image_resize::{IntoImageView, Resizer};
 use image::codecs::webp::WebPEncoder;
 use image::{ColorType, ImageEncoder, ImageReader};
-use models::{Location, NewImage, Profile};
+use models::{Location, NewImage, OrderedImage, Profile};
 use rayon::prelude::*;
 use uuid::Uuid;
 
@@ -18,7 +18,7 @@ pub async fn store_location_images(
 	location_id: i32,
 	bytes: &[Bytes],
 	conn: &DbConn,
-) -> Result<Vec<models::Image>, Error> {
+) -> Result<Vec<OrderedImage>, Error> {
 	let images = bytes
 		.into_par_iter()
 		.map(|bytes| {

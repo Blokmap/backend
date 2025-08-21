@@ -1,14 +1,16 @@
-use std::ops::Deref;
-
 use common::Error;
-use models::Image;
+use models::{Image, OrderedImage};
 use serde::{Deserialize, Serialize};
 
 use crate::Config;
 use crate::schemas::BuildResponse;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ImageResponse(String);
+pub struct ImageResponse {
+	pub id:    i32,
+	pub url:   String,
+	pub index: Option<i32>,
+}
 
 impl BuildResponse<ImageResponse> for Image {
 	fn build_response(self, config: &Config) -> Result<ImageResponse, Error> {
@@ -24,16 +26,24 @@ impl BuildResponse<ImageResponse> for Image {
 
 		let url = url?;
 
-		Ok(ImageResponse(url.to_string()))
+		let response = ImageResponse {
+			id:    self.id,
+			url:   url.to_string(),
+			index: None,
+		};
+
+		Ok(response)
 	}
 }
 
-impl AsRef<str> for ImageResponse {
-	fn as_ref(&self) -> &str { &self.0 }
-}
+impl BuildResponse<ImageResponse> for OrderedImage {
+	fn build_response(
+		self,
+		config: &Config,
+	) -> Result<ImageResponse, common::Error> {
+		let mut response = self.image.build_response(config)?;
+		response.index = Some(self.index);
 
-impl Deref for ImageResponse {
-	type Target = str;
-
-	fn deref(&self) -> &Self::Target { &self.0 }
+		Ok(response)
+	}
 }

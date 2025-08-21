@@ -22,10 +22,12 @@ use validator::Validate;
 
 use crate::controllers::TypedMultipart;
 use crate::schemas::BuildResponse;
+use crate::schemas::image::ImageResponse;
 use crate::schemas::location::{
 	CreateLocationImageRequest,
 	CreateLocationMemberRequest,
 	CreateLocationRequest,
+	LocationImageOrderUpdate,
 	LocationResponse,
 	NearestLocationResponse,
 	RejectLocationRequest,
@@ -57,26 +59,71 @@ pub(crate) async fn create_location(
 	Ok((StatusCode::CREATED, Json(response)))
 }
 
-#[instrument(skip(pool, request))]
-pub(crate) async fn upload_location_images(
+#[instrument(skip(pool, config, request))]
+pub async fn upload_location_images(
 	State(pool): State<DbPool>,
+	State(config): State<Config>,
 	session: Session,
 	Path(id): Path<i32>,
 	request: TypedMultipart<CreateLocationImageRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	let mut images = vec![];
-
-	for image in request.data.images {
-		images.push(image.contents);
-	}
-
 	let conn = pool.get().await?;
 
 	let profile_id = session.data.profile_id;
-	let image_paths =
-		store_location_images(profile_id, id, &images, &conn).await?;
+	let images =
+		store_location_images(profile_id, id, &request.data.image, &conn)
+			.await?;
 
-	Ok((StatusCode::CREATED, Json(image_paths)))
+	let response: Vec<ImageResponse> = images
+		.into_iter()
+		.map(|i| i.build_response(&config))
+		.collect::<Result<_, _>>()?;
+
+	Ok((StatusCode::CREATED, Json(response)))
+}
+
+pub async fn reorder_location_images(
+	State(pool): State<DbPool>,
+	State(config): State<Config>,
+	session: Session,
+	Path(id): Path<i32>,
+	Json(new_order): Json<Vec<LocationImageOrderUpdate>>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	// TODO: only allow reordering if the current images are approved
+	// TODO: only allow reordering if {current_image_ids} =
+	// {reordered_image_ids}
+
+	let mut can_manage = false;
+
+	if session.data.profile_is_admin {
+		can_manage = true;
+	}
+
+	can_manage |= Location::owner_or_admin_or(
+		session.data.profile_id,
+		id,
+		AuthorityPermissions::ManageLocation,
+		LocationPermissions::ManageLocation,
+		&conn,
+	)
+	.await?;
+
+	if !can_manage {
+		return Err(Error::Forbidden);
+	}
+
+	let new_order =
+		new_order.into_iter().map(|o| o.to_insertable(id)).collect();
+	let images = Image::reorder(id, new_order, &conn).await?;
+
+	let response: Vec<ImageResponse> = images
+		.into_iter()
+		.map(|i| i.build_response(&config))
+		.collect::<Result<_, _>>()?;
+
+	Ok((StatusCode::OK, Json(response)))
 }
 
 #[instrument(skip(pool))]
