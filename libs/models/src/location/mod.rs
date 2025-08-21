@@ -485,6 +485,7 @@ impl Location {
 				use self::location::dsl::*;
 
 				location
+					.filter(is_visible.eq(true))
 					.order(
 						sql::<Double>("sqrt(power(latitude - ")
 							.bind::<Double, _>(point.center_lat)
