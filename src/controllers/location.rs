@@ -17,13 +17,12 @@ use models::{
 	Tag,
 	TimeFilter,
 };
-use utils::image::{delete_image, store_location_images};
+use utils::image::{delete_image, store_location_image};
 use validator::Validate;
 
 use crate::schemas::BuildResponse;
-use crate::schemas::image::ImageResponse;
+use crate::schemas::image::{CreateOrderedImageRequest, ImageResponse};
 use crate::schemas::location::{
-	CreateLocationImagesRequest,
 	CreateLocationMemberRequest,
 	CreateLocationRequest,
 	LocationImageOrderUpdate,
@@ -59,7 +58,7 @@ pub(crate) async fn create_location(
 }
 
 #[instrument(skip(pool, config, data))]
-pub async fn upload_location_images(
+pub async fn upload_location_image(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,
 	session: Session,
@@ -69,22 +68,12 @@ pub async fn upload_location_images(
 	let conn = pool.get().await?;
 
 	// TODO: permissions
-
-	let location_images = CreateLocationImagesRequest::parse(&mut data)
-		.await?
-		.images
-		.into_iter()
-		.map(Into::into)
-		.collect();
-
 	let profile_id = session.data.profile_id;
-	let images =
-		store_location_images(profile_id, id, location_images, &conn).await?;
 
-	let response: Vec<ImageResponse> = images
-		.into_iter()
-		.map(|i| i.build_response(&config))
-		.collect::<Result<_, _>>()?;
+	let image = CreateOrderedImageRequest::parse(&mut data).await?.into();
+	let inserted_image =
+		store_location_image(profile_id, id, image, &conn).await?;
+	let response: ImageResponse = inserted_image.build_response(&config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }

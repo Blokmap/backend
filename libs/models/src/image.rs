@@ -157,7 +157,25 @@ pub struct NewImage {
 }
 
 impl NewImage {
+	/// Insert this [`NewImage`]
+	#[instrument(skip(conn))]
+	pub async fn insert(self, conn: &DbConn) -> Result<Image, Error> {
+		let image = conn
+			.interact(move |conn| {
+				use crate::db::image::dsl::*;
+
+				diesel::insert_into(image)
+					.values(self)
+					.returning(Image::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(image)
+	}
+
 	/// Insert this list of [`NewImage`]s into the database.
+	#[instrument(skip(conn))]
 	pub async fn bulk_insert(
 		v: Vec<Self>,
 		conn: &DbConn,
@@ -200,7 +218,25 @@ pub struct NewLocationImage {
 }
 
 impl NewLocationImage {
+	/// Insert this [`NewLocationImage`]
+	#[instrument(skip(conn))]
+	pub async fn insert(self, conn: &DbConn) -> Result<LocationImage, Error> {
+		let loc_image = conn
+			.interact(move |conn| {
+				use crate::db::location_image::dsl::*;
+
+				diesel::insert_into(location_image)
+					.values(self)
+					.returning(LocationImage::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(loc_image)
+	}
+
 	/// Insert this list of [`NewLocationImage`]s into the database.
+	#[instrument(skip(conn))]
 	pub async fn bulk_insert(
 		v: Vec<Self>,
 		conn: &DbConn,

@@ -1,4 +1,3 @@
-use axum::extract::Multipart;
 use chrono::NaiveDateTime;
 use common::Error;
 use models::{
@@ -15,7 +14,7 @@ use validator_derive::Validate;
 
 use crate::Config;
 use crate::schemas::authority::AuthorityResponse;
-use crate::schemas::image::{CreateImageRequest, ImageResponse};
+use crate::schemas::image::ImageResponse;
 use crate::schemas::opening_time::OpeningTimeResponse;
 use crate::schemas::profile::ProfileResponse;
 use crate::schemas::tag::TagResponse;
@@ -170,24 +169,6 @@ impl BuildResponse<LocationResponse> for FullLocationData {
 				.map(|i| i.build_response(config))
 				.collect::<Result<_, _>>()?,
 		})
-	}
-}
-
-#[derive(Clone, Debug)]
-pub struct CreateLocationImagesRequest {
-	pub images: Vec<CreateImageRequest>,
-}
-
-impl CreateLocationImagesRequest {
-	pub async fn parse(multipart: &mut Multipart) -> Result<Self, Error> {
-		let mut images = vec![];
-
-		while let Some(field) = multipart.next_field().await? {
-			let image = CreateImageRequest::from_field(field).await?;
-			images.push(image);
-		}
-
-		Ok(Self { images })
 	}
 }
 

@@ -4,7 +4,7 @@ use axum::extract::multipart::Field;
 use common::{Error, MultipartParseError};
 use models::{Image, OrderedImage};
 use serde::{Deserialize, Serialize};
-use utils::image::ImageVariant;
+use utils::image::{ImageVariant, OrderedImageVariant};
 
 use crate::Config;
 use crate::schemas::BuildResponse;
@@ -107,35 +107,51 @@ impl From<CreateImageRequest> for ImageVariant {
 	}
 }
 
-// #[async_trait]
-// impl TryFromChunks for CreateImageRequest {
-// 	async fn try_from_chunks(
-// 		chunks: impl Stream<Item = Result<Bytes, TypedMultipartError>> + Send +
-// Sync + Unpin, 		metadata: FieldMetadata,
-// 	) ->  Result<Self, TypedMultipartError> {
-// 		let field_name: &str = match metadata.name.as_ref() {
-// 			Some(s) => s,
-// 			None => {
-// 				return Err(TypedMultipartError::NamelessField);
-// 			},
-// 		};
+#[derive(Clone, Debug)]
+pub struct CreateOrderedImageRequest {
+	pub image: CreateImageRequest,
+	pub index: i32,
+}
 
-// 		let field = match field_name {
-// 			"image" => {
-// 				let bytes = Bytes::try_from_chunks(chunks, metadata).await?;
+impl CreateOrderedImageRequest {
+	pub async fn parse(multipart: &mut Multipart) -> Result<Self, Error> {
+		let image = CreateImageRequest::parse(multipart).await?;
 
-// 				Self::Image(bytes)
-// 			},
-// 			"file" => {
-// 				let string = String::try_from_chunks(chunks, metadata).await?;
+		let Some(field) = multipart.next_field().await? else {
+			return Err(MultipartParseError::MissingField {
+				expected_field: "index".to_string(),
+			}
+			.into());
+		};
 
-// 				Self::File(string)
-// 			},
-// 			n => {
-// 				return Err(TypedMultipartError::UnknownField { field_name: n.to_string()
-// }); 			}
-// 		};
+		let Some(name) = field.name().clone() else {
+			return Err(MultipartParseError::NamelessField.into());
+		};
 
-// 		Ok(field)
-// 	}
-// }
+		if name != "index" {
+			return Err(MultipartParseError::UnknownField {
+				field_name: name.to_string(),
+			}
+			.into());
+		}
+
+		let name = name.to_string();
+
+		let index: i32 = field.text().await?.parse().map_err(|_| {
+			MultipartParseError::WrongFieldType {
+				field_name:  name,
+				expected_ty: "number".to_string(),
+			}
+		})?;
+
+		Ok(Self { image, index })
+	}
+}
+
+impl From<CreateOrderedImageRequest> for OrderedImageVariant {
+	fn from(value: CreateOrderedImageRequest) -> Self {
+		let image = ImageVariant::from(value.image);
+
+		Self { image, index: value.index }
+	}
+}

@@ -653,6 +653,45 @@ impl Location {
 		Ok(())
 	}
 
+	/// Insert a [`NewImage`] with an index for a specific [`Location`]
+	#[instrument(skip(conn))]
+	pub async fn insert_image(
+		loc_id: i32,
+		new_image: NewImage,
+		image_index: i32,
+		conn: &DbConn,
+	) -> Result<OrderedImage, Error> {
+		let image = conn
+			.interact(move |conn| {
+				conn.transaction::<_, Error, _>(|conn| {
+					use crate::db::image::dsl::*;
+					use crate::db::location_image::dsl::*;
+
+					let inserted_image = diesel::insert_into(image)
+						.values(new_image)
+						.returning(Image::as_returning())
+						.get_result(conn)?;
+
+					let new_location_image = NewLocationImage {
+						location_id: loc_id,
+						image_id:    inserted_image.id,
+						index:       image_index,
+					};
+
+					diesel::insert_into(location_image)
+						.values(new_location_image)
+						.execute(conn)?;
+
+					Ok(inserted_image)
+				})
+			})
+			.await??;
+
+		let ordered_image = OrderedImage { image, index: image_index };
+
+		Ok(ordered_image)
+	}
+
 	/// Bulk insert a list of [`NewImage`]s for a specific [`Location`]
 	#[instrument(skip(images, conn))]
 	pub async fn insert_images(

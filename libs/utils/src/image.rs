@@ -9,7 +9,6 @@ use fast_image_resize::{IntoImageView, Resizer};
 use image::codecs::webp::WebPEncoder;
 use image::{ColorType, ImageEncoder, ImageReader};
 use models::{Location, NewImage, OrderedImage, Profile};
-use rayon::prelude::*;
 use uuid::Uuid;
 
 /// This basically only exists to avoid circular imports, would be nice if it
@@ -18,6 +17,12 @@ use uuid::Uuid;
 pub enum ImageVariant {
 	Image(Bytes),
 	Url(String),
+}
+
+#[derive(Clone, Debug)]
+pub struct OrderedImageVariant {
+	pub image: ImageVariant,
+	pub index: i32,
 }
 
 impl ImageVariant {
@@ -46,29 +51,28 @@ impl ImageVariant {
 	}
 }
 
-/// Store a list of images for the given location
-pub async fn store_location_images(
+/// Store an image for the given location
+pub async fn store_location_image(
 	uploader_id: i32,
 	location_id: i32,
-	images: Vec<ImageVariant>,
+	ordered_image: OrderedImageVariant,
 	conn: &DbConn,
-) -> Result<Vec<OrderedImage>, Error> {
-	let images = images
-		.into_par_iter()
-		.map(|image| {
-			let new_image = image.into_insertable(
-				uploader_id,
-				ImageOwner::Location,
-				location_id,
-			)?;
+) -> Result<OrderedImage, Error> {
+	let new_image = ordered_image.image.into_insertable(
+		uploader_id,
+		ImageOwner::Location,
+		location_id,
+	)?;
 
-			Ok(new_image)
-		})
-		.collect::<Result<Vec<NewImage>, Error>>()?;
+	let image = Location::insert_image(
+		location_id,
+		new_image,
+		ordered_image.index,
+		conn,
+	)
+	.await?;
 
-	let images = Location::insert_images(location_id, images, conn).await?;
-
-	Ok(images)
+	Ok(image)
 }
 
 /// Store an image for the given profile
