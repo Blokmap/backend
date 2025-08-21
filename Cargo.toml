@@ -76,7 +76,6 @@ utils = { path = "./libs/utils" }
 argon2 = { workspace = true }
 axum = { workspace = true }
 axum-extra = { workspace = true }
-axum_typed_multipart = { workspace = true }
 bitflags = { workspace = true }
 chrono = { workspace = true }
 deadpool-diesel = { workspace = true }

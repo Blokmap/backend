@@ -254,6 +254,7 @@ async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 				seat_count,
 				is_reservable,
 				max_reservation_length,
+				is_visible: true,
 				street,
 				number,
 				zip,

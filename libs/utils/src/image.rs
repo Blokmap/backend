@@ -12,27 +12,55 @@ use models::{Location, NewImage, OrderedImage, Profile};
 use rayon::prelude::*;
 use uuid::Uuid;
 
+/// This basically only exists to avoid circular imports, would be nice if it
+/// could be removed
+#[derive(Clone, Debug)]
+pub enum ImageVariant {
+	Image(Bytes),
+	Url(String),
+}
+
+impl ImageVariant {
+	fn into_insertable(
+		self,
+		uploaded_by: i32,
+		owner_type: ImageOwner,
+		owner_id: i32,
+	) -> Result<NewImage, Error> {
+		let (file_path, image_url) = match self {
+			ImageVariant::Url(file) => (Some(file), None),
+			ImageVariant::Image(bytes) => {
+				let (image, color_type) = resize_image(&bytes)?;
+				let (abs_filepath, rel_filepath) =
+					generate_image_filepaths(owner_type, owner_id)?;
+
+				save_image_file(&abs_filepath, &image, color_type)?;
+
+				let image_url = rel_filepath.to_string_lossy().into_owned();
+
+				(None, Some(image_url))
+			},
+		};
+
+		Ok(NewImage { file_path, uploaded_by, image_url })
+	}
+}
+
 /// Store a list of images for the given location
 pub async fn store_location_images(
 	uploader_id: i32,
 	location_id: i32,
-	bytes: &[Bytes],
+	images: Vec<ImageVariant>,
 	conn: &DbConn,
 ) -> Result<Vec<OrderedImage>, Error> {
-	let images = bytes
+	let images = images
 		.into_par_iter()
-		.map(|bytes| {
-			let (image, color_type) = resize_image(bytes)?;
-			let (abs_filepath, rel_filepath) =
-				generate_image_filepaths(ImageOwner::Location, location_id)?;
-
-			save_image_file(&abs_filepath, &image, color_type)?;
-
-			let new_image = NewImage {
-				file_path:   Some(rel_filepath.to_string_lossy().into_owned()),
-				uploaded_by: uploader_id,
-				image_url:   None,
-			};
+		.map(|image| {
+			let new_image = image.into_insertable(
+				uploader_id,
+				ImageOwner::Location,
+				location_id,
+			)?;
 
 			Ok(new_image)
 		})
@@ -46,21 +74,11 @@ pub async fn store_location_images(
 /// Store an image for the given profile
 pub async fn store_profile_image(
 	profile_id: i32,
-	bytes: &Bytes,
+	image: ImageVariant,
 	conn: &DbConn,
 ) -> Result<models::Image, Error> {
-	let (image, color_type) = resize_image(bytes)?;
-	let (abs_filepath, rel_filepath) =
-		generate_image_filepaths(ImageOwner::Profile, profile_id)?;
-
-	save_image_file(&abs_filepath, &image, color_type)?;
-
-	let new_image = NewImage {
-		file_path:   Some(rel_filepath.to_string_lossy().into_owned()),
-		uploaded_by: profile_id,
-		image_url:   None,
-	};
-
+	let new_image =
+		image.into_insertable(profile_id, ImageOwner::Profile, profile_id)?;
 	let image = Profile::insert_avatar(profile_id, new_image, conn).await?;
 
 	Ok(image)

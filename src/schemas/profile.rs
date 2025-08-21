@@ -1,5 +1,3 @@
-use axum::body::Bytes;
-use axum_typed_multipart::{FieldData, TryFromMultipart};
 use bitflags::Flags;
 use chrono::NaiveDateTime;
 use common::Error;
@@ -64,11 +62,6 @@ impl BuildResponse<ProfileResponse> for Profile {
 				.transpose()?,
 		})
 	}
-}
-
-#[derive(Debug, TryFromMultipart)]
-pub struct CreateProfileAvatarRequest {
-	pub image: FieldData<Bytes>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

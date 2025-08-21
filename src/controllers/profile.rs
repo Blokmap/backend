@@ -1,6 +1,6 @@
 //! Controllers for [`Profile`]s
 
-use axum::extract::{Path, Query, Request, State};
+use axum::extract::{Multipart, Path, Query, Request, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use axum::{Json, RequestExt};
@@ -23,14 +23,13 @@ use models::{
 use utils::image::{delete_image, store_profile_image};
 use uuid::Uuid;
 
-use crate::controllers::TypedMultipart;
 use crate::mailer::Mailer;
 use crate::schemas::BuildResponse;
 use crate::schemas::authority::AuthorityResponse;
+use crate::schemas::image::CreateImageRequest;
 use crate::schemas::location::LocationResponse;
 use crate::schemas::pagination::{PaginationOptions, PaginationResponse};
 use crate::schemas::profile::{
-	CreateProfileAvatarRequest,
 	ProfileResponse,
 	ProfileStatsResponse,
 	UpdateProfileRequest,
@@ -213,22 +212,22 @@ pub async fn update_profile(
 	Ok((StatusCode::OK, Json(response)))
 }
 
-#[instrument(skip(pool, request))]
+#[instrument(skip(pool, data))]
 pub async fn upload_profile_avatar(
 	State(pool): State<DbPool>,
 	session: Session,
 	Path(p_id): Path<i32>,
-	request: TypedMultipart<CreateProfileAvatarRequest>,
+	mut data: Multipart,
 ) -> Result<impl IntoResponse, Error> {
 	if session.data.profile_id != p_id {
 		return Err(Error::Forbidden);
 	}
 
-	let image_bytes = request.data.image.contents;
+	let image_request = CreateImageRequest::parse(&mut data).await?;
 
 	let conn = pool.get().await?;
 
-	let image = store_profile_image(p_id, &image_bytes, &conn).await?;
+	let image = store_profile_image(p_id, image_request.into(), &conn).await?;
 
 	Ok((StatusCode::CREATED, Json(image)))
 }
