@@ -124,7 +124,7 @@ impl CreateOrderedImageRequest {
 			.into());
 		};
 
-		let Some(name) = field.name().clone() else {
+		let Some(name) = field.name() else {
 			return Err(MultipartParseError::NamelessField.into());
 		};
 
