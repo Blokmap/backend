@@ -176,8 +176,8 @@ impl BuildResponse<LocationResponse> for FullLocationData {
 #[derive(Debug, TryFromMultipart)]
 #[try_from_multipart(rename_all = "camelCase")]
 pub struct CreateLocationImageRequest {
-	pub bytes: Vec<FieldData<Bytes>>,
-	pub index: Vec<i32>,
+	pub images:  Vec<FieldData<Bytes>>,
+	pub indices: Vec<FieldData<i32>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Validate)]

@@ -66,8 +66,8 @@ pub(crate) async fn upload_location_images(
 ) -> Result<impl IntoResponse, Error> {
 	let mut images = vec![];
 
-	for image_bytes in request.data.bytes {
-		images.push(image_bytes.contents);
+	for image in request.data.images {
+		images.push(image.contents);
 	}
 
 	let conn = pool.get().await?;
