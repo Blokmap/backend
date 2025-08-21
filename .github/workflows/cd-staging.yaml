@@ -112,7 +112,7 @@ jobs:
 
     deploy-staging:
         runs-on: self-hosted
-        needs: [path-filter, build-staging-migrations]
+        needs: [path-filter, build-staging-migrations, build-staging-backend]
         if: needs.path-filter.outputs.migrations == 'true'
         steps:
           - name: Run migrations
