@@ -12,6 +12,7 @@ publish = false
 
 [dependencies]
 common = { path = "../libs/common" }
+db = { path = "../libs/db" }
 models = { path = "../libs/models" }
 
 chrono = { workspace = true }

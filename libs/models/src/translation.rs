@@ -1,12 +1,10 @@
-use chrono::NaiveDateTime;
 use common::{DbConn, Error};
-use diesel::pg::Pg;
+use db::{creator, profile, translation, updater};
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
+use primitive_profile::PrimitiveProfile;
+use primitive_translation::PrimitiveTranslation;
 use serde::{Deserialize, Serialize};
-
-use crate::PrimitiveProfile;
-use crate::db::{creator, profile, translation, updater};
 
 pub type JoinedTranslationData =
 	(PrimitiveTranslation, Option<PrimitiveProfile>, Option<PrimitiveProfile>);
@@ -26,23 +24,6 @@ pub struct Translation {
 	pub translation: PrimitiveTranslation,
 	pub created_by:  Option<Option<PrimitiveProfile>>,
 	pub updated_by:  Option<Option<PrimitiveProfile>>,
-}
-
-#[derive(
-	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
-)]
-#[diesel(table_name = translation)]
-#[diesel(check_for_backend(Pg))]
-pub struct PrimitiveTranslation {
-	pub id:         i32,
-	pub nl:         Option<String>,
-	pub en:         Option<String>,
-	pub fr:         Option<String>,
-	pub de:         Option<String>,
-	pub created_at: NaiveDateTime,
-	pub created_by: Option<i32>,
-	pub updated_at: NaiveDateTime,
-	pub updated_by: Option<i32>,
 }
 
 mod auto_type_helpers {

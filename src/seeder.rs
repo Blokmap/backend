@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use common::{DbConn, Error};
+use db::ProfileState;
 use diesel::prelude::*;
-use models::ProfileState;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
@@ -62,7 +62,7 @@ impl<'c> Seeder<'c> {
 }
 
 #[derive(Clone, Debug, Deserialize, Insertable, AsChangeset)]
-#[diesel(table_name = models::db::profile)]
+#[diesel(table_name = db::profile)]
 pub struct SeedProfile {
 	username:      String,
 	password_hash: String,
@@ -77,7 +77,7 @@ impl SeedProfile {
 	/// Insert this [`SeedProfile`]
 	pub async fn insert(self, conn: &DbConn) -> Result<(), Error> {
 		conn.interact(|conn| {
-			use models::db::profile::dsl::*;
+			use db::profile::dsl::*;
 
 			diesel::insert_into(profile)
 				.values(self)

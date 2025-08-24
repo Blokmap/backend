@@ -1,17 +1,13 @@
-use chrono::NaiveDateTime;
 use common::{DbConn, Error};
-use diesel::pg::Pg;
+use db::{creator, location, location_tag, profile, tag, translation, updater};
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
+use primitive_profile::PrimitiveProfile;
+use primitive_tag::PrimitiveTag;
+use primitive_translation::PrimitiveTranslation;
 use serde::{Deserialize, Serialize};
 
-use crate::db::{creator, location_tag, profile, tag, translation, updater};
-use crate::{
-	NewTranslation,
-	PrimitiveProfile,
-	PrimitiveTranslation,
-	TranslationUpdate,
-};
+use crate::{NewTranslation, TranslationUpdate};
 
 pub type JoinedTagData = (
 	PrimitiveTag,
@@ -36,17 +32,6 @@ pub struct Tag {
 	pub name:       PrimitiveTranslation,
 	pub created_by: Option<Option<PrimitiveProfile>>,
 	pub updated_by: Option<Option<PrimitiveProfile>>,
-}
-
-#[derive(
-	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
-)]
-#[diesel(table_name = tag)]
-#[diesel(check_for_backend(Pg))]
-pub struct PrimitiveTag {
-	pub id:         i32,
-	pub created_at: NaiveDateTime,
-	pub updated_at: NaiveDateTime,
 }
 
 mod auto_type_helpers {
@@ -145,7 +130,7 @@ impl Tag {
 	#[instrument(skip(conn))]
 	pub async fn delete_by_id(tag_id: i32, conn: &DbConn) -> Result<(), Error> {
 		conn.interact(move |conn| {
-			use crate::db::tag::dsl::*;
+			use self::tag::dsl::*;
 
 			diesel::delete(tag.find(tag_id)).execute(conn)
 		})
@@ -164,9 +149,9 @@ impl Tag {
 	) -> Result<Vec<Self>, Error> {
 		let tags = conn
 			.interact(move |conn| {
-				use crate::db::location;
-				use crate::db::location_tag::dsl::*;
-				use crate::db::tag::dsl::*;
+				use self::location;
+				use self::location_tag::dsl::*;
+				use self::tag::dsl::*;
 
 				location::table
 					.find(l_id)
@@ -200,9 +185,9 @@ impl Tag {
 	) -> Result<Vec<(i32, Self)>, Error> {
 		let tags = conn
 			.interact(move |conn| {
-				use crate::db::location;
-				use crate::db::location_tag::dsl::*;
-				use crate::db::tag::dsl::*;
+				use self::location;
+				use self::location_tag::dsl::*;
+				use self::tag::dsl::*;
 
 				location::table
 					.filter(location::id.eq_any(l_ids))
@@ -255,7 +240,7 @@ impl Tag {
 
 		conn.interact(move |conn| {
 			conn.transaction(|conn| {
-				use crate::db::location_tag::dsl::*;
+				use self::location_tag::dsl::*;
 
 				diesel::delete(location_tag.filter(location_id.eq(l_id)))
 					.execute(conn)?;
@@ -294,8 +279,8 @@ impl NewTag {
 		let tag = conn
 			.interact(move |conn| {
 				conn.transaction::<_, Error, _>(|conn| {
-					use crate::db::tag::dsl::tag;
-					use crate::db::translation::dsl::translation;
+					use self::tag::dsl::tag;
+					use self::translation::dsl::translation;
 
 					let name_translation = diesel::insert_into(translation)
 						.values(self.name)
@@ -348,7 +333,7 @@ impl TagUpdate {
 	) -> Result<Tag, Error> {
 		conn.interact(move |conn| {
 			conn.transaction::<_, Error, _>(|conn| {
-				use crate::db::{tag, translation};
+				use self::{tag, translation};
 
 				let tag_update =
 					InsertableTagUpdate { updated_by: self.updated_by };

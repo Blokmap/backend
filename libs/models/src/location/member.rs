@@ -2,17 +2,13 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 use common::{DbConn, Error};
+use db::{image, location_profile, profile};
 use diesel::prelude::*;
+use primitive_image::PrimitiveImage;
+use primitive_profile::PrimitiveProfile;
 use serde::{Deserialize, Serialize};
 
-use crate::db::{image, location_profile, profile};
-use crate::{
-	AuthorityPermissions,
-	Image,
-	Location,
-	LocationIncludes,
-	PrimitiveProfile,
-};
+use crate::{AuthorityPermissions, Location, LocationIncludes};
 
 bitflags! {
 	/// Possible permissions for a member of a [`Location`]
@@ -117,7 +113,7 @@ impl Location {
 		l_id: i32,
 		conn: &DbConn,
 	) -> Result<
-		Vec<(PrimitiveProfile, Option<Image>, LocationPermissions)>,
+		Vec<(PrimitiveProfile, Option<PrimitiveImage>, LocationPermissions)>,
 		Error,
 	> {
 		let members = conn
@@ -159,7 +155,7 @@ impl Location {
 		conn: &DbConn,
 	) -> Result<(), Error> {
 		conn.interact(move |conn| {
-			use crate::db::location_profile::dsl::*;
+			use self::location_profile::dsl::*;
 
 			diesel::delete(location_profile.find((loc_id, prof_id)))
 				.execute(conn)
@@ -188,10 +184,12 @@ impl NewLocationProfile {
 	pub async fn insert(
 		self,
 		conn: &DbConn,
-	) -> Result<(PrimitiveProfile, Option<Image>, LocationPermissions), Error>
-	{
+	) -> Result<
+		(PrimitiveProfile, Option<PrimitiveImage>, LocationPermissions),
+		Error,
+	> {
 		conn.interact(move |conn| {
-			use crate::db::location_profile::dsl::*;
+			use self::location_profile::dsl::*;
 
 			diesel::insert_into(location_profile).values(self).execute(conn)
 		})
@@ -249,10 +247,12 @@ impl LocationProfileUpdate {
 		loc_id: i32,
 		prof_id: i32,
 		conn: &DbConn,
-	) -> Result<(PrimitiveProfile, Option<Image>, LocationPermissions), Error>
-	{
+	) -> Result<
+		(PrimitiveProfile, Option<PrimitiveImage>, LocationPermissions),
+		Error,
+	> {
 		conn.interact(move |conn| {
-			use crate::db::location_profile::dsl::*;
+			use self::location_profile::dsl::*;
 
 			diesel::update(location_profile.find((loc_id, prof_id)))
 				.set(self)

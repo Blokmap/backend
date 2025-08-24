@@ -1,7 +1,7 @@
 /// Alias definitions for the Blokmap models.
 /// Useful for simplifying queries and improving readability, as well as
 /// avoiding name conflicts.
-use crate::db::schema::{profile, translation};
+use crate::{profile, translation};
 
 diesel::alias!(
 	translation as description: DescriptionAlias,

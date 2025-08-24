@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 common = { path = "../common" }
 models = { path = "../models" }
+primitive_image = { path = "../primitives/image" }
 
 axum = { workspace = true }
 fast_image_resize = { workspace = true }

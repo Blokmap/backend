@@ -5,7 +5,7 @@ use blokmap::schemas::auth::{
 	PasswordResetRequest,
 	RegisterRequest,
 };
-use models::PrimitiveProfile;
+use primitive_profile::PrimitiveProfile;
 
 mod common;
 
@@ -281,8 +281,8 @@ async fn confirm_email() {
 	let conn = env.db_guard.create_pool().get().await.unwrap();
 	let email_confirmation_token: Option<String> = conn
 		.interact(|conn| {
+			use db::profile::dsl::*;
 			use diesel::prelude::*;
-			use models::db::profile::dsl::*;
 
 			profile
 				.select(email_confirmation_token)
@@ -339,8 +339,8 @@ async fn confirm_email_expired_token() {
 	let conn = env.db_guard.create_pool().get().await.unwrap();
 	let profile: PrimitiveProfile = conn
 		.interact(|conn| {
+			use db::profile::dsl::*;
 			use diesel::prelude::*;
-			use models::db::profile::dsl::*;
 
 			profile.filter(username.eq("bob")).get_result(conn)
 		})
@@ -354,8 +354,8 @@ async fn confirm_email_expired_token() {
 	let new_expiry = Utc::now().naive_utc() - chrono::Duration::days(1);
 
 	conn.interact(move |conn| {
+		use db::profile::dsl::*;
 		use diesel::prelude::*;
-		use models::db::profile::dsl::*;
 
 		diesel::update(profile.find(profile_id))
 			.set(email_confirmation_token_expiry.eq(new_expiry))
@@ -397,8 +397,8 @@ async fn resend_confirmation_email() {
 	let conn = env.db_guard.create_pool().get().await.unwrap();
 	let old_profile: PrimitiveProfile = conn
 		.interact(|conn| {
+			use db::profile::dsl::*;
 			use diesel::prelude::*;
-			use models::db::profile::dsl::*;
 
 			profile.filter(username.eq("bob")).get_result(conn)
 		})
@@ -430,8 +430,8 @@ async fn resend_confirmation_email() {
 
 	let new_profile: PrimitiveProfile = conn
 		.interact(|conn| {
+			use db::profile::dsl::*;
 			use diesel::prelude::*;
-			use models::db::profile::dsl::*;
 
 			profile.filter(username.eq("bob")).get_result(conn)
 		})
@@ -483,8 +483,8 @@ async fn reset_password() {
 	let conn = env.db_guard.create_pool().get().await.unwrap();
 	let password_reset_token: Option<String> = conn
 		.interact(|conn| {
+			use db::profile::dsl::*;
 			use diesel::prelude::*;
-			use models::db::profile::dsl::*;
 
 			profile
 				.select(password_reset_token)
@@ -544,8 +544,8 @@ async fn reset_password_expired_token() {
 	let conn = env.db_guard.create_pool().get().await.unwrap();
 	let profile: PrimitiveProfile = conn
 		.interact(|conn| {
+			use db::profile::dsl::*;
 			use diesel::prelude::*;
-			use models::db::profile::dsl::*;
 
 			profile.filter(username.eq("test")).get_result(conn)
 		})
@@ -559,8 +559,8 @@ async fn reset_password_expired_token() {
 	let new_expiry = Utc::now().naive_utc() - chrono::Duration::days(1);
 
 	conn.interact(move |conn| {
+		use db::profile::dsl::*;
 		use diesel::prelude::*;
-		use models::db::profile::dsl::*;
 
 		diesel::update(profile.find(profile_id))
 			.set(password_reset_token_expiry.eq(new_expiry))

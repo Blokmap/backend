@@ -9,6 +9,7 @@ use fast_image_resize::{IntoImageView, Resizer};
 use image::codecs::webp::WebPEncoder;
 use image::{ColorType, ImageEncoder, ImageReader};
 use models::{Location, NewImage, OrderedImage, Profile};
+use primitive_image::PrimitiveImage;
 use uuid::Uuid;
 
 /// This basically only exists to avoid circular imports, would be nice if it
@@ -80,7 +81,7 @@ pub async fn store_profile_image(
 	profile_id: i32,
 	image: ImageVariant,
 	conn: &DbConn,
-) -> Result<models::Image, Error> {
+) -> Result<PrimitiveImage, Error> {
 	let new_image =
 		image.into_insertable(profile_id, ImageOwner::Profile, profile_id)?;
 	let image = Profile::insert_avatar(profile_id, new_image, conn).await?;
@@ -91,8 +92,8 @@ pub async fn store_profile_image(
 /// Delete an image from both the database and disk storage
 pub async fn delete_image(id: i32, conn: &DbConn) -> Result<(), Error> {
 	// Delete the image record before the file to prevent dangling
-	let image = models::Image::get_by_id(id, conn).await?;
-	models::Image::delete_by_id(id, conn).await?;
+	let image = PrimitiveImage::get_by_id(id, conn).await?;
+	PrimitiveImage::delete_by_id(id, conn).await?;
 
 	if let Some(file_path) = &image.file_path {
 		let filepath = PathBuf::from("/mnt/files").join(file_path);

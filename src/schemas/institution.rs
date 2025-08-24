@@ -1,7 +1,7 @@
 use chrono::NaiveDateTime;
+use db::InstitutionCategory;
 use models::{
 	Institution,
-	InstitutionCategory,
 	InstitutionProfileUpdate,
 	NewInstitution,
 	NewInstitutionProfile,

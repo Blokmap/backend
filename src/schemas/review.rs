@@ -1,11 +1,10 @@
 use chrono::NaiveDateTime;
 use common::Error;
-use models::{FullLocationData, NewReview, Review, ReviewUpdate};
+use models::{NewReview, Review, ReviewUpdate};
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 use validator_derive::Validate;
 
-use crate::schemas::BuildResponse;
 use crate::schemas::location::LocationResponse;
 use crate::schemas::profile::ProfileResponse;
 
@@ -18,49 +17,20 @@ pub struct ReviewResponse {
 	pub body:       Option<String>,
 	pub created_at: NaiveDateTime,
 	pub updated_at: NaiveDateTime,
+	pub location:   Option<LocationResponse>,
 }
 
 impl From<Review> for ReviewResponse {
 	fn from(value: Review) -> Self {
 		Self {
-			id:         value.review.id,
+			id:         value.primitive.id,
 			created_by: value.created_by.into(),
-			rating:     value.review.rating,
-			body:       value.review.body,
-			created_at: value.review.created_at,
-			updated_at: value.review.updated_at,
+			rating:     value.primitive.rating,
+			body:       value.primitive.body,
+			created_at: value.primitive.created_at,
+			updated_at: value.primitive.updated_at,
+			location:   value.location.map(Into::into),
 		}
-	}
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReviewLocationResponse {
-	pub id:         i32,
-	pub created_by: ProfileResponse,
-	pub rating:     i32,
-	pub body:       Option<String>,
-	pub created_at: NaiveDateTime,
-	pub updated_at: NaiveDateTime,
-	pub location:   LocationResponse,
-}
-
-impl BuildResponse<ReviewLocationResponse> for (Review, FullLocationData) {
-	fn build_response(
-		self,
-		config: &crate::Config,
-	) -> Result<ReviewLocationResponse, Error> {
-		let (review, location) = self;
-
-		Ok(ReviewLocationResponse {
-			id:         review.review.id,
-			created_by: review.created_by.into(),
-			rating:     review.review.rating,
-			body:       review.review.body,
-			created_at: review.review.created_at,
-			updated_at: review.review.updated_at,
-			location:   location.build_response(config)?,
-		})
 	}
 }
 

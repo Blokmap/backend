@@ -11,14 +11,14 @@ use models::{
 	Location,
 	LocationPermissions,
 	NewReservation,
-	PrimitiveLocation,
-	PrimitiveOpeningTime,
-	PrimitiveReservation,
 	RESERVATION_BLOCK_SIZE_MINUTES,
 	Reservation,
 	ReservationFilter,
 	ReservationIncludes,
 };
+use primitive_location::PrimitiveLocation;
+use primitive_opening_time::PrimitiveOpeningTime;
+use primitive_reservation::PrimitiveReservation;
 
 use crate::Session;
 use crate::schemas::reservation::{

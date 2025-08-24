@@ -1,26 +1,15 @@
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::NaiveDate;
 use common::{DbConn, Error};
-use diesel::pg::Pg;
+use db::{confirmer, creator, location, opening_time, profile, reservation};
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Date};
-use diesel_derive_enum::DbEnum;
+use primitive_location::PrimitiveLocation;
+use primitive_opening_time::PrimitiveOpeningTime;
+use primitive_profile::PrimitiveProfile;
+use primitive_reservation::PrimitiveReservation;
 use serde::{Deserialize, Serialize};
 
-use crate::db::{
-	confirmer,
-	creator,
-	location,
-	opening_time,
-	profile,
-	reservation,
-};
-use crate::{
-	BoxedCondition,
-	PrimitiveLocation,
-	PrimitiveOpeningTime,
-	PrimitiveProfile,
-	ToFilter,
-};
+use crate::{BoxedCondition, ToFilter};
 
 pub type JoinedReservationData = (
 	PrimitiveReservation,
@@ -89,74 +78,6 @@ pub struct Reservation {
 	pub confirmed_by: Option<Option<PrimitiveProfile>>,
 }
 
-#[derive(
-	Clone, Copy, DbEnum, Debug, Default, Deserialize, PartialEq, Eq, Serialize,
-)]
-#[ExistingTypePath = "crate::db::sql_types::ReservationState"]
-pub enum ReservationState {
-	#[default]
-	Created,
-	Cancelled,
-	Absent,
-	Present,
-}
-
-#[derive(
-	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
-)]
-#[diesel(table_name = reservation)]
-#[diesel(check_for_backend(Pg))]
-pub struct PrimitiveReservation {
-	pub id:               i32,
-	pub profile_id:       i32,
-	pub state:            ReservationState,
-	pub opening_time_id:  i32,
-	pub base_block_index: i32,
-	pub block_count:      i32,
-	pub created_at:       NaiveDateTime,
-	pub updated_at:       NaiveDateTime,
-	pub confirmed_at:     Option<NaiveDateTime>,
-}
-
-impl PrimitiveReservation {
-	/// Get a [`PrimitiveReservation`] by its id
-	#[instrument(skip(conn))]
-	pub async fn get_by_id(r_id: i32, conn: &DbConn) -> Result<Self, Error> {
-		let reservation = conn
-			.interact(move |conn| {
-				use crate::db::reservation::dsl::*;
-
-				reservation
-					.find(r_id)
-					.select(Self::as_select())
-					.get_result(conn)
-			})
-			.await??;
-
-		Ok(reservation)
-	}
-
-	/// Count reservations by opening time id.
-	#[instrument(skip(conn))]
-	pub async fn count_by_opening_time_id(
-		opening_time_id: i32,
-		conn: &DbConn,
-	) -> Result<i64, Error> {
-		let count = conn
-			.interact(move |conn| {
-				use crate::db::reservation::dsl::*;
-
-				reservation
-					.filter(opening_time_id.eq(opening_time_id))
-					.count()
-					.get_result(conn)
-			})
-			.await??;
-
-		Ok(count)
-	}
-}
-
 mod auto_type_helpers {
 	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
 }
@@ -169,23 +90,21 @@ impl Reservation {
 		let inc_profile: bool = includes.profile;
 		let inc_confirmed: bool = includes.confirmed_by;
 
-		let opening_time_join = crate::db::opening_time::table
-			.on(crate::db::reservation::opening_time_id
-				.eq(crate::db::opening_time::id));
+		let opening_time_join = opening_time::table
+			.on(reservation::opening_time_id.eq(opening_time::id));
 
-		let location_join = crate::db::location::table
-			.on(crate::db::opening_time::location_id
-				.eq(crate::db::location::id));
+		let location_join =
+			location::table.on(opening_time::location_id.eq(location::id));
 
-		let profile_join = creator.on(crate::db::reservation::profile_id
+		let profile_join = creator.on(reservation::profile_id
 			.eq(creator.field(profile::id))
 			.and(inc_profile.into_sql::<Bool>()));
 
-		let confirmed_join = confirmer.on(crate::db::reservation::confirmed_by
+		let confirmed_join = confirmer.on(reservation::confirmed_by
 			.eq(confirmer.field(profile::id).nullable())
 			.and(inc_confirmed.into_sql::<Bool>()));
 
-		crate::db::reservation::dsl::reservation
+		reservation::table
 			.inner_join(opening_time_join)
 			.inner_join(location_join)
 			.left_outer_join(profile_join)
@@ -222,7 +141,7 @@ impl Reservation {
 
 		let reservation = conn
 			.interact(move |conn| {
-				use crate::db::reservation::dsl::*;
+				use self::reservation::dsl::*;
 
 				query
 					.filter(id.eq(r_id))
@@ -350,7 +269,7 @@ impl Reservation {
 	) -> Result<Vec<(i32, i32)>, Error> {
 		let pairs = conn
 			.interact(move |conn| {
-				use crate::db::reservation::dsl::*;
+				use self::reservation::dsl::*;
 
 				opening_time::table
 					.inner_join(
@@ -369,7 +288,7 @@ impl Reservation {
 	#[instrument(skip(conn))]
 	pub async fn delete_by_id(r_id: i32, conn: &DbConn) -> Result<(), Error> {
 		conn.interact(move |conn| {
-			use crate::db::reservation::dsl::*;
+			use self::reservation::dsl::*;
 
 			diesel::delete(reservation.find(r_id)).execute(conn)
 		})

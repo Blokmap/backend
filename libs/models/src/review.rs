@@ -1,82 +1,94 @@
-use chrono::NaiveDateTime;
+use std::default::Default;
+
 use common::{DbConn, Error};
+use db::{location, profile, review};
 use diesel::pg::Pg;
 use diesel::prelude::*;
+use diesel::sql_types::Bool;
+use primitive_location::PrimitiveLocation;
+use primitive_profile::PrimitiveProfile;
+use primitive_review::PrimitiveReview;
 use serde::{Deserialize, Serialize};
 
-use crate::db::{profile, review};
-use crate::{
-	FullLocationData,
-	Location,
-	LocationIncludes,
-	PrimitiveProfile,
-	QUERY_HARD_LIMIT,
-	manual_pagination,
-};
+use crate::{JoinParts, QUERY_HARD_LIMIT, manual_pagination};
 
-pub type JoinedReviewData = (PrimitiveReview, PrimitiveProfile);
+pub type JoinedReviewData =
+	(PrimitiveReview, PrimitiveProfile, Option<PrimitiveLocation>);
 
-#[derive(Clone, Debug, Deserialize, Queryable, Serialize)]
-#[diesel(table_name = review)]
-#[diesel(check_for_backend(Pg))]
-pub struct Review {
-	pub review:     PrimitiveReview,
-	pub created_by: PrimitiveProfile,
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+pub struct ReviewIncludes {
+	#[serde(default)]
+	pub location: bool,
 }
 
-#[derive(
-	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
-)]
+#[derive(Clone, Debug, Queryable, Selectable)]
 #[diesel(table_name = review)]
 #[diesel(check_for_backend(Pg))]
-pub struct PrimitiveReview {
-	pub id:          i32,
-	pub location_id: i32,
-	pub rating:      i32,
-	pub body:        Option<String>,
-	pub created_at:  NaiveDateTime,
-	pub updated_at:  NaiveDateTime,
+pub struct ReviewParts {
+	#[diesel(embed)]
+	pub primitive:  PrimitiveReview,
+	#[diesel(embed)]
+	pub created_by: PrimitiveProfile,
+	#[diesel(embed)]
+	pub location:   Option<PrimitiveLocation>,
+}
+
+impl JoinParts for ReviewParts {
+	type Includes = ReviewIncludes;
+	type Target = Review;
+
+	fn join(self, includes: Self::Includes) -> Self::Target {
+		Review {
+			primitive:  self.primitive,
+			created_by: self.created_by,
+			location:   if includes.location { self.location } else { None },
+		}
+	}
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Review {
+	pub primitive:  PrimitiveReview,
+	pub created_by: PrimitiveProfile,
+	pub location:   Option<PrimitiveLocation>,
 }
 
 impl Review {
 	/// Build a query with all required (dynamic) joins to select a full
 	/// review data tuple
 	#[diesel::dsl::auto_type(no_type_alias)]
-	fn joined_query() -> _ {
+	fn query(includes: ReviewIncludes) -> _ {
+		let inc_location: bool = includes.location;
+
 		review::table
 			.inner_join(profile::table.on(profile::id.eq(review::profile_id)))
-	}
-
-	/// Construct a full [`Review`] struct from the data returned by a
-	/// joined query
-	fn from_joined(data: JoinedReviewData) -> Self {
-		Self { review: data.0, created_by: data.1 }
+			.left_join(
+				location::table.on(inc_location
+					.into_sql::<Bool>()
+					.and(location::id.eq(review::location_id))),
+			)
 	}
 
 	/// Get all [`Review`]s for a location with the given ID
 	#[instrument(skip(conn))]
 	pub async fn for_location(
 		l_id: i32,
+		includes: ReviewIncludes,
 		limit: usize,
 		offset: usize,
 		conn: &DbConn,
 	) -> Result<(usize, bool, Vec<Self>), Error> {
-		let query = Self::joined_query();
-
 		let reviews = conn
 			.interact(move |conn| {
-				query
+				Self::query(includes)
 					.filter(review::location_id.eq(l_id))
-					.select((
-						PrimitiveReview::as_select(),
-						PrimitiveProfile::as_select(),
-					))
+					.select(ReviewParts::as_select())
 					.limit(QUERY_HARD_LIMIT)
 					.get_results(conn)
 			})
 			.await??
 			.into_iter()
-			.map(Self::from_joined)
+			.map(|parts| parts.join(includes))
 			.collect();
 
 		manual_pagination(reviews, limit, offset)
@@ -86,42 +98,19 @@ impl Review {
 	#[instrument(skip(conn))]
 	pub async fn for_profile(
 		p_id: i32,
+		includes: ReviewIncludes,
 		conn: &DbConn,
-	) -> Result<Vec<(Self, FullLocationData)>, Error> {
-		let query = Self::joined_query();
-
-		let (loc_ids, reviews): (Vec<i32>, Vec<Self>) = conn
+	) -> Result<Vec<Self>, Error> {
+		let reviews = conn
 			.interact(move |conn| {
-				query
+				Self::query(includes)
 					.filter(review::profile_id.eq(p_id))
-					.select((
-						PrimitiveReview::as_select(),
-						PrimitiveProfile::as_select(),
-					))
+					.select(ReviewParts::as_select())
 					.get_results(conn)
 			})
 			.await??
 			.into_iter()
-			.map(|data: JoinedReviewData| {
-				(data.0.location_id, Self::from_joined(data))
-			})
-			.collect();
-
-		let locations =
-			Location::get_by_ids(loc_ids, LocationIncludes::default(), conn)
-				.await?;
-
-		let reviews = reviews
-			.into_iter()
-			.map(|r| {
-				let loc = locations
-					.iter()
-					.find(|l| l.0.location.id == r.review.location_id)
-					.unwrap()
-					.to_owned();
-
-				(r, loc)
-			})
+			.map(|parts| parts.join(includes))
 			.collect();
 
 		Ok(reviews)
@@ -142,31 +131,24 @@ impl NewReview {
 	/// Insert this [`NewReview`]
 	#[instrument(skip(conn))]
 	pub async fn insert(self, conn: &DbConn) -> Result<Review, Error> {
-		let (review, created_by) = conn
+		let review = conn
 			.interact(move |conn| {
 				conn.transaction(|conn| {
-					use crate::db::review::dsl::*;
+					use self::review::dsl::*;
 
 					let r_id: i32 = diesel::insert_into(review)
 						.values(self)
 						.returning(id)
 						.get_result(conn)?;
 
-					review
-						.find(r_id)
-						.inner_join(
-							profile::table.on(profile::id.eq(profile_id)),
-						)
-						.select((
-							PrimitiveReview::as_select(),
-							PrimitiveProfile::as_select(),
-						))
+					Review::query(ReviewIncludes::default())
+						.filter(id.eq(r_id))
+						.select(ReviewParts::as_select())
 						.get_result(conn)
 				})
 			})
-			.await??;
-
-		let review = Review { review, created_by };
+			.await??
+			.join(ReviewIncludes::default());
 
 		Ok(review)
 	}
@@ -188,31 +170,24 @@ impl ReviewUpdate {
 		r_id: i32,
 		conn: &DbConn,
 	) -> Result<Review, Error> {
-		let (review, created_by) = conn
+		let review = conn
 			.interact(move |conn| {
 				conn.transaction(|conn| {
-					use crate::db::review::dsl::*;
+					use self::review::dsl::*;
 
 					let r_id: i32 = diesel::update(review)
 						.set(self)
 						.returning(id)
 						.get_result(conn)?;
 
-					review
-						.find(r_id)
-						.inner_join(
-							profile::table.on(profile::id.eq(profile_id)),
-						)
-						.select((
-							PrimitiveReview::as_select(),
-							PrimitiveProfile::as_select(),
-						))
+					Review::query(ReviewIncludes::default())
+						.filter(id.eq(r_id))
+						.select(ReviewParts::as_select())
 						.get_result(conn)
 				})
 			})
-			.await??;
-
-		let review = Review { review, created_by };
+			.await??
+			.join(ReviewIncludes::default());
 
 		Ok(review)
 	}

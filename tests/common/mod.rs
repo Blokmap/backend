@@ -17,12 +17,12 @@ use models::{
 	NewTranslation,
 	OpeningTime,
 	OpeningTimeIncludes,
-	PrimitiveProfile,
 	Profile,
 	TagIncludes,
 	Translation,
 	TranslationIncludes,
 };
+use primitive_profile::PrimitiveProfile;
 
 mod mock_db;
 mod mock_redis;
@@ -73,7 +73,7 @@ impl TestEnv {
 					"tests/seed/profiles.json",
 					async |conn, records: Vec<SeedProfile>| {
 						conn.interact(move |conn| {
-							use models::db::profile::dsl::*;
+							use db::profile::dsl::*;
 
 							diesel::insert_into(profile)
 								.values(records)
@@ -94,7 +94,7 @@ impl TestEnv {
 					"tests/seed/translations.json",
 					async |conn, records: Vec<NewTranslation>| {
 						conn.interact(move |conn| {
-							use models::db::translation::dsl::*;
+							use db::translation::dsl::*;
 
 							diesel::insert_into(translation)
 								.values(records)
@@ -131,7 +131,7 @@ impl TestEnv {
 					"tests/seed/opening-times.json",
 					async |conn, records: Vec<NewOpeningTime>| {
 						conn.interact(move |conn| {
-							use models::db::opening_time::dsl::*;
+							use db::opening_time::dsl::*;
 
 							diesel::insert_into(opening_time)
 								.values(records)
@@ -166,7 +166,7 @@ impl TestEnv {
 					"tests/seed/reservations.json",
 					async |conn, records: Vec<NewReservation>| {
 						conn.interact(move |conn| {
-							use models::db::reservation::dsl::*;
+							use db::reservation::dsl::*;
 
 							diesel::insert_into(reservation)
 								.values(records)

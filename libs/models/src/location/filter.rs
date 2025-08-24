@@ -1,18 +1,12 @@
 use std::f64;
 
 use common::{DbConn, Error};
-use diesel::dsl::sql;
-use diesel::pg::Pg;
-use diesel::prelude::*;
-use diesel::sql_types::{Bool, Nullable, Text};
-use serde::{Deserialize, Serialize};
-use serde_with::DisplayFromStr;
-
-use super::{description, excerpt};
-use crate::db::{
+use db::{
 	approver,
 	authority,
 	creator,
+	description,
+	excerpt,
 	location,
 	opening_time,
 	profile,
@@ -20,11 +14,18 @@ use crate::db::{
 	translation,
 	updater,
 };
+use diesel::dsl::sql;
+use diesel::pg::Pg;
+use diesel::prelude::*;
+use diesel::sql_types::{Bool, Nullable, Text};
+use primitive_location::PrimitiveLocation;
+use serde::{Deserialize, Serialize};
+use serde_with::DisplayFromStr;
+
 use crate::{
 	BoxedCondition,
 	Location,
 	LocationIncludes,
-	PrimitiveLocation,
 	QUERY_HARD_LIMIT,
 	TimeFilter,
 	ToFilter,
@@ -184,7 +185,7 @@ impl Location {
 
 		let locations = conn
 			.interact(move |conn| {
-				use crate::db::location::dsl::*;
+				use self::location::dsl::*;
 
 				query
 					.filter(filter)

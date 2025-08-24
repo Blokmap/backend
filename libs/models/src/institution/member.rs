@@ -2,26 +2,16 @@ use std::collections::HashMap;
 
 use chrono::NaiveDateTime;
 use common::{DbConn, Error};
+use db::{creator, image, institution, institution_profile, profile, updater};
 use diesel::pg::Pg;
 use diesel::prelude::*;
+use primitive_image::PrimitiveImage;
+use primitive_institution::PrimitiveInstitution;
+use primitive_profile::PrimitiveProfile;
+use primitive_translation::PrimitiveTranslation;
 use serde::{Deserialize, Serialize};
 
-use crate::db::{
-	creator,
-	image,
-	institution,
-	institution_profile,
-	profile,
-	updater,
-};
-use crate::{
-	Image,
-	Institution,
-	InstitutionIncludes,
-	PrimitiveInstitution,
-	PrimitiveProfile,
-	PrimitiveTranslation,
-};
+use crate::{Institution, InstitutionIncludes};
 
 #[derive(
 	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
@@ -63,12 +53,12 @@ impl Institution {
 		inst_id: i32,
 		conn: &DbConn,
 	) -> Result<
-		Vec<(PrimitiveProfile, Option<Image>, InstitutionPermissions)>,
+		Vec<(PrimitiveProfile, Option<PrimitiveImage>, InstitutionPermissions)>,
 		Error,
 	> {
 		let members = conn
 			.interact(move |conn| {
-				use crate::db::institution_profile::dsl::*;
+				use self::institution_profile::dsl::*;
 
 				institution_profile
 					.filter(institution_id.eq(inst_id))
@@ -105,7 +95,7 @@ impl Institution {
 	) -> Result<InstitutionPermissions, Error> {
 		let permissions = conn
 			.interact(move |conn| {
-				use crate::db::institution_profile::dsl::*;
+				use self::institution_profile::dsl::*;
 
 				institution_profile
 					.find((inst_id, prof_id))
@@ -125,7 +115,7 @@ impl Institution {
 		conn: &DbConn,
 	) -> Result<(), Error> {
 		conn.interact(move |conn| {
-			use crate::db::institution_profile::dsl::*;
+			use self::institution_profile::dsl::*;
 
 			diesel::delete(institution_profile.find((inst_id, prof_id)))
 				.execute(conn)
@@ -148,7 +138,7 @@ impl Institution {
 
 		let institutions = conn
 			.interact(move |conn| {
-				use crate::db::institution_profile::dsl::*;
+				use self::institution_profile::dsl::*;
 
 				institution_profile
 					.filter(profile_id.eq(p_id))
@@ -187,10 +177,10 @@ impl NewInstitutionProfile {
 	pub async fn insert(
 		self,
 		conn: &DbConn,
-	) -> Result<(PrimitiveProfile, Option<Image>, InstitutionPermissions), Error>
+	) -> Result<(PrimitiveProfile, Option<PrimitiveImage>, InstitutionPermissions), Error>
 	{
 		conn.interact(move |conn| {
-			use crate::db::institution_profile::dsl::*;
+			use self::institution_profile::dsl::*;
 
 			diesel::insert_into(institution_profile).values(self).execute(conn)
 		})
@@ -198,7 +188,7 @@ impl NewInstitutionProfile {
 
 		let (profile, img, permissions): (_, _, i64) = conn
 			.interact(move |conn| {
-				use crate::db::institution_profile::dsl::*;
+				use self::institution_profile::dsl::*;
 
 				institution_profile
 					.filter(
@@ -249,10 +239,10 @@ impl InstitutionProfileUpdate {
 		inst_id: i32,
 		prof_id: i32,
 		conn: &DbConn,
-	) -> Result<(PrimitiveProfile, Option<Image>, InstitutionPermissions), Error>
+	) -> Result<(PrimitiveProfile, Option<PrimitiveImage>, InstitutionPermissions), Error>
 	{
 		conn.interact(move |conn| {
-			use crate::db::institution_profile::dsl::*;
+			use self::institution_profile::dsl::*;
 
 			diesel::update(institution_profile.find((inst_id, prof_id)))
 				.set(self)

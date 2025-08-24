@@ -1,53 +1,72 @@
 use chrono::NaiveDateTime;
 use common::{DbConn, Error};
+use db::{image, location, location_image, profile};
 use diesel::pg::Pg;
 use diesel::prelude::*;
+use diesel::sql_types::Bool;
 use diesel::{Identifiable, Queryable, Selectable};
+use primitive_image::PrimitiveImage;
+use primitive_profile::PrimitiveProfile;
 use serde::{Deserialize, Serialize};
 
-use crate::db::{image, location_image};
+use crate::JoinParts;
 
-#[derive(
-	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
-)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+pub struct ImageIncludes {
+	#[serde(default)]
+	pub uploaded_by: bool,
+}
+
+#[derive(Clone, Debug, Queryable, Selectable)]
 #[diesel(table_name = image)]
 #[diesel(check_for_backend(Pg))]
+pub struct ImageParts {
+	#[diesel(embed)]
+	pub primitive:   PrimitiveImage,
+	#[diesel(embed)]
+	pub uploaded_by: Option<PrimitiveProfile>,
+}
+
+impl JoinParts for ImageParts {
+	type Includes = ImageIncludes;
+	type Target = Image;
+
+	fn join(self, includes: Self::Includes) -> Self::Target {
+		Image {
+			primitive:   self.primitive,
+			uploaded_by: if includes.uploaded_by {
+				Some(self.uploaded_by)
+			} else {
+				None
+			},
+		}
+	}
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Image {
-	pub id:          i32,
-	pub file_path:   Option<String>,
-	pub uploaded_at: NaiveDateTime,
-	pub uploaded_by: i32,
-	pub image_url:   Option<String>,
+	pub primitive:   PrimitiveImage,
+	pub uploaded_by: Option<Option<PrimitiveProfile>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct OrderedImage {
-	pub image: Image,
+	pub image: PrimitiveImage,
 	pub index: i32,
 }
 
 impl Image {
-	pub async fn get_by_id(img_id: i32, conn: &DbConn) -> Result<Self, Error> {
-		let img = conn
-			.interact(move |conn| {
-				use self::image::dsl::*;
+	/// Build a query with all required (dynamic) joins to select a full
+	/// image data tuple
+	#[diesel::dsl::auto_type(no_type_alias)]
+	fn _query(includes: ImageIncludes) -> _ {
+		let inc_uploaded: bool = includes.uploaded_by;
 
-				image.find(img_id).first(conn)
-			})
-			.await??;
-
-		Ok(img)
-	}
-
-	pub async fn delete_by_id(img_id: i32, conn: &DbConn) -> Result<(), Error> {
-		conn.interact(move |conn| {
-			use self::image::dsl::*;
-
-			diesel::delete(image.find(img_id)).execute(conn)
-		})
-		.await??;
-
-		Ok(())
+		image::table.left_join(
+			profile::table.on(inc_uploaded
+				.into_sql::<Bool>()
+				.and(image::uploaded_by.eq(profile::id.nullable()))),
+		)
 	}
 
 	/// Get all [`Image`]s for a location with the given id
@@ -58,14 +77,14 @@ impl Image {
 	) -> Result<Vec<OrderedImage>, Error> {
 		let imgs = conn
 			.interact(move |conn| {
-				use crate::db::image::dsl::*;
-				use crate::db::location_image::dsl::*;
+				use self::image::dsl::*;
+				use self::location_image::dsl::*;
 
 				location_image
 					.filter(location_id.eq(l_id))
 					.inner_join(image.on(image_id.eq(id)))
 					.order(index.asc())
-					.select((Self::as_select(), index))
+					.select((PrimitiveImage::as_select(), index))
 					.get_results(conn)
 			})
 			.await??
@@ -84,15 +103,15 @@ impl Image {
 	) -> Result<Vec<(i32, OrderedImage)>, Error> {
 		let imgs = conn
 			.interact(move |conn| {
-				use crate::db::image::dsl::*;
-				use crate::db::location;
-				use crate::db::location_image::dsl::*;
+				use self::image::dsl::*;
+				use self::location;
+				use self::location_image::dsl::*;
 
 				location::table
 					.filter(location::id.eq_any(l_ids))
 					.inner_join(location_image.on(location_id.eq(location::id)))
 					.inner_join(image.on(image_id.eq(id)))
-					.select((location::id, Self::as_select(), index))
+					.select((location::id, PrimitiveImage::as_select(), index))
 					.get_results(conn)
 			})
 			.await??
@@ -120,8 +139,8 @@ impl Image {
 		let images = conn
 			.interact(move |conn| {
 				conn.transaction::<_, Error, _>(|conn| {
-					use crate::db::image::dsl::*;
-					use crate::db::location_image::dsl::*;
+					use self::image::dsl::*;
+					use self::location_image::dsl::*;
 
 					diesel::delete(location_image.filter(location_id.eq(l_id)))
 						.execute(conn)?;
@@ -134,7 +153,7 @@ impl Image {
 						.filter(location_id.eq(l_id))
 						.inner_join(image.on(image_id.eq(id)))
 						.order(index.asc())
-						.select((Self::as_select(), index))
+						.select((PrimitiveImage::as_select(), index))
 						.get_results(conn)
 						.map_err(Into::into)
 				})
@@ -159,14 +178,14 @@ pub struct NewImage {
 impl NewImage {
 	/// Insert this [`NewImage`]
 	#[instrument(skip(conn))]
-	pub async fn insert(self, conn: &DbConn) -> Result<Image, Error> {
+	pub async fn insert(self, conn: &DbConn) -> Result<PrimitiveImage, Error> {
 		let image = conn
 			.interact(move |conn| {
-				use crate::db::image::dsl::*;
+				use self::image::dsl::*;
 
 				diesel::insert_into(image)
 					.values(self)
-					.returning(Image::as_returning())
+					.returning(PrimitiveImage::as_returning())
 					.get_result(conn)
 			})
 			.await??;
@@ -179,14 +198,14 @@ impl NewImage {
 	pub async fn bulk_insert(
 		v: Vec<Self>,
 		conn: &DbConn,
-	) -> Result<Vec<Image>, Error> {
+	) -> Result<Vec<PrimitiveImage>, Error> {
 		let images = conn
 			.interact(move |conn| {
 				use self::image::dsl::*;
 
 				diesel::insert_into(image)
 					.values(v)
-					.returning(Image::as_returning())
+					.returning(PrimitiveImage::as_returning())
 					.get_results(conn)
 			})
 			.await??;
@@ -223,7 +242,7 @@ impl NewLocationImage {
 	pub async fn insert(self, conn: &DbConn) -> Result<LocationImage, Error> {
 		let loc_image = conn
 			.interact(move |conn| {
-				use crate::db::location_image::dsl::*;
+				use self::location_image::dsl::*;
 
 				diesel::insert_into(location_image)
 					.values(self)

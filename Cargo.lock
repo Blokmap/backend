@@ -482,6 +482,7 @@ dependencies = [
  "bitflags 2.9.1",
  "chrono",
  "common",
+ "db",
  "deadpool-diesel",
  "diesel",
  "diesel-derive-enum",
@@ -496,6 +497,13 @@ dependencies = [
  "models",
  "openidconnect",
  "parking_lot",
+ "primitive_authority",
+ "primitive_image",
+ "primitive_location",
+ "primitive_opening_time",
+ "primitive_profile",
+ "primitive_reservation",
+ "primitive_translation",
  "rayon",
  "redis",
  "regex",
@@ -912,6 +920,15 @@ dependencies = [
  "darling_core",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "db"
+version = "0.1.0"
+dependencies = [
+ "diesel",
+ "diesel-derive-enum",
+ "serde",
 ]
 
 [[package]]
@@ -2185,12 +2202,23 @@ dependencies = [
  "bitflags 2.9.1",
  "chrono",
  "common",
+ "db",
  "deadpool-diesel",
  "diesel",
  "diesel-derive-enum",
  "diesel-dynamic-schema",
  "lettre",
  "openidconnect",
+ "primitive_authority",
+ "primitive_image",
+ "primitive_institution",
+ "primitive_location",
+ "primitive_opening_time",
+ "primitive_profile",
+ "primitive_reservation",
+ "primitive_review",
+ "primitive_tag",
+ "primitive_translation",
  "rand 0.9.2",
  "rayon",
  "redis",
@@ -2703,6 +2731,114 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "353e1ca18966c16d9deb1c69278edbc5f194139612772bd9537af60ac231e1e6"
 dependencies = [
  "elliptic-curve",
+]
+
+[[package]]
+name = "primitive_authority"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "db",
+ "diesel",
+ "serde",
+]
+
+[[package]]
+name = "primitive_image"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "common",
+ "db",
+ "diesel",
+ "serde",
+ "tracing",
+]
+
+[[package]]
+name = "primitive_institution"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "db",
+ "diesel",
+ "serde",
+]
+
+[[package]]
+name = "primitive_location"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "common",
+ "db",
+ "diesel",
+ "serde",
+ "tracing",
+]
+
+[[package]]
+name = "primitive_opening_time"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "common",
+ "db",
+ "diesel",
+ "serde",
+ "tracing",
+]
+
+[[package]]
+name = "primitive_profile"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "db",
+ "diesel",
+ "serde",
+]
+
+[[package]]
+name = "primitive_reservation"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "common",
+ "db",
+ "diesel",
+ "serde",
+ "tracing",
+]
+
+[[package]]
+name = "primitive_review"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "db",
+ "diesel",
+ "serde",
+]
+
+[[package]]
+name = "primitive_tag"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "db",
+ "diesel",
+ "serde",
+]
+
+[[package]]
+name = "primitive_translation"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "db",
+ "diesel",
+ "serde",
 ]
 
 [[package]]
@@ -3334,6 +3470,7 @@ dependencies = [
  "chrono",
  "clap",
  "common",
+ "db",
  "deadpool-diesel",
  "diesel",
  "fake",
@@ -4050,6 +4187,7 @@ dependencies = [
  "fast_image_resize",
  "image",
  "models",
+ "primitive_image",
  "rayon",
  "uuid",
 ]

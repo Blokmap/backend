@@ -6,18 +6,19 @@ use axum::response::{IntoResponse, NoContent};
 use axum::{Json, RequestExt};
 use axum_extra::extract::PrivateCookieJar;
 use common::{DbPool, Error, RedisConn};
+use db::ProfileState;
 use models::{
 	Authority,
 	AuthorityIncludes,
 	Location,
 	LocationIncludes,
 	Profile,
-	ProfileState,
 	ProfileStats,
 	Reservation,
 	ReservationFilter,
 	ReservationIncludes,
 	Review,
+	ReviewIncludes,
 	UpdateProfile,
 };
 use utils::image::{delete_image, store_profile_image};
@@ -35,7 +36,7 @@ use crate::schemas::profile::{
 	UpdateProfileRequest,
 };
 use crate::schemas::reservation::ReservationResponse;
-use crate::schemas::review::ReviewLocationResponse;
+use crate::schemas::review::ReviewResponse;
 use crate::{AdminSession, AppState, Config, Session};
 
 /// Get all [`Profile`]s
@@ -348,15 +349,14 @@ pub async fn get_profile_authorities(
 #[instrument(skip(pool))]
 pub async fn get_profile_reviews(
 	State(pool): State<DbPool>,
-	State(config): State<Config>,
+	Query(includes): Query<ReviewIncludes>,
 	Path(p_id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let reviews = Review::for_profile(p_id, &conn).await?;
-	let response: Result<Vec<ReviewLocationResponse>, Error> =
-		reviews.into_iter().map(|data| data.build_response(&config)).collect();
-	let response = response?;
+	let reviews = Review::for_profile(p_id, includes, &conn).await?;
+	let response: Vec<ReviewResponse> =
+		reviews.into_iter().map(Into::into).collect();
 
 	Ok((StatusCode::OK, Json(response)))
 }

@@ -1,18 +1,20 @@
-use chrono::NaiveDateTime;
 use common::{DbConn, Error};
-use diesel::pg::Pg;
+use db::{
+	InstitutionCategory,
+	creator,
+	institution,
+	profile,
+	translation,
+	updater,
+};
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
-use diesel_derive_enum::DbEnum;
+use primitive_institution::PrimitiveInstitution;
+use primitive_profile::PrimitiveProfile;
+use primitive_translation::PrimitiveTranslation;
 use serde::{Deserialize, Serialize};
 
-use crate::db::{creator, institution, profile, translation, updater};
-use crate::{
-	NewTranslation,
-	PrimitiveProfile,
-	PrimitiveTranslation,
-	manual_pagination,
-};
+use crate::{NewTranslation, manual_pagination};
 
 mod member;
 
@@ -42,48 +44,6 @@ pub struct Institution {
 	pub name:        PrimitiveTranslation,
 	pub created_by:  Option<PrimitiveProfile>,
 	pub updated_by:  Option<Option<PrimitiveProfile>>,
-}
-
-#[derive(
-	Clone, Copy, DbEnum, Debug, Default, Deserialize, PartialEq, Eq, Serialize,
-)]
-#[ExistingTypePath = "crate::db::sql_types::InstitutionCategory"]
-pub enum InstitutionCategory {
-	#[default]
-	Education,
-	Organisation,
-	Government,
-}
-
-impl InstitutionCategory {
-	#[must_use]
-	pub fn get_variants() -> [&'static str; 3] {
-		["education", "organisation", "government"]
-	}
-}
-
-#[derive(
-	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
-)]
-#[diesel(table_name = institution)]
-#[diesel(check_for_backend(Pg))]
-pub struct PrimitiveInstitution {
-	pub id:                  i32,
-	pub name_translation_id: i32,
-	pub email:               Option<String>,
-	pub phone_number:        Option<String>,
-	pub street:              Option<String>,
-	pub number:              Option<String>,
-	pub zip:                 Option<String>,
-	pub city:                Option<String>,
-	pub province:            Option<String>,
-	pub country:             Option<String>,
-	pub created_at:          NaiveDateTime,
-	pub created_by:          i32,
-	pub updated_at:          NaiveDateTime,
-	pub updated_by:          Option<i32>,
-	pub category:            InstitutionCategory,
-	pub slug:                String,
 }
 
 mod auto_type_helpers {
@@ -169,7 +129,7 @@ impl Institution {
 
 		let institution = conn
 			.interact(move |conn| {
-				use crate::db::institution::dsl::*;
+				use self::institution::dsl::*;
 
 				query
 					.filter(id.eq(i_id))
@@ -233,8 +193,8 @@ impl NewInstitution {
 		let institution = conn
 			.interact(move |conn| {
 				conn.transaction::<_, Error, _>(|conn| {
-					use crate::db::institution::dsl::institution;
-					use crate::db::translation::dsl::translation;
+					use self::institution::dsl::institution;
+					use self::translation::dsl::translation;
 
 					let name = diesel::insert_into(translation)
 						.values(self.name_translation)

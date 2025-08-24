@@ -1,5 +1,6 @@
 use chrono::{Duration, NaiveDateTime, NaiveTime};
-use models::{RESERVATION_BLOCK_SIZE_MINUTES, Reservation, ReservationState};
+use db::ReservationState;
+use models::{RESERVATION_BLOCK_SIZE_MINUTES, Reservation};
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::location::LocationResponse;

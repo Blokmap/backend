@@ -5,8 +5,8 @@ use models::{
 	AuthorityUpdate,
 	NewAuthority,
 	NewAuthorityProfile,
-	PrimitiveAuthority,
 };
+use primitive_authority::PrimitiveAuthority;
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::profile::ProfileResponse;

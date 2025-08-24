@@ -2,11 +2,7 @@ use std::collections::HashMap;
 
 use chrono::NaiveDateTime;
 use common::{DbConn, Error};
-use diesel::pg::Pg;
-use diesel::prelude::*;
-use serde::{Deserialize, Serialize};
-
-use crate::db::{
+use db::{
 	authority,
 	authority_profile,
 	creator,
@@ -15,13 +11,14 @@ use crate::db::{
 	profile,
 	updater,
 };
-use crate::{
-	Authority,
-	AuthorityIncludes,
-	Image,
-	PrimitiveAuthority,
-	PrimitiveProfile,
-};
+use diesel::pg::Pg;
+use diesel::prelude::*;
+use primitive_authority::PrimitiveAuthority;
+use primitive_image::PrimitiveImage;
+use primitive_profile::PrimitiveProfile;
+use serde::{Deserialize, Serialize};
+
+use crate::{Authority, AuthorityIncludes};
 
 #[derive(
 	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
@@ -101,7 +98,7 @@ impl Authority {
 		auth_id: i32,
 		conn: &DbConn,
 	) -> Result<
-		Vec<(PrimitiveProfile, Option<Image>, AuthorityPermissions)>,
+		Vec<(PrimitiveProfile, Option<PrimitiveImage>, AuthorityPermissions)>,
 		Error,
 	> {
 		let members = conn
@@ -144,7 +141,7 @@ impl Authority {
 	) -> Result<AuthorityPermissions, Error> {
 		let permissions = conn
 			.interact(move |conn| {
-				use crate::db::authority_profile::dsl::*;
+				use self::authority_profile::dsl::*;
 
 				authority_profile
 					.find((auth_id, prof_id))
@@ -164,7 +161,7 @@ impl Authority {
 		conn: &DbConn,
 	) -> Result<(), Error> {
 		conn.interact(move |conn| {
-			use crate::db::authority_profile::dsl::*;
+			use self::authority_profile::dsl::*;
 
 			diesel::delete(authority_profile.find((auth_id, prof_id)))
 				.execute(conn)
@@ -187,7 +184,7 @@ impl Authority {
 
 		let authorities = conn
 			.interact(move |conn| {
-				use crate::db::authority_profile::dsl::*;
+				use self::authority_profile::dsl::*;
 
 				authority_profile
 					.filter(profile_id.eq(p_id))
@@ -225,10 +222,12 @@ impl NewAuthorityProfile {
 	pub async fn insert(
 		self,
 		conn: &DbConn,
-	) -> Result<(PrimitiveProfile, Option<Image>, AuthorityPermissions), Error>
-	{
+	) -> Result<
+		(PrimitiveProfile, Option<PrimitiveImage>, AuthorityPermissions),
+		Error,
+	> {
 		conn.interact(move |conn| {
-			use crate::db::authority_profile::dsl::*;
+			use self::authority_profile::dsl::*;
 
 			diesel::insert_into(authority_profile).values(self).execute(conn)
 		})
@@ -289,10 +288,12 @@ impl AuthorityProfileUpdate {
 		auth_id: i32,
 		prof_id: i32,
 		conn: &DbConn,
-	) -> Result<(PrimitiveProfile, Option<Image>, AuthorityPermissions), Error>
-	{
+	) -> Result<
+		(PrimitiveProfile, Option<PrimitiveImage>, AuthorityPermissions),
+		Error,
+	> {
 		conn.interact(move |conn| {
-			use crate::db::authority_profile::dsl::*;
+			use self::authority_profile::dsl::*;
 
 			diesel::update(authority_profile.find((auth_id, prof_id)))
 				.set(self)

@@ -13,10 +13,10 @@ use models::{
 	LocationIncludes,
 	LocationPermissions,
 	Point,
-	PrimitiveOpeningTime,
 	Tag,
 	TimeFilter,
 };
+use primitive_opening_time::PrimitiveOpeningTime;
 use utils::image::{delete_image, store_location_image};
 use validator::Validate;
 

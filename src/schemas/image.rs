@@ -2,7 +2,8 @@ use axum::body::Bytes;
 use axum::extract::Multipart;
 use axum::extract::multipart::Field;
 use common::{Error, MultipartParseError};
-use models::{Image, OrderedImage};
+use models::OrderedImage;
+use primitive_image::PrimitiveImage;
 use serde::{Deserialize, Serialize};
 use utils::image::{ImageVariant, OrderedImageVariant};
 
@@ -16,7 +17,7 @@ pub struct ImageResponse {
 	pub index: Option<i32>,
 }
 
-impl BuildResponse<ImageResponse> for Image {
+impl BuildResponse<ImageResponse> for PrimitiveImage {
 	fn build_response(self, config: &Config) -> Result<ImageResponse, Error> {
 		let url = if let Some(file_path) = &self.file_path {
 			let url = config.static_url.join(file_path)?;

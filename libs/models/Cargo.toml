@@ -11,7 +11,18 @@ license-file = "../LICENSE"
 publish = false
 
 [dependencies]
-common ={ path = "../common" }
+common = { path = "../common" }
+db = { path = "../db" }
+primitive_authority = { path = "../primitives/authority" }
+primitive_image = { path = "../primitives/image" }
+primitive_institution = { path = "../primitives/institution" }
+primitive_location = { path = "../primitives/location" }
+primitive_opening_time = { path = "../primitives/opening_time" }
+primitive_profile = { path = "../primitives/profile" }
+primitive_reservation = { path = "../primitives/reservation" }
+primitive_review = { path = "../primitives/review" }
+primitive_tag = { path = "../primitives/tag" }
+primitive_translation = { path = "../primitives/translation" }
 
 argon2 = { workspace = true }
 axum-extra = { workspace = true }

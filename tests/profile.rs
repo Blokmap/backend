@@ -2,7 +2,9 @@ use axum::http::StatusCode;
 use blokmap::schemas::auth::LoginRequest;
 use blokmap::schemas::pagination::{PaginationOptions, PaginationResponse};
 use blokmap::schemas::reservation::ReservationResponse;
-use models::{PrimitiveProfile, Profile, ProfileState};
+use db::ProfileState;
+use models::Profile;
+use primitive_profile::PrimitiveProfile;
 
 mod common;
 
@@ -76,8 +78,8 @@ async fn update_current_profile_pending_email() {
 	let conn = env.db_guard.create_pool().get().await.unwrap();
 	let old_profile: PrimitiveProfile = conn
 		.interact(|conn| {
+			use db::profile::dsl::*;
 			use diesel::prelude::*;
-			use models::db::profile::dsl::*;
 
 			profile.filter(username.eq("test")).get_result(conn)
 		})
@@ -100,8 +102,8 @@ async fn update_current_profile_pending_email() {
 
 	let new_profile: PrimitiveProfile = conn
 		.interact(|conn| {
+			use db::profile::dsl::*;
 			use diesel::prelude::*;
-			use models::db::profile::dsl::*;
 
 			profile.filter(username.eq("test")).get_result(conn)
 		})

@@ -3,82 +3,32 @@ use argon2::password_hash::rand_core::OsRng;
 use argon2::{Argon2, PasswordHasher};
 use chrono::{NaiveDateTime, TimeDelta, Utc};
 use common::{DbConn, Error, OAuthError};
-use diesel::pg::Pg;
+use db::{
+	ProfileState,
+	ReservationState,
+	image,
+	opening_time,
+	profile,
+	reservation,
+};
 use diesel::prelude::*;
-use diesel_derive_enum::DbEnum;
 use lettre::message::Mailbox;
 use openidconnect::core::CoreGenderClaim;
 use openidconnect::{EmptyAdditionalClaims, IdTokenClaims};
+use primitive_image::PrimitiveImage;
+use primitive_profile::PrimitiveProfile;
 use rand::Rng;
 use rand::distr::Alphabetic;
 use serde::{Deserialize, Serialize};
 
-use crate::db::{image, opening_time, profile, reservation};
 use crate::{
-	Image,
 	NewImage,
 	QUERY_HARD_LIMIT,
 	RESERVATION_BLOCK_SIZE_MINUTES,
-	ReservationState,
 	manual_pagination,
 };
 
-pub type JoinedProfileData = (PrimitiveProfile, Option<Image>);
-
-#[derive(
-	Clone, Copy, DbEnum, Debug, Default, Deserialize, PartialEq, Eq, Serialize,
-)]
-#[ExistingTypePath = "crate::db::sql_types::ProfileState"]
-pub enum ProfileState {
-	#[default]
-	PendingEmailVerification,
-	Active,
-	Disabled,
-}
-
-/// A single profile
-#[derive(
-	AsChangeset,
-	Clone,
-	Debug,
-	Deserialize,
-	Identifiable,
-	Insertable,
-	Queryable,
-	Selectable,
-	Serialize,
-)]
-#[diesel(table_name = profile)]
-#[diesel(check_for_backend(Pg))]
-pub struct PrimitiveProfile {
-	pub id:                              i32,
-	pub username:                        String,
-	pub first_name:                      Option<String>,
-	pub last_name:                       Option<String>,
-	pub avatar_image_id:                 Option<i32>,
-	pub institution_id:                  Option<i32>,
-	#[serde(skip)]
-	pub password_hash:                   String,
-	#[serde(skip)]
-	pub password_reset_token:            Option<String>,
-	#[serde(skip)]
-	pub password_reset_token_expiry:     Option<NaiveDateTime>,
-	pub email:                           Option<String>,
-	#[serde(skip)]
-	pub pending_email:                   Option<String>,
-	#[serde(skip)]
-	pub email_confirmation_token:        Option<String>,
-	#[serde(skip)]
-	pub email_confirmation_token_expiry: Option<NaiveDateTime>,
-	pub is_admin:                        bool,
-	pub block_reason:                    Option<String>,
-	#[serde(skip)]
-	pub state:                           ProfileState,
-	pub created_at:                      NaiveDateTime,
-	pub updated_at:                      NaiveDateTime,
-	pub updated_by:                      Option<i32>,
-	pub last_login_at:                   NaiveDateTime,
-}
+pub type JoinedProfileData = (PrimitiveProfile, Option<PrimitiveImage>);
 
 impl TryFrom<&Profile> for Mailbox {
 	type Error = Error;
@@ -112,7 +62,7 @@ impl TryFrom<&Profile> for Mailbox {
 #[diesel(check_for_backend(Pg))]
 pub struct Profile {
 	pub profile: PrimitiveProfile,
-	pub avatar:  Option<Image>,
+	pub avatar:  Option<PrimitiveImage>,
 }
 
 mod auto_type_helpers {
@@ -142,7 +92,7 @@ impl Profile {
 
 		let profile = conn
 			.interact(move |conn| {
-				use crate::db::profile::dsl::*;
+				use self::profile::dsl::*;
 
 				query
 					.filter(id.eq(query_id))
@@ -519,15 +469,15 @@ impl Profile {
 		p_id: i32,
 		avatar: NewImage,
 		conn: &DbConn,
-	) -> Result<Image, Error> {
+	) -> Result<PrimitiveImage, Error> {
 		let image = conn
 			.interact(move |conn| {
-				conn.transaction::<Image, Error, _>(|conn| {
-					use crate::db::profile::dsl::*;
+				conn.transaction::<PrimitiveImage, Error, _>(|conn| {
+					use self::profile::dsl::*;
 
 					let image_record = diesel::insert_into(image::table)
 						.values(avatar)
-						.returning(Image::as_returning())
+						.returning(PrimitiveImage::as_returning())
 						.get_result(conn)?;
 
 					diesel::update(profile.find(p_id))
@@ -686,8 +636,8 @@ impl ProfileStats {
 	) -> Result<Self, Error> {
 		let reservation_data = conn
 			.interact(move |c| {
-				use opening_time::dsl as ot_dsl;
-				use reservation::dsl as r_dsl;
+				use self::opening_time::dsl as ot_dsl;
+				use self::reservation::dsl as r_dsl;
 
 				r_dsl::reservation
 					.inner_join(

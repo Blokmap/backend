@@ -12,8 +12,6 @@ use diesel::BoxableExpression;
 use diesel::pg::Pg;
 use diesel::sql_types::{Bool, Nullable};
 
-pub mod db;
-
 mod authority;
 mod image;
 mod institution;
@@ -47,6 +45,13 @@ pub trait ToFilter<S> {
 	type SqlType;
 
 	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType>;
+}
+
+pub trait JoinParts {
+	type Target;
+	type Includes;
+
+	fn join(self, includes: Self::Includes) -> Self::Target;
 }
 
 #[inline]

@@ -1,12 +1,11 @@
-use chrono::NaiveDateTime;
 use common::{DbConn, Error};
-use diesel::pg::Pg;
+use db::{authority, creator, institution, profile, updater};
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
+use primitive_authority::PrimitiveAuthority;
+use primitive_institution::PrimitiveInstitution;
+use primitive_profile::PrimitiveProfile;
 use serde::{Deserialize, Serialize};
-
-use crate::db::{authority, creator, institution, profile, updater};
-use crate::{PrimitiveInstitution, PrimitiveProfile};
 
 mod member;
 
@@ -37,22 +36,6 @@ pub struct Authority {
 	pub created_by:  Option<Option<PrimitiveProfile>>,
 	pub updated_by:  Option<Option<PrimitiveProfile>>,
 	pub institution: Option<Option<PrimitiveInstitution>>,
-}
-
-#[derive(
-	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
-)]
-#[diesel(table_name = authority)]
-#[diesel(check_for_backend(Pg))]
-pub struct PrimitiveAuthority {
-	pub id:             i32,
-	pub name:           String,
-	pub description:    Option<String>,
-	pub created_at:     NaiveDateTime,
-	pub created_by:     Option<i32>,
-	pub updated_at:     NaiveDateTime,
-	pub updated_by:     Option<i32>,
-	pub institution_id: Option<i32>,
 }
 
 mod auto_type_helpers {
@@ -157,7 +140,7 @@ impl Authority {
 		conn: &DbConn,
 	) -> Result<(), Error> {
 		conn.interact(move |conn| {
-			use crate::db::authority::dsl::*;
+			use self::authority::dsl::*;
 
 			diesel::delete(authority.find(auth_id)).execute(conn)
 		})
@@ -226,7 +209,7 @@ impl AuthorityUpdate {
 		conn: &DbConn,
 	) -> Result<Authority, Error> {
 		conn.interact(move |conn| {
-			use crate::db::authority::dsl::*;
+			use self::authority::dsl::*;
 
 			diesel::update(authority.find(auth_id)).set(self).execute(conn)
 		})

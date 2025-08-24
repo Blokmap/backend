@@ -2,28 +2,37 @@ use std::hash::Hash;
 
 use chrono::{NaiveDateTime, Utc};
 use common::{DbConn, Error};
-use diesel::dsl::sql;
-use diesel::pg::Pg;
-use diesel::prelude::*;
-use diesel::sql_types::{Bool, Double};
-use diesel::{Identifiable, Queryable, Selectable};
-use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
-use serde_with::DisplayFromStr;
-
-use crate::db::{
+use db::{
 	approver,
 	authority,
+	authority_profile,
 	creator,
 	description,
 	excerpt,
+	image,
 	location,
+	location_image,
+	location_profile,
 	opening_time,
 	profile,
 	rejecter,
 	translation,
 	updater,
 };
+use diesel::Queryable;
+use diesel::dsl::sql;
+use diesel::prelude::*;
+use diesel::sql_types::{Bool, Double};
+use primitive_authority::PrimitiveAuthority;
+use primitive_image::PrimitiveImage;
+use primitive_location::PrimitiveLocation;
+use primitive_opening_time::PrimitiveOpeningTime;
+use primitive_profile::PrimitiveProfile;
+use primitive_translation::PrimitiveTranslation;
+use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
+use serde_with::DisplayFromStr;
+
 use crate::{
 	AuthorityPermissions,
 	Image,
@@ -31,10 +40,6 @@ use crate::{
 	NewLocationImage,
 	NewTranslation,
 	OrderedImage,
-	PrimitiveAuthority,
-	PrimitiveOpeningTime,
-	PrimitiveProfile,
-	PrimitiveTranslation,
 	Tag,
 };
 
@@ -59,7 +64,7 @@ pub type LocationBackfill = (
 	Vec<Location>,
 	Vec<(i32, PrimitiveOpeningTime)>,
 	Vec<(i32, Tag)>,
-	Vec<(i32, Image)>,
+	Vec<(i32, PrimitiveImage)>,
 );
 
 pub type FullLocationData =
@@ -115,49 +120,6 @@ impl PartialEq for Location {
 }
 
 impl Eq for Location {}
-
-#[derive(
-	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
-)]
-#[diesel(table_name = location)]
-#[diesel(check_for_backend(Pg))]
-pub struct PrimitiveLocation {
-	pub id:                     i32,
-	pub name:                   String,
-	pub seat_count:             i32,
-	pub is_reservable:          bool,
-	pub max_reservation_length: Option<i32>,
-	pub is_visible:             bool,
-	pub street:                 String,
-	pub number:                 String,
-	pub zip:                    String,
-	pub city:                   String,
-	pub province:               String,
-	pub country:                String,
-	pub latitude:               f64,
-	pub longitude:              f64,
-	pub approved_at:            Option<NaiveDateTime>,
-	pub rejected_at:            Option<NaiveDateTime>,
-	pub rejected_reason:        Option<String>,
-	pub created_at:             NaiveDateTime,
-	pub updated_at:             NaiveDateTime,
-}
-
-impl PrimitiveLocation {
-	/// Get a [`PrimitiveLocation`] by its id
-	#[instrument(skip(conn))]
-	pub async fn get_by_id(l_id: i32, conn: &DbConn) -> Result<Self, Error> {
-		let location = conn
-			.interact(move |conn| {
-				use crate::db::location::dsl::*;
-
-				location.find(l_id).select(Self::as_select()).first(conn)
-			})
-			.await??;
-
-		Ok(location)
-	}
-}
 
 mod auto_type_helpers {
 	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
@@ -288,7 +250,7 @@ impl Location {
 	> {
 		let auth_perms: Option<i64> = conn
 			.interact(move |conn| {
-				use crate::db::{authority, authority_profile};
+				use self::{authority, authority_profile};
 
 				location::table
 					.find(l_id)
@@ -312,8 +274,8 @@ impl Location {
 
 		let loc_perms: Option<i64> = conn
 			.interact(move |conn| {
-				use crate::db::location::dsl::*;
-				use crate::db::location_profile::dsl::*;
+				use self::location::dsl::*;
+				use self::location_profile::dsl::*;
 
 				location
 					.find(l_id)
@@ -342,7 +304,7 @@ impl Location {
 
 		let location_data = conn
 			.interact(move |conn| {
-				use crate::db::location::dsl::*;
+				use self::location::dsl::*;
 
 				query
 					.filter(id.eq(loc_id))
@@ -387,7 +349,7 @@ impl Location {
 
 		let locations: Vec<Location> = conn
 			.interact(move |conn| {
-				use crate::db::location::dsl::*;
+				use self::location::dsl::*;
 
 				query
 					.filter(id.eq_any(loc_ids))
@@ -664,12 +626,12 @@ impl Location {
 		let image = conn
 			.interact(move |conn| {
 				conn.transaction::<_, Error, _>(|conn| {
-					use crate::db::image::dsl::*;
-					use crate::db::location_image::dsl::*;
+					use self::image::dsl::*;
+					use self::location_image::dsl::*;
 
 					let inserted_image = diesel::insert_into(image)
 						.values(new_image)
-						.returning(Image::as_returning())
+						.returning(PrimitiveImage::as_returning())
 						.get_result(conn)?;
 
 					let new_location_image = NewLocationImage {
@@ -702,12 +664,12 @@ impl Location {
 		let inserted_images = conn
 			.interact(move |conn| {
 				conn.transaction::<_, Error, _>(|conn| {
-					use crate::db::image::dsl::*;
-					use crate::db::location_image::dsl::*;
+					use self::image::dsl::*;
+					use self::location_image::dsl::*;
 
 					let images = diesel::insert_into(image)
 						.values(images)
-						.returning(Image::as_returning())
+						.returning(PrimitiveImage::as_returning())
 						.get_results(conn)?;
 
 					let location_images = images
@@ -732,7 +694,7 @@ impl Location {
 
 					image
 						.inner_join(location_image.on(image_id.eq(id)))
-						.select((Image::as_select(), index))
+						.select((PrimitiveImage::as_select(), index))
 						.get_results(conn)
 						.map_err(Into::into)
 				})
@@ -768,7 +730,7 @@ pub struct NewLocation {
 }
 
 #[derive(Debug, Deserialize, Insertable)]
-#[diesel(table_name = crate::db::location)]
+#[diesel(table_name = self::location)]
 pub struct InsertableNewLocation {
 	pub name:                   String,
 	pub authority_id:           Option<i32>,
@@ -800,8 +762,8 @@ impl NewLocation {
 		let location = conn
 			.interact(move |conn| {
 				conn.transaction::<_, Error, _>(|conn| {
-					use crate::db::location::dsl::location;
-					use crate::db::translation::dsl::translation;
+					use self::location::dsl::location;
+					use self::translation::dsl::translation;
 
 					let desc = diesel::insert_into(translation)
 						.values(self.description)
@@ -852,7 +814,7 @@ impl NewLocation {
 }
 
 #[derive(AsChangeset, Clone, Debug, Deserialize)]
-#[diesel(table_name = crate::db::location)]
+#[diesel(table_name = self::location)]
 pub struct LocationUpdate {
 	pub name:          Option<String>,
 	pub seat_count:    Option<i32>,

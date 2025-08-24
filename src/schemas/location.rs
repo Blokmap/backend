@@ -7,8 +7,8 @@ use models::{
 	NewLocation,
 	NewLocationImage,
 	NewLocationProfile,
-	PrimitiveLocation,
 };
+use primitive_location::PrimitiveLocation;
 use serde::{Deserialize, Serialize};
 use validator_derive::Validate;
 
