@@ -78,6 +78,23 @@ pub async fn upload_location_image(
 	Ok((StatusCode::CREATED, Json(response)))
 }
 
+#[instrument(skip(pool))]
+pub async fn delete_location_images(
+	State(pool): State<DbPool>,
+	session: Session,
+	Path(id): Path<i32>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let images = Image::get_for_location(id, &conn).await?;
+
+	for img in images {
+		delete_image(img.image.id, &conn).await?;
+	}
+
+	Ok((StatusCode::NO_CONTENT, NoContent))
+}
+
 pub async fn reorder_location_images(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,

@@ -84,3 +84,15 @@ pub async fn delete_location_time(
 
 	Ok(StatusCode::NO_CONTENT)
 }
+
+#[instrument(skip(pool))]
+pub async fn delete_location_times(
+	State(pool): State<DbPool>,
+	Path(id): Path<i32>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	OpeningTime::delete_by_location_id(id, &conn).await?;
+
+	Ok(StatusCode::NO_CONTENT)
+}
