@@ -368,6 +368,25 @@ impl OpeningTime {
 
 		Ok(())
 	}
+
+	/// Delete all [`OpeningTime`]s for a specific location
+	#[instrument(skip(conn))]
+	pub async fn delete_by_location_id(
+		loc_id: i32,
+		conn: &DbConn,
+	) -> Result<(), Error> {
+		conn.interact(move |conn| {
+			use crate::db::opening_time::dsl::*;
+
+			diesel::delete(opening_time.filter(location_id.eq(loc_id)))
+				.execute(conn)
+		})
+		.await??;
+
+		info!("deleted opening_times for location with id {loc_id}");
+
+		Ok(())
+	}
 }
 
 #[derive(Clone, Debug, Deserialize, Insertable, Serialize)]

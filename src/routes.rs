@@ -47,27 +47,12 @@ use crate::controllers::institution::{
 	update_institution_member,
 };
 use crate::controllers::location::{
-	add_location_member,
-	approve_location,
-	create_location,
-	delete_location,
-	delete_location_image,
-	delete_location_member,
-	get_all_location_permissions,
-	get_location,
-	get_location_members,
-	get_nearest_location,
-	reject_location,
-	reorder_location_images,
-	search_locations,
-	set_location_tags,
-	update_location,
-	update_location_member,
-	upload_location_image,
+	add_location_member, approve_location, create_location, delete_location, delete_location_image, delete_location_images, delete_location_member, get_all_location_permissions, get_location, get_location_members, get_nearest_location, reject_location, reorder_location_images, search_locations, set_location_tags, update_location, update_location_member, upload_location_image
 };
 use crate::controllers::opening_time::{
 	create_location_times,
 	delete_location_time,
+	delete_location_times,
 	get_location_times,
 	update_location_time,
 };
@@ -196,12 +181,14 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 			"/{id}/members/{profile_id}/permissions",
 			post(update_location_member),
 		)
-		.route("/{id}/images", post(upload_location_image))
+		.route("/{id}/images", post(upload_location_image).delete(delete_location_images))
 		.route("/{id}/images/{image_id}", delete(delete_location_image))
 		.route("/{id}/images/reorder", post(reorder_location_images))
 		.route(
 			"/{id}/opening-times",
-			get(get_location_times).post(create_location_times),
+			get(get_location_times)
+				.post(create_location_times)
+				.delete(delete_location_times),
 		)
 		.route(
 			"/{id}/opening-times/{time_id}",
