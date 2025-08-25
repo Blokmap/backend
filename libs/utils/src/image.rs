@@ -9,9 +9,7 @@ use fast_image_resize::{IntoImageView, Resizer};
 use image::{Image as ImageModel, NewImage, OrderedImage};
 use image_processing::codecs::webp::WebPEncoder;
 use image_processing::{ColorType, ImageEncoder, ImageReader};
-use location::Location;
 use primitives::PrimitiveImage;
-use profile::Profile;
 use uuid::Uuid;
 
 /// This basically only exists to avoid circular imports, would be nice if it
@@ -67,13 +65,9 @@ pub async fn store_location_image(
 		location_id,
 	)?;
 
-	let image = Location::insert_image(
-		location_id,
-		new_image,
-		ordered_image.index,
-		conn,
-	)
-	.await?;
+	let image = new_image
+		.insert_for_location(location_id, ordered_image.index, conn)
+		.await?;
 
 	Ok(image)
 }
@@ -86,7 +80,7 @@ pub async fn store_profile_image(
 ) -> Result<PrimitiveImage, Error> {
 	let new_image =
 		image.into_insertable(profile_id, ImageOwner::Profile, profile_id)?;
-	let image = Profile::insert_avatar(profile_id, new_image, conn).await?;
+	let image = new_image.insert_for_profile(profile_id, conn).await?;
 
 	Ok(image)
 }

@@ -196,41 +196,72 @@ pub struct NewImage {
 }
 
 impl NewImage {
-	/// Insert this [`NewImage`]
+	/// Insert a [`NewImage`] with an index for a specific [`Location`]
 	#[instrument(skip(conn))]
-	pub async fn insert(self, conn: &DbConn) -> Result<PrimitiveImage, Error> {
+	pub async fn insert_for_location(
+		self,
+		loc_id: i32,
+		image_index: i32,
+		conn: &DbConn,
+	) -> Result<OrderedImage, Error> {
 		let image = conn
 			.interact(move |conn| {
-				use self::image::dsl::*;
+				conn.transaction::<_, Error, _>(|conn| {
+					use self::image::dsl::*;
+					use self::location_image::dsl::*;
 
-				diesel::insert_into(image)
-					.values(self)
-					.returning(PrimitiveImage::as_returning())
-					.get_result(conn)
+					let inserted_image = diesel::insert_into(image)
+						.values(self)
+						.returning(PrimitiveImage::as_returning())
+						.get_result(conn)?;
+
+					let new_location_image = NewLocationImage {
+						location_id: loc_id,
+						image_id:    inserted_image.id,
+						index:       image_index,
+					};
+
+					diesel::insert_into(location_image)
+						.values(new_location_image)
+						.execute(conn)?;
+
+					Ok(inserted_image)
+				})
+			})
+			.await??;
+
+		let ordered_image = OrderedImage { image, index: image_index };
+
+		Ok(ordered_image)
+	}
+
+	/// Insert a [`NewImage`] for a specific [`Profile`]
+	#[instrument(skip(conn))]
+	pub async fn insert_for_profile(
+		self,
+		p_id: i32,
+		conn: &DbConn,
+	) -> Result<PrimitiveImage, Error> {
+		let image = conn
+			.interact(move |conn| {
+				conn.transaction::<PrimitiveImage, Error, _>(|conn| {
+					use self::profile::dsl::*;
+
+					let image_record = diesel::insert_into(image::table)
+						.values(self)
+						.returning(PrimitiveImage::as_returning())
+						.get_result(conn)?;
+
+					diesel::update(profile.find(p_id))
+						.set(avatar_image_id.eq(image_record.id))
+						.execute(conn)?;
+
+					Ok(image_record)
+				})
 			})
 			.await??;
 
 		Ok(image)
-	}
-
-	/// Insert this list of [`NewImage`]s into the database.
-	#[instrument(skip(conn))]
-	pub async fn bulk_insert(
-		v: Vec<Self>,
-		conn: &DbConn,
-	) -> Result<Vec<PrimitiveImage>, Error> {
-		let images = conn
-			.interact(move |conn| {
-				use self::image::dsl::*;
-
-				diesel::insert_into(image)
-					.values(v)
-					.returning(PrimitiveImage::as_returning())
-					.get_results(conn)
-			})
-			.await??;
-
-		Ok(images)
 	}
 }
 
@@ -254,43 +285,4 @@ pub struct NewLocationImage {
 	pub location_id: i32,
 	pub image_id:    i32,
 	pub index:       i32,
-}
-
-impl NewLocationImage {
-	/// Insert this [`NewLocationImage`]
-	#[instrument(skip(conn))]
-	pub async fn insert(self, conn: &DbConn) -> Result<LocationImage, Error> {
-		let loc_image = conn
-			.interact(move |conn| {
-				use self::location_image::dsl::*;
-
-				diesel::insert_into(location_image)
-					.values(self)
-					.returning(LocationImage::as_returning())
-					.get_result(conn)
-			})
-			.await??;
-
-		Ok(loc_image)
-	}
-
-	/// Insert this list of [`NewLocationImage`]s into the database.
-	#[instrument(skip(conn))]
-	pub async fn bulk_insert(
-		v: Vec<Self>,
-		conn: &DbConn,
-	) -> Result<Vec<LocationImage>, Error> {
-		let images = conn
-			.interact(move |conn| {
-				use self::location_image::dsl::*;
-
-				diesel::insert_into(location_image)
-					.values(v)
-					.returning(LocationImage::as_returning())
-					.get_results(conn)
-			})
-			.await??;
-
-		Ok(images)
-	}
 }

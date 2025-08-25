@@ -464,39 +464,10 @@ impl Profile {
 				image_url:   Some(avatar_url.to_string()),
 			};
 
-			Self::insert_avatar(profile.profile.id, avatar, conn).await?;
+			avatar.insert_for_profile(profile.profile.id, conn).await?;
 		}
 
 		Ok(profile)
-	}
-
-	/// Insert an [avatar](NewImage) for this [`Profile`]
-	#[instrument(skip(conn))]
-	pub async fn insert_avatar(
-		p_id: i32,
-		avatar: NewImage,
-		conn: &DbConn,
-	) -> Result<PrimitiveImage, Error> {
-		let image = conn
-			.interact(move |conn| {
-				conn.transaction::<PrimitiveImage, Error, _>(|conn| {
-					use self::profile::dsl::*;
-
-					let image_record = diesel::insert_into(image::table)
-						.values(avatar)
-						.returning(PrimitiveImage::as_returning())
-						.get_result(conn)?;
-
-					diesel::update(profile.find(p_id))
-						.set(avatar_image_id.eq(image_record.id))
-						.execute(conn)?;
-
-					Ok(image_record)
-				})
-			})
-			.await??;
-
-		Ok(image)
 	}
 }
 

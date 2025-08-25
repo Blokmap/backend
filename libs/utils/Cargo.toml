@@ -9,8 +9,6 @@ common = { path = "../common" }
 primitives = { path = "../primitives" }
 
 image = { path = "../models/image" }
-location = { path = "../models/location" }
-profile = { path = "../models/profile" }
 
 axum = { workspace = true }
 fast_image_resize = { workspace = true }

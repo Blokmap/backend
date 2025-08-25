@@ -4264,9 +4264,7 @@ dependencies = [
  "fast_image_resize",
  "image 0.1.0",
  "image 0.25.6",
- "location",
  "primitives",
- "profile",
  "uuid",
 ]
 

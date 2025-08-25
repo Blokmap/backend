@@ -8,7 +8,7 @@ extern crate tracing;
 use std::hash::Hash;
 
 use ::authority::AuthorityPermissions;
-use ::image::{Image, NewImage, NewLocationImage, OrderedImage};
+use ::image::{Image, OrderedImage};
 use ::opening_time::{OpeningTime, OpeningTimeIncludes, TimeBoundsFilter};
 use ::tag::Tag;
 use ::translation::NewTranslation;
@@ -21,9 +21,7 @@ use db::{
 	creator,
 	description,
 	excerpt,
-	image,
 	location,
-	location_image,
 	location_profile,
 	opening_time,
 	profile,
@@ -37,7 +35,6 @@ use diesel::prelude::*;
 use diesel::sql_types::{Bool, Double};
 use primitives::{
 	PrimitiveAuthority,
-	PrimitiveImage,
 	PrimitiveLocation,
 	PrimitiveProfile,
 	PrimitiveTranslation,
@@ -660,98 +657,6 @@ impl Location {
 		.await??;
 
 		Ok(())
-	}
-
-	/// Insert a [`NewImage`] with an index for a specific [`Location`]
-	#[instrument(skip(conn))]
-	pub async fn insert_image(
-		loc_id: i32,
-		new_image: NewImage,
-		image_index: i32,
-		conn: &DbConn,
-	) -> Result<OrderedImage, Error> {
-		let image = conn
-			.interact(move |conn| {
-				conn.transaction::<_, Error, _>(|conn| {
-					use self::image::dsl::*;
-					use self::location_image::dsl::*;
-
-					let inserted_image = diesel::insert_into(image)
-						.values(new_image)
-						.returning(PrimitiveImage::as_returning())
-						.get_result(conn)?;
-
-					let new_location_image = NewLocationImage {
-						location_id: loc_id,
-						image_id:    inserted_image.id,
-						index:       image_index,
-					};
-
-					diesel::insert_into(location_image)
-						.values(new_location_image)
-						.execute(conn)?;
-
-					Ok(inserted_image)
-				})
-			})
-			.await??;
-
-		let ordered_image = OrderedImage { image, index: image_index };
-
-		Ok(ordered_image)
-	}
-
-	/// Bulk insert a list of [`NewImage`]s for a specific [`Location`]
-	#[instrument(skip(images, conn))]
-	pub async fn insert_images(
-		loc_id: i32,
-		images: Vec<NewImage>,
-		conn: &DbConn,
-	) -> Result<Vec<OrderedImage>, Error> {
-		let inserted_images = conn
-			.interact(move |conn| {
-				conn.transaction::<_, Error, _>(|conn| {
-					use self::image::dsl::*;
-					use self::location_image::dsl::*;
-
-					let images = diesel::insert_into(image)
-						.values(images)
-						.returning(PrimitiveImage::as_returning())
-						.get_results(conn)?;
-
-					let location_images = images
-						.iter()
-						.enumerate()
-						.map(|(idx, img)| {
-							#[allow(clippy::cast_possible_truncation)]
-							#[allow(clippy::cast_possible_wrap)]
-							let idx = idx as i32;
-
-							NewLocationImage {
-								location_id: loc_id,
-								image_id:    img.id,
-								index:       idx,
-							}
-						})
-						.collect::<Vec<_>>();
-
-					diesel::insert_into(location_image)
-						.values(location_images)
-						.execute(conn)?;
-
-					image
-						.inner_join(location_image.on(image_id.eq(id)))
-						.select((PrimitiveImage::as_select(), index))
-						.get_results(conn)
-						.map_err(Into::into)
-				})
-			})
-			.await??
-			.into_iter()
-			.map(|(image, index)| OrderedImage { image, index })
-			.collect();
-
-		Ok(inserted_images)
 	}
 }
 
