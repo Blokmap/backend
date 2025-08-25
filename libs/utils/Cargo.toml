@@ -15,5 +15,4 @@ profile = { path = "../models/profile" }
 axum = { workspace = true }
 fast_image_resize = { workspace = true }
 image_processing = { workspace = true }
-rayon = { workspace = true }
 uuid = { workspace = true }
