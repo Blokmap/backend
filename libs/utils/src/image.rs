@@ -8,7 +8,7 @@ use fast_image_resize::images::Image;
 use fast_image_resize::{IntoImageView, Resizer};
 use image::codecs::webp::WebPEncoder;
 use image::{ColorType, ImageEncoder, ImageReader};
-use models::{Location, NewImage, OrderedImage, Profile};
+use models::{Image as ImageModel, Location, NewImage, OrderedImage, Profile};
 use primitive_image::PrimitiveImage;
 use uuid::Uuid;
 
@@ -92,8 +92,7 @@ pub async fn store_profile_image(
 /// Delete an image from both the database and disk storage
 pub async fn delete_image(id: i32, conn: &DbConn) -> Result<(), Error> {
 	// Delete the image record before the file to prevent dangling
-	let image = PrimitiveImage::get_by_id(id, conn).await?;
-	PrimitiveImage::delete_by_id(id, conn).await?;
+	let image = ImageModel::delete_by_id(id, conn).await?;
 
 	if let Some(file_path) = &image.file_path {
 		let filepath = PathBuf::from("/mnt/files").join(file_path);

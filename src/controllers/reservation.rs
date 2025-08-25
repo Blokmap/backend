@@ -9,16 +9,16 @@ use common::{CreateReservationError, DbPool, Error};
 use models::{
 	AuthorityPermissions,
 	Location,
+	LocationIncludes,
 	LocationPermissions,
 	NewReservation,
+	OpeningTime,
+	OpeningTimeIncludes,
 	RESERVATION_BLOCK_SIZE_MINUTES,
 	Reservation,
 	ReservationFilter,
 	ReservationIncludes,
 };
-use primitive_location::PrimitiveLocation;
-use primitive_opening_time::PrimitiveOpeningTime;
-use primitive_reservation::PrimitiveReservation;
 
 use crate::Session;
 use crate::schemas::reservation::{
@@ -113,7 +113,10 @@ pub async fn create_reservation(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let time = PrimitiveOpeningTime::get_by_id(t_id, &conn).await?;
+	let time =
+		OpeningTime::get_by_id(t_id, OpeningTimeIncludes::default(), &conn)
+			.await?
+			.opening_time;
 
 	check_reservation_bounds(
 		time.start_time,
@@ -124,7 +127,9 @@ pub async fn create_reservation(
 
 	check_reservation_period(time.reservable_from, time.reservable_until)?;
 
-	let loc = PrimitiveLocation::get_by_id(l_id, &conn).await?;
+	let loc =
+		Location::get_simple_by_id(l_id, LocationIncludes::default(), &conn)
+			.await?;
 
 	let block_size = i64::from(RESERVATION_BLOCK_SIZE_MINUTES);
 
@@ -136,7 +141,7 @@ pub async fn create_reservation(
 	#[allow(clippy::cast_possible_truncation)]
 	let block_count = (span / block_size) as i32;
 
-	check_reservation_length(loc.max_reservation_length, block_count)?;
+	check_reservation_length(loc.location.max_reservation_length, block_count)?;
 
 	#[allow(clippy::cast_possible_truncation)]
 	let num_blocks =
@@ -146,7 +151,7 @@ pub async fn create_reservation(
 	check_reservation_occupation(
 		num_blocks,
 		&spans,
-		time.seat_count.unwrap_or(loc.seat_count),
+		time.seat_count.unwrap_or(loc.location.seat_count),
 	)?;
 
 	let new_reservation = NewReservation {
@@ -258,7 +263,10 @@ pub async fn delete_reservation(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let reservation = PrimitiveReservation::get_by_id(r_id, &conn).await?;
+	let reservation =
+		Reservation::get_by_id(r_id, ReservationIncludes::default(), &conn)
+			.await?
+			.reservation;
 
 	let mut can_manage = false;
 

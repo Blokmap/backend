@@ -2748,11 +2748,9 @@ name = "primitive_image"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "common",
  "db",
  "diesel",
  "serde",
- "tracing",
 ]
 
 [[package]]
@@ -2770,11 +2768,9 @@ name = "primitive_location"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "common",
  "db",
  "diesel",
  "serde",
- "tracing",
 ]
 
 [[package]]
@@ -2782,11 +2778,9 @@ name = "primitive_opening_time"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "common",
  "db",
  "diesel",
  "serde",
- "tracing",
 ]
 
 [[package]]
@@ -2804,11 +2798,9 @@ name = "primitive_reservation"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "common",
  "db",
  "diesel",
  "serde",
- "tracing",
 ]
 
 [[package]]

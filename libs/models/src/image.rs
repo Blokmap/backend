@@ -69,6 +69,25 @@ impl Image {
 		)
 	}
 
+	/// Delete an [`Image`] given its id
+	#[instrument(skip(conn))]
+	pub async fn delete_by_id(
+		img_id: i32,
+		conn: &DbConn,
+	) -> Result<PrimitiveImage, Error> {
+		let image = conn
+			.interact(move |conn| {
+				use self::image::dsl::*;
+
+				diesel::delete(image.find(img_id))
+					.returning(PrimitiveImage::as_returning())
+					.get_result(conn)
+			})
+			.await??;
+
+		Ok(image)
+	}
+
 	/// Get all [`Image`]s for a location with the given id
 	#[instrument(skip(conn))]
 	pub async fn get_for_location(

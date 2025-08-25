@@ -26,7 +26,6 @@ use diesel::sql_types::{Bool, Double};
 use primitive_authority::PrimitiveAuthority;
 use primitive_image::PrimitiveImage;
 use primitive_location::PrimitiveLocation;
-use primitive_opening_time::PrimitiveOpeningTime;
 use primitive_profile::PrimitiveProfile;
 use primitive_translation::PrimitiveTranslation;
 use rayon::prelude::*;
@@ -39,8 +38,11 @@ use crate::{
 	NewImage,
 	NewLocationImage,
 	NewTranslation,
+	OpeningTime,
+	OpeningTimeIncludes,
 	OrderedImage,
 	Tag,
+	TimeBoundsFilter,
 };
 
 mod filter;
@@ -60,15 +62,8 @@ pub type JoinedLocationData = (
 	Option<PrimitiveProfile>,
 );
 
-pub type LocationBackfill = (
-	Vec<Location>,
-	Vec<(i32, PrimitiveOpeningTime)>,
-	Vec<(i32, Tag)>,
-	Vec<(i32, PrimitiveImage)>,
-);
-
 pub type FullLocationData =
-	(Location, (Vec<PrimitiveOpeningTime>, Vec<Tag>, Vec<OrderedImage>));
+	(Location, (Vec<OpeningTime>, Vec<Tag>, Vec<OrderedImage>));
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[allow(clippy::struct_excessive_bools)]
@@ -209,7 +204,7 @@ impl Location {
 	#[must_use]
 	pub fn group(
 		locs: Vec<Location>,
-		times: &[(i32, PrimitiveOpeningTime)],
+		times: &[(i32, OpeningTime)],
 		tags: &[(i32, Tag)],
 		imgs: &[(i32, OrderedImage)],
 	) -> Vec<FullLocationData> {
@@ -293,6 +288,40 @@ impl Location {
 		Ok((auth_perms, loc_perms))
 	}
 
+	/// Get a [`Location`] with no extra info by its id
+	#[instrument(skip(conn))]
+	pub async fn get_simple_by_id(
+		loc_id: i32,
+		includes: LocationIncludes,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let query = Self::joined_query(includes);
+
+		let location_data = conn
+			.interact(move |conn| {
+				use self::location::dsl::*;
+
+				query
+					.filter(id.eq(loc_id))
+					.select((
+						PrimitiveLocation::as_select(),
+						description.fields(translation::all_columns),
+						excerpt.fields(translation::all_columns),
+						authority::all_columns.nullable(),
+						approver.fields(profile::all_columns).nullable(),
+						rejecter.fields(profile::all_columns).nullable(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
+					))
+					.get_result(conn)
+			})
+			.await??;
+
+		let location = Self::from_joined(includes, location_data);
+
+		Ok(location)
+	}
+
 	/// Get a [`Location`] by its id
 	#[instrument(skip(conn))]
 	pub async fn get_by_id(
@@ -326,7 +355,12 @@ impl Location {
 		let l_id = location.location.id;
 
 		let (times, tags, imgs) = tokio::join!(
-			PrimitiveOpeningTime::get_for_location(l_id, conn),
+			OpeningTime::get_for_location(
+				l_id,
+				TimeBoundsFilter::default(),
+				OpeningTimeIncludes::default(),
+				conn
+			),
 			Tag::get_for_location(l_id, conn),
 			Image::get_for_location(l_id, conn),
 		);
@@ -375,7 +409,11 @@ impl Location {
 		let l_ids: Vec<i32> = locations.iter().map(|l| l.location.id).collect();
 
 		let (times, tags, imgs) = tokio::join!(
-			PrimitiveOpeningTime::get_for_locations(l_ids.clone(), conn),
+			OpeningTime::get_for_locations(
+				l_ids.clone(),
+				OpeningTimeIncludes::default(),
+				conn
+			),
 			Tag::get_for_locations(l_ids.clone(), conn),
 			Image::get_for_locations(l_ids, conn),
 		);
@@ -424,7 +462,11 @@ impl Location {
 		let l_ids: Vec<i32> = locations.iter().map(|l| l.location.id).collect();
 
 		let (times, tags, imgs) = tokio::join!(
-			PrimitiveOpeningTime::get_for_locations(l_ids.clone(), conn),
+			OpeningTime::get_for_locations(
+				l_ids.clone(),
+				OpeningTimeIncludes::default(),
+				conn
+			),
 			Tag::get_for_locations(l_ids.clone(), conn),
 			Image::get_for_locations(l_ids, conn),
 		);
@@ -539,7 +581,11 @@ impl Location {
 		let l_ids: Vec<i32> = locations.iter().map(|l| l.location.id).collect();
 
 		let (times, tags, imgs) = tokio::join!(
-			PrimitiveOpeningTime::get_for_locations(l_ids.clone(), conn),
+			OpeningTime::get_for_locations(
+				l_ids.clone(),
+				OpeningTimeIncludes::default(),
+				conn
+			),
 			Tag::get_for_locations(l_ids.clone(), conn),
 			Image::get_for_locations(l_ids, conn),
 		);

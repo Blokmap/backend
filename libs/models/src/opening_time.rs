@@ -212,6 +212,37 @@ impl OpeningTime {
 		Ok(times)
 	}
 
+	/// Get all the [`OpeningTime`]s for a list of location IDs
+	#[instrument(skip(conn))]
+	pub async fn get_for_locations(
+		l_ids: Vec<i32>,
+		includes: OpeningTimeIncludes,
+		conn: &DbConn,
+	) -> Result<Vec<(i32, Self)>, Error> {
+		let query = Self::joined_query(includes);
+
+		let times = conn
+			.interact(move |conn| {
+				use self::opening_time::dsl::*;
+
+				query
+					.filter(location_id.eq_any(l_ids))
+					.select((
+						location_id,
+						PrimitiveOpeningTime::as_select(),
+						creator.fields(profile::all_columns).nullable(),
+						updater.fields(profile::all_columns).nullable(),
+					))
+					.get_results(conn)
+			})
+			.await??
+			.into_iter()
+			.map(|(id, t, c, u)| (id, Self::from_joined(includes, (t, c, u))))
+			.collect();
+
+		Ok(times)
+	}
+
 	/// Search through all [`OpeningTime`]s
 	#[instrument(skip(conn))]
 	pub async fn search(

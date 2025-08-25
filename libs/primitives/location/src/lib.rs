@@ -1,8 +1,4 @@
-#[macro_use]
-extern crate tracing;
-
 use chrono::NaiveDateTime;
-use common::{DbConn, Error};
 use db::location;
 use diesel::pg::Pg;
 use diesel::prelude::*;
@@ -33,40 +29,4 @@ pub struct PrimitiveLocation {
 	pub rejected_reason:        Option<String>,
 	pub created_at:             NaiveDateTime,
 	pub updated_at:             NaiveDateTime,
-}
-
-impl PrimitiveLocation {
-	/// Get a [`PrimitiveLocation`] by its id
-	#[instrument(skip(conn))]
-	pub async fn get_by_id(l_id: i32, conn: &DbConn) -> Result<Self, Error> {
-		let location = conn
-			.interact(move |conn| {
-				use self::location::dsl::*;
-
-				location.find(l_id).select(Self::as_select()).first(conn)
-			})
-			.await??;
-
-		Ok(location)
-	}
-
-	/// Get a list of [`PrimitiveLocation`]s given a list of ids
-	#[instrument(skip(conn))]
-	pub async fn get_by_ids(
-		l_ids: Vec<i32>,
-		conn: &DbConn,
-	) -> Result<Vec<Self>, Error> {
-		let location = conn
-			.interact(move |conn| {
-				use self::location::dsl::*;
-
-				location
-					.filter(id.eq_any(l_ids))
-					.select(Self::as_select())
-					.get_results(conn)
-			})
-			.await??;
-
-		Ok(location)
-	}
 }

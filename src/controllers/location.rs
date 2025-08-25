@@ -12,11 +12,12 @@ use models::{
 	LocationFilter,
 	LocationIncludes,
 	LocationPermissions,
+	OpeningTime,
+	OpeningTimeIncludes,
 	Point,
 	Tag,
 	TimeFilter,
 };
-use primitive_opening_time::PrimitiveOpeningTime;
 use utils::image::{delete_image, store_location_image};
 use validator::Validate;
 
@@ -211,7 +212,11 @@ pub(crate) async fn search_locations(
 	let l_ids = locations.iter().map(|l| l.location.id).collect::<Vec<_>>();
 
 	let (times, tags, imgs) = tokio::join!(
-		PrimitiveOpeningTime::get_for_locations(l_ids.clone(), &conn),
+		OpeningTime::get_for_locations(
+			l_ids.clone(),
+			OpeningTimeIncludes::default(),
+			&conn
+		),
 		Tag::get_for_locations(l_ids.clone(), &conn),
 		Image::get_for_locations(l_ids, &conn),
 	);
