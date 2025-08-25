@@ -6,10 +6,12 @@ use axum::body::Bytes;
 use common::{DbConn, Error};
 use fast_image_resize::images::Image;
 use fast_image_resize::{IntoImageView, Resizer};
-use image::codecs::webp::WebPEncoder;
-use image::{ColorType, ImageEncoder, ImageReader};
-use models::{Image as ImageModel, Location, NewImage, OrderedImage, Profile};
+use image::{Image as ImageModel, NewImage, OrderedImage};
+use image_processing::codecs::webp::WebPEncoder;
+use image_processing::{ColorType, ImageEncoder, ImageReader};
+use location::Location;
 use primitive_image::PrimitiveImage;
+use profile::Profile;
 use uuid::Uuid;
 
 /// This basically only exists to avoid circular imports, would be nice if it

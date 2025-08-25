@@ -3,7 +3,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
-use models::{Review, ReviewIncludes};
+use review::{Review, ReviewIncludes};
 
 use crate::Session;
 use crate::schemas::pagination::PaginationOptions;
@@ -22,14 +22,8 @@ pub async fn get_location_reviews(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let (total, truncated, reviews) = Review::for_location(
-		id,
-		includes,
-		p_opts.limit(),
-		p_opts.offset(),
-		&conn,
-	)
-	.await?;
+	let (total, truncated, reviews) =
+		Review::for_location(id, includes, p_opts.into(), &conn).await?;
 	let response: Vec<_> =
 		reviews.into_iter().map(ReviewResponse::from).collect();
 

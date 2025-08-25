@@ -5,11 +5,14 @@ edition = "2024"
 
 [dependencies]
 common = { path = "../common" }
-models = { path = "../models" }
 primitive_image = { path = "../primitives/image" }
+
+image = { path = "../models/image" }
+location = { path = "../models/location" }
+profile = { path = "../models/profile" }
 
 axum = { workspace = true }
 fast_image_resize = { workspace = true }
-image = { workspace = true }
+image_processing = { workspace = true }
 rayon = { workspace = true }
 uuid = { workspace = true }

@@ -1,6 +1,6 @@
 use chrono::NaiveDateTime;
 use common::Error;
-use models::{NewReview, Review, ReviewUpdate};
+use review::{NewReview, Review, ReviewUpdate};
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 use validator_derive::Validate;

@@ -1,5 +1,5 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-use models::{NewOpeningTime, OpeningTime, OpeningTimeUpdate};
+use opening_time::{NewOpeningTime, OpeningTime, OpeningTimeUpdate};
 use primitive_opening_time::PrimitiveOpeningTime;
 use serde::{Deserialize, Serialize};
 

@@ -1,3 +1,4 @@
+use models_common::PaginationConfig;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::schemas::BoundedU32Visitor;
@@ -19,9 +20,15 @@ pub struct PaginationOptions {
 	pub per_page: u32,
 }
 
+impl From<PaginationOptions> for PaginationConfig {
+	fn from(value: PaginationOptions) -> Self {
+		Self { limit: value.limit(), offset: value.offset() }
+	}
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PaginationResponse<T> {
+pub struct PaginatedResponse<T> {
 	pub page:      u32,
 	pub per_page:  u32,
 	pub total:     usize,
@@ -41,8 +48,8 @@ impl PaginationOptions {
 		total: usize,
 		truncated: bool,
 		data: T,
-	) -> PaginationResponse<T> {
-		PaginationResponse {
+	) -> PaginatedResponse<T> {
+		PaginatedResponse {
 			page: self.page,
 			per_page: self.per_page,
 			total,

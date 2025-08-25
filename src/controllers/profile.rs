@@ -1,5 +1,6 @@
 //! Controllers for [`Profile`]s
 
+use authority::{Authority, AuthorityIncludes};
 use axum::extract::{Multipart, Path, Query, Request, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
@@ -7,20 +8,10 @@ use axum::{Json, RequestExt};
 use axum_extra::extract::PrivateCookieJar;
 use common::{DbPool, Error, RedisConn};
 use db::ProfileState;
-use models::{
-	Authority,
-	AuthorityIncludes,
-	Location,
-	LocationIncludes,
-	Profile,
-	ProfileStats,
-	Reservation,
-	ReservationFilter,
-	ReservationIncludes,
-	Review,
-	ReviewIncludes,
-	UpdateProfile,
-};
+use location::{Location, LocationIncludes};
+use profile::{Profile, ProfileStats, UpdateProfile};
+use reservation::{Reservation, ReservationFilter, ReservationIncludes};
+use review::{Review, ReviewIncludes};
 use utils::image::{delete_image, store_profile_image};
 use uuid::Uuid;
 
@@ -29,7 +20,7 @@ use crate::schemas::BuildResponse;
 use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::image::CreateImageRequest;
 use crate::schemas::location::LocationResponse;
-use crate::schemas::pagination::{PaginationOptions, PaginationResponse};
+use crate::schemas::pagination::{PaginatedResponse, PaginationOptions};
 use crate::schemas::profile::{
 	ProfileResponse,
 	ProfileStatsResponse,
@@ -45,11 +36,11 @@ pub async fn get_all_profiles(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,
 	Query(p_opts): Query<PaginationOptions>,
-) -> Result<Json<PaginationResponse<Vec<ProfileResponse>>>, Error> {
+) -> Result<Json<PaginatedResponse<Vec<ProfileResponse>>>, Error> {
 	let conn = pool.get().await?;
 
 	let (total, truncated, profiles) =
-		Profile::get_all(p_opts.limit(), p_opts.offset(), &conn).await?;
+		Profile::get_all(p_opts.into(), &conn).await?;
 
 	let profiles: Vec<ProfileResponse> = profiles
 		.into_iter()

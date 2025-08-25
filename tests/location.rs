@@ -1,7 +1,7 @@
 mod common;
 use axum::http::StatusCode;
 use blokmap::schemas::location::LocationResponse;
-use blokmap::schemas::pagination::PaginationResponse;
+use blokmap::schemas::pagination::PaginatedResponse;
 use common::TestEnv;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -78,8 +78,7 @@ async fn get_locations_test() {
 	assert_eq!(response.status_code(), StatusCode::OK);
 
 	// Check if the location is in the response
-	let locations =
-		response.json::<PaginationResponse<Vec<LocationResponse>>>();
+	let locations = response.json::<PaginatedResponse<Vec<LocationResponse>>>();
 	assert!(locations.data.iter().any(|l| l.id == location.location.id));
 	assert!(locations.data.iter().any(|l| l.name == location.location.name));
 }
@@ -107,8 +106,7 @@ async fn search_locations_test() {
 	assert_eq!(response.status_code(), StatusCode::OK);
 
 	// Check if the location is in the response
-	let locations =
-		response.json::<PaginationResponse<Vec<LocationResponse>>>();
+	let locations = response.json::<PaginatedResponse<Vec<LocationResponse>>>();
 	assert!(locations.data.iter().any(|l| l.id == location.location.id));
 	assert!(locations.data.iter().any(|l| l.name == location.location.name));
 }

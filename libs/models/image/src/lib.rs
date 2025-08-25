@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate tracing;
+
 use chrono::NaiveDateTime;
 use common::{DbConn, Error};
 use db::{image, location, location_image, profile};
@@ -5,11 +8,10 @@ use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
 use diesel::{Identifiable, Queryable, Selectable};
+use models_common::JoinParts;
 use primitive_image::PrimitiveImage;
 use primitive_profile::PrimitiveProfile;
 use serde::{Deserialize, Serialize};
-
-use crate::JoinParts;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct ImageIncludes {

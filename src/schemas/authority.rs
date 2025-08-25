@@ -1,11 +1,11 @@
-use chrono::NaiveDateTime;
-use models::{
+use authority::{
 	Authority,
 	AuthorityProfileUpdate,
 	AuthorityUpdate,
 	NewAuthority,
 	NewAuthorityProfile,
 };
+use chrono::NaiveDateTime;
 use primitive_authority::PrimitiveAuthority;
 use serde::{Deserialize, Serialize};
 

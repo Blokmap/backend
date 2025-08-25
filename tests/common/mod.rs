@@ -6,23 +6,14 @@ use blokmap::mailer::{Mailer, StubMailbox};
 use blokmap::schemas::auth::LoginRequest;
 use blokmap::{AppState, Config, SeedProfile, Seeder, SsoConfig, routes};
 use common::Error;
+use location::{Location, LocationIncludes, NewLocation};
 use mock_redis::{RedisUrlGuard, RedisUrlProvider};
-use models::{
-	Location,
-	LocationIncludes,
-	NewLocation,
-	NewOpeningTime,
-	NewReservation,
-	NewTag,
-	NewTranslation,
-	OpeningTime,
-	OpeningTimeIncludes,
-	Profile,
-	TagIncludes,
-	Translation,
-	TranslationIncludes,
-};
+use opening_time::{NewOpeningTime, OpeningTime, OpeningTimeIncludes};
 use primitive_profile::PrimitiveProfile;
+use profile::Profile;
+use reservation::NewReservation;
+use tag::{NewTag, TagIncludes};
+use translation::{NewTranslation, Translation, TranslationIncludes};
 
 mod mock_db;
 mod mock_redis;

@@ -14,16 +14,14 @@ use fake::faker::internet::raw::{FreeEmail, Password, Username};
 use fake::faker::lorem::raw::Sentence;
 use fake::locales::{DE_DE, EN, FR_FR};
 use fake::{Dummy, Fake};
-use models::{
-	InsertableNewLocation,
-	NewOpeningTime,
-	NewProfileDirect,
-	NewReservation,
-	NewTranslation,
-	RESERVATION_BLOCK_SIZE_MINUTES,
-};
+use location::InsertableNewLocation;
+use models_common::RESERVATION_BLOCK_SIZE_MINUTES;
+use opening_time::NewOpeningTime;
+use profile::NewProfileDirect;
 use rand::seq::IndexedRandom;
 use rand::{Rng, rng};
+use reservation::NewReservation;
+use translation::NewTranslation;
 
 use crate::util::{batch_insert_optimized, generate_unique_set};
 

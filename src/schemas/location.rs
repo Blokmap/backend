@@ -1,11 +1,11 @@
 use chrono::NaiveDateTime;
 use common::Error;
-use models::{
+use image::NewLocationImage;
+use location::{
 	FullLocationData,
 	LocationProfileUpdate,
 	LocationUpdate,
 	NewLocation,
-	NewLocationImage,
 	NewLocationProfile,
 };
 use primitive_location::PrimitiveLocation;

@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate tracing;
+
 use std::default::Default;
 
 use common::{DbConn, Error};
@@ -5,12 +8,17 @@ use db::{location, profile, review};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
+use models_common::{
+	JoinParts,
+	PaginatedData,
+	PaginationConfig,
+	QUERY_HARD_LIMIT,
+	manual_pagination,
+};
 use primitive_location::PrimitiveLocation;
 use primitive_profile::PrimitiveProfile;
 use primitive_review::PrimitiveReview;
 use serde::{Deserialize, Serialize};
-
-use crate::{JoinParts, QUERY_HARD_LIMIT, manual_pagination};
 
 pub type JoinedReviewData =
 	(PrimitiveReview, PrimitiveProfile, Option<PrimitiveLocation>);
@@ -74,10 +82,9 @@ impl Review {
 	pub async fn for_location(
 		l_id: i32,
 		includes: ReviewIncludes,
-		limit: usize,
-		offset: usize,
+		p_cfg: PaginationConfig,
 		conn: &DbConn,
-	) -> Result<(usize, bool, Vec<Self>), Error> {
+	) -> Result<PaginatedData<Vec<Self>>, Error> {
 		let reviews = conn
 			.interact(move |conn| {
 				Self::query(includes)
@@ -91,7 +98,7 @@ impl Review {
 			.map(|parts| parts.join(includes))
 			.collect();
 
-		manual_pagination(reviews, limit, offset)
+		manual_pagination(reviews, p_cfg)
 	}
 
 	/// Get all [`Review`]s for a profile with the given ID

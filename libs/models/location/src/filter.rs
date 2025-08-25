@@ -1,5 +1,6 @@
 use std::f64;
 
+use ::opening_time::TimeFilter;
 use common::{DbConn, Error};
 use db::{
 	approver,
@@ -18,19 +19,19 @@ use diesel::dsl::sql;
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Nullable, Text};
+use models_common::{
+	BoxedCondition,
+	PaginatedData,
+	PaginationConfig,
+	QUERY_HARD_LIMIT,
+	ToFilter,
+	manual_pagination,
+};
 use primitive_location::PrimitiveLocation;
 use serde::{Deserialize, Serialize};
 use serde_with::DisplayFromStr;
 
-use crate::{
-	BoxedCondition,
-	Location,
-	LocationIncludes,
-	QUERY_HARD_LIMIT,
-	TimeFilter,
-	ToFilter,
-	manual_pagination,
-};
+use crate::{Location, LocationIncludes};
 
 #[derive(Clone, Debug, Deserialize, Queryable, Selectable, Serialize)]
 #[diesel(table_name = location)]
@@ -174,10 +175,9 @@ impl Location {
 		loc_filter: LocationFilter,
 		time_filter: TimeFilter,
 		includes: LocationIncludes,
-		limit: usize,
-		offset: usize,
+		p_cfg: PaginationConfig,
 		conn: &DbConn,
-	) -> Result<(usize, bool, Vec<Self>), Error> {
+	) -> Result<PaginatedData<Vec<Self>>, Error> {
 		let filter = loc_filter.to_filter();
 		let query = Self::joined_query(includes);
 
@@ -216,6 +216,6 @@ impl Location {
 			})
 			.collect::<Vec<_>>();
 
-		manual_pagination(locations, limit, offset)
+		manual_pagination(locations, p_cfg)
 	}
 }

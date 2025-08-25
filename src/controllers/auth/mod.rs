@@ -10,7 +10,7 @@ use axum_extra::extract::cookie::Cookie;
 use chrono::Utc;
 use common::{DbPool, Error, LoginError, RedisConn, TokenError};
 use db::ProfileState;
-use models::{NewProfile, Profile};
+use profile::{NewProfile, Profile};
 use time::Duration;
 use uuid::Uuid;
 use validator::Validate;

@@ -1,3 +1,7 @@
+#[macro_use]
+extern crate tracing;
+
+use ::translation::{NewTranslation, TranslationUpdate};
 use common::{DbConn, Error};
 use db::{creator, location, location_tag, profile, tag, translation, updater};
 use diesel::prelude::*;
@@ -6,8 +10,6 @@ use primitive_profile::PrimitiveProfile;
 use primitive_tag::PrimitiveTag;
 use primitive_translation::PrimitiveTranslation;
 use serde::{Deserialize, Serialize};
-
-use crate::{NewTranslation, TranslationUpdate};
 
 pub type JoinedTagData = (
 	PrimitiveTag,

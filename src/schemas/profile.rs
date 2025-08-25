@@ -2,9 +2,9 @@ use bitflags::Flags;
 use chrono::NaiveDateTime;
 use common::Error;
 use db::ProfileState;
-use models::{Profile, ProfileStats, UpdateProfile};
 use primitive_image::PrimitiveImage;
 use primitive_profile::PrimitiveProfile;
+use profile::{Profile, ProfileStats, UpdateProfile};
 use serde::{Deserialize, Serialize};
 
 use crate::Config;

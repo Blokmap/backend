@@ -1,15 +1,17 @@
+#[macro_use]
+extern crate tracing;
+
 use chrono::NaiveDate;
 use common::{DbConn, Error};
 use db::{confirmer, creator, location, opening_time, profile, reservation};
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Date};
+use models_common::{BoxedCondition, ToFilter};
 use primitive_location::PrimitiveLocation;
 use primitive_opening_time::PrimitiveOpeningTime;
 use primitive_profile::PrimitiveProfile;
 use primitive_reservation::PrimitiveReservation;
 use serde::{Deserialize, Serialize};
-
-use crate::{BoxedCondition, ToFilter};
 
 pub type JoinedReservationData = (
 	PrimitiveReservation,

@@ -5,7 +5,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
-use models::{Translation, TranslationIncludes};
+use translation::{Translation, TranslationIncludes};
 
 use crate::Session;
 use crate::schemas::translation::{

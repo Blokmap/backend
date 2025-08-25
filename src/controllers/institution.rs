@@ -1,16 +1,11 @@
+use authority::{AuthorityIncludes, AuthorityUpdate};
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
 use db::InstitutionCategory;
-use models::{
-	AuthorityIncludes,
-	AuthorityUpdate,
-	Institution,
-	InstitutionIncludes,
-	InstitutionPermissions,
-};
+use institution::{Institution, InstitutionIncludes, InstitutionPermissions};
 
 use crate::schemas::BuildResponse;
 use crate::schemas::authority::{AuthorityResponse, CreateAuthorityRequest};
@@ -108,8 +103,7 @@ pub async fn get_all_institutions(
 	let conn = pool.get().await?;
 
 	let (total, truncated, institutions) =
-		Institution::get_all(includes, p_opts.limit(), p_opts.offset(), &conn)
-			.await?;
+		Institution::get_all(includes, p_opts.into(), &conn).await?;
 	let institutions: Vec<InstitutionResponse> =
 		institutions.into_iter().map(Into::into).collect();
 

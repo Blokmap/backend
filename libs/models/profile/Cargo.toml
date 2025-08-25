@@ -1,0 +1,24 @@
+[package]
+name = "profile"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+common = { path = "../../common" }
+db = { path = "../../db" }
+models_common = { path = "../common" }
+
+primitive_image = { path = "../../primitives/image" }
+primitive_profile = { path = "../../primitives/profile" }
+
+image = { path = "../image" }
+
+argon2 = { workspace = true }
+chrono = { workspace = true }
+diesel = { workspace = true }
+lettre = { workspace = true }
+openidconnect = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }
+
+rand = "0.9.2"

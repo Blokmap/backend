@@ -3,7 +3,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
-use models::{
+use opening_time::{
 	NewOpeningTime,
 	OpeningTime,
 	OpeningTimeIncludes,

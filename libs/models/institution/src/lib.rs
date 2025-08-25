@@ -1,3 +1,9 @@
+#[macro_use]
+extern crate bitflags;
+#[macro_use]
+extern crate tracing;
+
+use ::translation::NewTranslation;
 use common::{DbConn, Error};
 use db::{
 	InstitutionCategory,
@@ -9,12 +15,11 @@ use db::{
 };
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
+use models_common::{PaginatedData, PaginationConfig, manual_pagination};
 use primitive_institution::PrimitiveInstitution;
 use primitive_profile::PrimitiveProfile;
 use primitive_translation::PrimitiveTranslation;
 use serde::{Deserialize, Serialize};
-
-use crate::{NewTranslation, manual_pagination};
 
 mod member;
 
@@ -93,10 +98,9 @@ impl Institution {
 	#[instrument(skip(conn))]
 	pub async fn get_all(
 		includes: InstitutionIncludes,
-		limit: usize,
-		offset: usize,
+		p_cfg: PaginationConfig,
 		conn: &DbConn,
-	) -> Result<(usize, bool, Vec<Self>), Error> {
+	) -> Result<PaginatedData<Vec<Self>>, Error> {
 		let query = Self::joined_query(includes);
 
 		let institutions = conn
@@ -115,7 +119,7 @@ impl Institution {
 			.map(|data| Self::from_joined(includes, data))
 			.collect();
 
-		manual_pagination(institutions, limit, offset)
+		manual_pagination(institutions, p_cfg)
 	}
 
 	/// Get an [`Institution`] given its id

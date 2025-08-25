@@ -5,7 +5,7 @@ use axum::extract::{FromRequestParts, State};
 use axum::http::request::Parts;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use common::{Error, InternalServerError, RedisConn};
-use models::Profile;
+use profile::Profile;
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use time::Duration;

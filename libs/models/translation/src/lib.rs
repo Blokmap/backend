@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate tracing;
+
 use common::{DbConn, Error};
 use db::{creator, profile, translation, updater};
 use diesel::prelude::*;

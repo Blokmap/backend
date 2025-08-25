@@ -1,3 +1,7 @@
+#[macro_use]
+extern crate tracing;
+
+use ::image::NewImage;
 use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::{Argon2, PasswordHasher};
@@ -13,6 +17,13 @@ use db::{
 };
 use diesel::prelude::*;
 use lettre::message::Mailbox;
+use models_common::{
+	PaginatedData,
+	PaginationConfig,
+	QUERY_HARD_LIMIT,
+	RESERVATION_BLOCK_SIZE_MINUTES,
+	manual_pagination,
+};
 use openidconnect::core::CoreGenderClaim;
 use openidconnect::{EmptyAdditionalClaims, IdTokenClaims};
 use primitive_image::PrimitiveImage;
@@ -20,13 +31,6 @@ use primitive_profile::PrimitiveProfile;
 use rand::Rng;
 use rand::distr::Alphabetic;
 use serde::{Deserialize, Serialize};
-
-use crate::{
-	NewImage,
-	QUERY_HARD_LIMIT,
-	RESERVATION_BLOCK_SIZE_MINUTES,
-	manual_pagination,
-};
 
 pub type JoinedProfileData = (PrimitiveProfile, Option<PrimitiveImage>);
 
@@ -131,10 +135,9 @@ impl Profile {
 	/// Get a list of all [`Profile`]s
 	#[instrument(skip(conn))]
 	pub async fn get_all(
-		limit: usize,
-		offset: usize,
+		p_cfg: PaginationConfig,
 		conn: &DbConn,
-	) -> Result<(usize, bool, Vec<Self>), Error> {
+	) -> Result<PaginatedData<Vec<Self>>, Error> {
 		let query = Self::joined_query();
 
 		let profiles = conn
@@ -155,7 +158,7 @@ impl Profile {
 			.map(Self::from_joined)
 			.collect();
 
-		manual_pagination(profiles, limit, offset)
+		manual_pagination(profiles, p_cfg)
 	}
 
 	/// Check if a [`Profile`] with a given id exists

@@ -1,23 +1,21 @@
 //! Controllers for [`Location`]s
 
+use authority::AuthorityPermissions;
 use axum::Json;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
-use models::{
-	AuthorityPermissions,
-	Image,
+use image::Image;
+use location::{
 	Location,
 	LocationFilter,
 	LocationIncludes,
 	LocationPermissions,
-	OpeningTime,
-	OpeningTimeIncludes,
 	Point,
-	Tag,
-	TimeFilter,
 };
+use opening_time::{OpeningTime, OpeningTimeIncludes, TimeFilter};
+use tag::Tag;
 use utils::image::{delete_image, store_location_image};
 use validator::Validate;
 
@@ -203,8 +201,7 @@ pub(crate) async fn search_locations(
 		loc_filter,
 		time_filter,
 		includes,
-		p_opts.limit(),
-		p_opts.offset(),
+		p_opts.into(),
 		&conn,
 	)
 	.await?;

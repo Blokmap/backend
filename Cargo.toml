@@ -11,7 +11,7 @@ panic = "abort"
 codegen-units = 1
 
 [workspace]
-members = ["seeder", "libs/common", "libs/db", "libs/models", "libs/primitives/*", "libs/utils"]
+members = ["seeder", "libs/common", "libs/db", "libs/primitives/*", "libs/utils", "libs/models/*"]
 resolver = "3"
 
 [workspace.dependencies]
@@ -31,7 +31,7 @@ diesel-derive-enum = { version = "2.1.0", features = ["postgres"] }
 diesel-dynamic-schema = "0.2.3"
 chrono = { version = "0.4.41", features = ["serde"] }
 fast_image_resize = { version = "5.1.4", features = ["image", "rayon"] }
-image = "0.25.6"
+image_processing = { package = "image", version = "0.25.6" }
 lettre = { version = "0.11.16", features = ["tracing"] }
 openidconnect = { version = "4.0.0", features = ["reqwest-blocking"] }
 rayon = "1.10.0"
@@ -71,7 +71,8 @@ publish = false
 [dependencies]
 common = { path = "./libs/common" }
 db = { path = "./libs/db" }
-models = { path = "./libs/models" }
+models_common = { path = "./libs/models/common"}
+
 primitive_authority = { path = "./libs/primitives/authority" }
 primitive_image = { path = "./libs/primitives/image" }
 primitive_location = { path = "./libs/primitives/location" }
@@ -79,6 +80,18 @@ primitive_opening_time = { path = "./libs/primitives/opening_time" }
 primitive_profile = { path = "./libs/primitives/profile" }
 primitive_reservation = { path = "./libs/primitives/reservation" }
 primitive_translation = { path = "./libs/primitives/translation" }
+
+authority = { path = "./libs/models/authority" }
+image = { path = "./libs/models/image" }
+institution = { path = "./libs/models/institution" }
+location = { path = "./libs/models/location" }
+opening_time = { path = "./libs/models/opening_time" }
+profile = { path = "./libs/models/profile" }
+reservation = { path = "./libs/models/reservation" }
+review = { path = "./libs/models/review" }
+tag = { path = "./libs/models/tag" }
+translation = { path = "./libs/models/translation" }
+
 utils = { path = "./libs/utils" }
 
 argon2 = { workspace = true }
@@ -91,7 +104,7 @@ diesel = { workspace = true }
 diesel-derive-enum = { workspace = true }
 diesel-dynamic-schema = { workspace = true }
 fast_image_resize = { workspace = true }
-image = { workspace = true }
+image_processing = { workspace = true }
 lettre = { workspace = true }
 openidconnect = { workspace = true }
 rayon = { workspace = true }

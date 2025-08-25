@@ -4,8 +4,8 @@ use common::Error;
 use lettre::message::Mailbox;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Address, Message, SmtpTransport, Transport};
-use models::Profile;
 use parking_lot::{Condvar, Mutex};
+use profile::Profile;
 use tokio::sync::mpsc;
 use url::Url;
 

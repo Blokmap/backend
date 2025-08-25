@@ -1,20 +1,17 @@
 use std::collections::HashMap;
 
+use authority::AuthorityPermissions;
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use chrono::{NaiveDateTime, NaiveTime, Utc};
 use common::{CreateReservationError, DbPool, Error};
-use models::{
-	AuthorityPermissions,
-	Location,
-	LocationIncludes,
-	LocationPermissions,
+use location::{Location, LocationIncludes, LocationPermissions};
+use models_common::RESERVATION_BLOCK_SIZE_MINUTES;
+use opening_time::{OpeningTime, OpeningTimeIncludes};
+use reservation::{
 	NewReservation,
-	OpeningTime,
-	OpeningTimeIncludes,
-	RESERVATION_BLOCK_SIZE_MINUTES,
 	Reservation,
 	ReservationFilter,
 	ReservationIncludes,

@@ -1,13 +1,15 @@
+#[macro_use]
+extern crate tracing;
+
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Utc, Weekday};
 use common::{DbConn, Error};
 use db::{creator, opening_time, profile, updater};
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Date, Time};
+use models_common::{BoxedCondition, ToFilter};
 use primitive_opening_time::PrimitiveOpeningTime;
 use primitive_profile::PrimitiveProfile;
 use serde::{Deserialize, Serialize};
-
-use crate::{BoxedCondition, ToFilter};
 
 pub type JoinedOpeningTimeData =
 	(PrimitiveOpeningTime, Option<PrimitiveProfile>, Option<PrimitiveProfile>);

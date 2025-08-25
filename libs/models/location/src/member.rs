@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::hash::Hash;
 
+use ::authority::AuthorityPermissions;
 use common::{DbConn, Error};
 use db::{image, location_profile, profile};
 use diesel::prelude::*;
@@ -8,7 +9,7 @@ use primitive_image::PrimitiveImage;
 use primitive_profile::PrimitiveProfile;
 use serde::{Deserialize, Serialize};
 
-use crate::{AuthorityPermissions, Location, LocationIncludes};
+use crate::{Location, LocationIncludes};
 
 bitflags! {
 	/// Possible permissions for a member of a [`Location`]

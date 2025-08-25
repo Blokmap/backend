@@ -1,7 +1,7 @@
 use chrono::NaiveDateTime;
-use models::{NewTranslation, Translation, TranslationUpdate};
 use primitive_translation::PrimitiveTranslation;
 use serde::{Deserialize, Serialize};
+use translation::{NewTranslation, Translation, TranslationUpdate};
 
 use crate::schemas::profile::ProfileResponse;
 use crate::schemas::ser_includes;

@@ -1,0 +1,19 @@
+[package]
+name = "reservation"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+common = { path = "../../common" }
+db = { path = "../../db" }
+models_common = { path = "../common" }
+
+primitive_location = { path = "../../primitives/location" }
+primitive_opening_time = { path = "../../primitives/opening_time" }
+primitive_profile = { path = "../../primitives/profile" }
+primitive_reservation = { path = "../../primitives/reservation" }
+
+chrono = { workspace = true }
+diesel = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }

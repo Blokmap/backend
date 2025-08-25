@@ -1,3 +1,8 @@
+#[macro_use]
+extern crate bitflags;
+#[macro_use]
+extern crate tracing;
+
 use common::{DbConn, Error};
 use db::{authority, creator, institution, profile, updater};
 use diesel::prelude::*;

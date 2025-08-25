@@ -2,7 +2,7 @@ use axum::body::Bytes;
 use axum::extract::Multipart;
 use axum::extract::multipart::Field;
 use common::{Error, MultipartParseError};
-use models::OrderedImage;
+use image::OrderedImage;
 use primitive_image::PrimitiveImage;
 use serde::{Deserialize, Serialize};
 use utils::image::{ImageVariant, OrderedImageVariant};

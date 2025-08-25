@@ -3,7 +3,6 @@ use axum::response::{IntoResponse, Redirect};
 use axum_extra::extract::PrivateCookieJar;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use common::{Error, OAuthError};
-use models::Profile;
 use openidconnect::core::{CoreClient, CoreProviderMetadata, CoreResponseType};
 use openidconnect::reqwest::blocking::ClientBuilder;
 use openidconnect::reqwest::redirect::Policy;
@@ -16,6 +15,7 @@ use openidconnect::{
 	RedirectUrl,
 	Scope,
 };
+use profile::Profile;
 use serde::Deserialize;
 use time::Duration;
 
