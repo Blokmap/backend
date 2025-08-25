@@ -3,21 +3,19 @@ extern crate tracing;
 
 use std::default::Default;
 
-use common::{DbConn, Error};
-use db::{location, profile, review};
-use diesel::pg::Pg;
-use diesel::prelude::*;
-use diesel::sql_types::Bool;
-use models_common::{
+use base::{
 	JoinParts,
 	PaginatedData,
 	PaginationConfig,
 	QUERY_HARD_LIMIT,
 	manual_pagination,
 };
-use primitive_location::PrimitiveLocation;
-use primitive_profile::PrimitiveProfile;
-use primitive_review::PrimitiveReview;
+use common::{DbConn, Error};
+use db::{location, profile, review};
+use diesel::pg::Pg;
+use diesel::prelude::*;
+use diesel::sql_types::Bool;
+use primitives::{PrimitiveLocation, PrimitiveProfile, PrimitiveReview};
 use serde::{Deserialize, Serialize};
 
 pub type JoinedReviewData =

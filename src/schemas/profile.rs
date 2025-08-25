@@ -2,8 +2,7 @@ use bitflags::Flags;
 use chrono::NaiveDateTime;
 use common::Error;
 use db::ProfileState;
-use primitive_image::PrimitiveImage;
-use primitive_profile::PrimitiveProfile;
+use primitives::{PrimitiveImage, PrimitiveProfile};
 use profile::{Profile, ProfileStats, UpdateProfile};
 use serde::{Deserialize, Serialize};
 

@@ -1,5 +1,5 @@
 use chrono::NaiveDateTime;
-use primitive_translation::PrimitiveTranslation;
+use primitives::PrimitiveTranslation;
 use serde::{Deserialize, Serialize};
 use translation::{NewTranslation, Translation, TranslationUpdate};
 

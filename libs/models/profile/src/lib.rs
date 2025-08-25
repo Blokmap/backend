@@ -5,6 +5,13 @@ use ::image::NewImage;
 use argon2::password_hash::SaltString;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::{Argon2, PasswordHasher};
+use base::{
+	PaginatedData,
+	PaginationConfig,
+	QUERY_HARD_LIMIT,
+	RESERVATION_BLOCK_SIZE_MINUTES,
+	manual_pagination,
+};
 use chrono::{NaiveDateTime, TimeDelta, Utc};
 use common::{DbConn, Error, OAuthError};
 use db::{
@@ -17,17 +24,9 @@ use db::{
 };
 use diesel::prelude::*;
 use lettre::message::Mailbox;
-use models_common::{
-	PaginatedData,
-	PaginationConfig,
-	QUERY_HARD_LIMIT,
-	RESERVATION_BLOCK_SIZE_MINUTES,
-	manual_pagination,
-};
 use openidconnect::core::CoreGenderClaim;
 use openidconnect::{EmptyAdditionalClaims, IdTokenClaims};
-use primitive_image::PrimitiveImage;
-use primitive_profile::PrimitiveProfile;
+use primitives::{PrimitiveImage, PrimitiveProfile};
 use rand::Rng;
 use rand::distr::Alphabetic;
 use serde::{Deserialize, Serialize};
@@ -397,6 +396,9 @@ impl Profile {
 	}
 
 	/// Get or create a [`Profile`] from an external SSO provided email
+	///
+	/// # Panics
+	/// Panics if the user has a *very* weird email
 	#[instrument(skip(conn))]
 	pub async fn from_sso(
 		claims: IdTokenClaims<EmptyAdditionalClaims, CoreGenderClaim>,
@@ -406,7 +408,9 @@ impl Profile {
 			return Err(OAuthError::MissingEmailField.into());
 		};
 
-		let username = if let Some(n) = claims.preferred_username() {
+		let username = if let Some(n) = claims.preferred_username()
+			&& !(**n).is_empty()
+		{
 			n.to_string()
 		} else {
 			let prefix = user_email.split('@').next().unwrap().to_string();

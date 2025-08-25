@@ -8,7 +8,7 @@ use location::{
 	NewLocation,
 	NewLocationProfile,
 };
-use primitive_location::PrimitiveLocation;
+use primitives::PrimitiveLocation;
 use serde::{Deserialize, Serialize};
 use validator_derive::Validate;
 

@@ -7,9 +7,7 @@ use common::{DbConn, Error};
 use db::{authority, creator, institution, profile, updater};
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
-use primitive_authority::PrimitiveAuthority;
-use primitive_institution::PrimitiveInstitution;
-use primitive_profile::PrimitiveProfile;
+use primitives::{PrimitiveAuthority, PrimitiveInstitution, PrimitiveProfile};
 use serde::{Deserialize, Serialize};
 
 mod member;

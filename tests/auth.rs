@@ -5,7 +5,7 @@ use blokmap::schemas::auth::{
 	PasswordResetRequest,
 	RegisterRequest,
 };
-use primitive_profile::PrimitiveProfile;
+use primitives::PrimitiveProfile;
 
 mod common;
 

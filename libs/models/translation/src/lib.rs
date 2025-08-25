@@ -5,8 +5,7 @@ use common::{DbConn, Error};
 use db::{creator, profile, translation, updater};
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
-use primitive_profile::PrimitiveProfile;
-use primitive_translation::PrimitiveTranslation;
+use primitives::{PrimitiveProfile, PrimitiveTranslation};
 use serde::{Deserialize, Serialize};
 
 pub type JoinedTranslationData =

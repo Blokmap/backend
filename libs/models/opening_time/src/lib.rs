@@ -1,14 +1,13 @@
 #[macro_use]
 extern crate tracing;
 
+use base::{BoxedCondition, ToFilter};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Utc, Weekday};
 use common::{DbConn, Error};
 use db::{creator, opening_time, profile, updater};
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Date, Time};
-use models_common::{BoxedCondition, ToFilter};
-use primitive_opening_time::PrimitiveOpeningTime;
-use primitive_profile::PrimitiveProfile;
+use primitives::{PrimitiveOpeningTime, PrimitiveProfile};
 use serde::{Deserialize, Serialize};
 
 pub type JoinedOpeningTimeData =
@@ -246,6 +245,9 @@ impl OpeningTime {
 	}
 
 	/// Search through all [`OpeningTime`]s
+	///
+	/// # Panics
+	/// Panics if we are more long lived than i could ever hope for
 	#[instrument(skip(conn))]
 	pub async fn search(
 		time_filter: TimeFilter,

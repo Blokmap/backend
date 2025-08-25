@@ -5,10 +5,12 @@ use common::{DbConn, Error};
 use db::{creator, image, institution, institution_profile, profile, updater};
 use diesel::pg::Pg;
 use diesel::prelude::*;
-use primitive_image::PrimitiveImage;
-use primitive_institution::PrimitiveInstitution;
-use primitive_profile::PrimitiveProfile;
-use primitive_translation::PrimitiveTranslation;
+use primitives::{
+	PrimitiveImage,
+	PrimitiveInstitution,
+	PrimitiveProfile,
+	PrimitiveTranslation,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{Institution, InstitutionIncludes};

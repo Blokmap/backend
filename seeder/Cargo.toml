@@ -13,7 +13,7 @@ publish = false
 [dependencies]
 common = { path = "../libs/common" }
 db = { path = "../libs/db" }
-models_common = { path = "../libs/models/common" }
+base = { path = "../libs/models/base" }
 
 location = { path = "../libs/models/location" }
 opening_time = { path = "../libs/models/opening_time" }

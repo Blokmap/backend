@@ -2,6 +2,7 @@ mod util;
 
 use std::env;
 
+use base::RESERVATION_BLOCK_SIZE_MINUTES;
 use clap::{Error, Parser};
 use common::DbConn;
 use db::ProfileState;
@@ -15,7 +16,6 @@ use fake::faker::lorem::raw::Sentence;
 use fake::locales::{DE_DE, EN, FR_FR};
 use fake::{Dummy, Fake};
 use location::InsertableNewLocation;
-use models_common::RESERVATION_BLOCK_SIZE_MINUTES;
 use opening_time::NewOpeningTime;
 use profile::NewProfileDirect;
 use rand::seq::IndexedRandom;

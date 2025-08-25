@@ -9,16 +9,6 @@ use std::hash::Hash;
 
 use ::authority::AuthorityPermissions;
 use ::image::{Image, NewImage, NewLocationImage, OrderedImage};
-// use models::{
-// 	AuthorityPermissions,
-// 	Image,
-// 	NewImage,
-// 	NewLocationImage,
-// 	NewTranslation,
-// 	OrderedImage,
-// 	Tag,
-// 	TimeBoundsFilter,
-// };
 use ::opening_time::{OpeningTime, OpeningTimeIncludes, TimeBoundsFilter};
 use ::tag::Tag;
 use ::translation::NewTranslation;
@@ -45,11 +35,13 @@ use diesel::Queryable;
 use diesel::dsl::sql;
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Double};
-use primitive_authority::PrimitiveAuthority;
-use primitive_image::PrimitiveImage;
-use primitive_location::PrimitiveLocation;
-use primitive_profile::PrimitiveProfile;
-use primitive_translation::PrimitiveTranslation;
+use primitives::{
+	PrimitiveAuthority,
+	PrimitiveImage,
+	PrimitiveLocation,
+	PrimitiveProfile,
+	PrimitiveTranslation,
+};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::DisplayFromStr;

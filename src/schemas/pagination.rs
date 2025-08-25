@@ -1,4 +1,4 @@
-use models_common::PaginationConfig;
+use base::PaginationConfig;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::schemas::BoundedU32Visitor;

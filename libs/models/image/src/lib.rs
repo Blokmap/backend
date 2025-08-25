@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate tracing;
 
+use base::JoinParts;
 use chrono::NaiveDateTime;
 use common::{DbConn, Error};
 use db::{image, location, location_image, profile};
@@ -8,9 +9,7 @@ use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
 use diesel::{Identifiable, Queryable, Selectable};
-use models_common::JoinParts;
-use primitive_image::PrimitiveImage;
-use primitive_profile::PrimitiveProfile;
+use primitives::{PrimitiveImage, PrimitiveProfile};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]

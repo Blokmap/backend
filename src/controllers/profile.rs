@@ -52,6 +52,8 @@ pub async fn get_all_profiles(
 	Ok(Json(paginated))
 }
 
+/// # Panics
+/// Panics if the request doesn't have a valid cookie jar
 #[instrument(skip(state, config, pool))]
 pub async fn get_current_profile(
 	State(state): State<AppState>,

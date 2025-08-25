@@ -4,6 +4,7 @@ extern crate bitflags;
 extern crate tracing;
 
 use ::translation::NewTranslation;
+use base::{PaginatedData, PaginationConfig, manual_pagination};
 use common::{DbConn, Error};
 use db::{
 	InstitutionCategory,
@@ -15,10 +16,11 @@ use db::{
 };
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
-use models_common::{PaginatedData, PaginationConfig, manual_pagination};
-use primitive_institution::PrimitiveInstitution;
-use primitive_profile::PrimitiveProfile;
-use primitive_translation::PrimitiveTranslation;
+use primitives::{
+	PrimitiveInstitution,
+	PrimitiveProfile,
+	PrimitiveTranslation,
+};
 use serde::{Deserialize, Serialize};
 
 mod member;

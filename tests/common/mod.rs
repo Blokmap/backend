@@ -9,7 +9,7 @@ use common::Error;
 use location::{Location, LocationIncludes, NewLocation};
 use mock_redis::{RedisUrlGuard, RedisUrlProvider};
 use opening_time::{NewOpeningTime, OpeningTime, OpeningTimeIncludes};
-use primitive_profile::PrimitiveProfile;
+use primitives::PrimitiveProfile;
 use profile::Profile;
 use reservation::NewReservation;
 use tag::{NewTag, TagIncludes};

@@ -1,6 +1,6 @@
+use base::RESERVATION_BLOCK_SIZE_MINUTES;
 use chrono::{Duration, NaiveDateTime, NaiveTime};
 use db::ReservationState;
-use models_common::RESERVATION_BLOCK_SIZE_MINUTES;
 use reservation::Reservation;
 use serde::{Deserialize, Serialize};
 

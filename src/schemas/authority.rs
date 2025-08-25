@@ -6,7 +6,7 @@ use authority::{
 	NewAuthorityProfile,
 };
 use chrono::NaiveDateTime;
-use primitive_authority::PrimitiveAuthority;
+use primitives::PrimitiveAuthority;
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::profile::ProfileResponse;

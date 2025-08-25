@@ -6,12 +6,9 @@ edition = "2024"
 [dependencies]
 common = { path = "../../common" }
 db = { path = "../../db" }
-models_common = { path = "../common" }
+base = { path = "../base" }
 
-primitive_authority = { path = "../../primitives/authority" }
-primitive_image = { path = "../../primitives/image" }
-primitive_institution = { path = "../../primitives/institution" }
-primitive_profile = { path = "../../primitives/profile" }
+primitives = { path = "../../primitives" }
 
 bitflags = { workspace = true }
 chrono = { workspace = true }

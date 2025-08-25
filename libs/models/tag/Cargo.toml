@@ -6,11 +6,9 @@ edition = "2024"
 [dependencies]
 common = { path = "../../common" }
 db = { path = "../../db" }
-models_common = { path = "../common" }
+base = { path = "../base" }
 
-primitive_profile = { path = "../../primitives/profile" }
-primitive_tag = { path = "../../primitives/tag" }
-primitive_translation = { path = "../../primitives/translation" }
+primitives = { path = "../../primitives" }
 
 translation = { path = "../translation" }
 

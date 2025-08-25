@@ -1,6 +1,14 @@
 use std::f64;
 
 use ::opening_time::TimeFilter;
+use base::{
+	BoxedCondition,
+	PaginatedData,
+	PaginationConfig,
+	QUERY_HARD_LIMIT,
+	ToFilter,
+	manual_pagination,
+};
 use common::{DbConn, Error};
 use db::{
 	approver,
@@ -19,15 +27,7 @@ use diesel::dsl::sql;
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Nullable, Text};
-use models_common::{
-	BoxedCondition,
-	PaginatedData,
-	PaginationConfig,
-	QUERY_HARD_LIMIT,
-	ToFilter,
-	manual_pagination,
-};
-use primitive_location::PrimitiveLocation;
+use primitives::PrimitiveLocation;
 use serde::{Deserialize, Serialize};
 use serde_with::DisplayFromStr;
 

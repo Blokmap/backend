@@ -3,7 +3,7 @@ use blokmap::schemas::auth::LoginRequest;
 use blokmap::schemas::pagination::{PaginatedResponse, PaginationOptions};
 use blokmap::schemas::reservation::ReservationResponse;
 use db::ProfileState;
-use primitive_profile::PrimitiveProfile;
+use primitives::PrimitiveProfile;
 use profile::Profile;
 
 mod common;

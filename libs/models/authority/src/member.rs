@@ -13,9 +13,7 @@ use db::{
 };
 use diesel::pg::Pg;
 use diesel::prelude::*;
-use primitive_authority::PrimitiveAuthority;
-use primitive_image::PrimitiveImage;
-use primitive_profile::PrimitiveProfile;
+use primitives::{PrimitiveAuthority, PrimitiveImage, PrimitiveProfile};
 use serde::{Deserialize, Serialize};
 
 use crate::{Authority, AuthorityIncludes};

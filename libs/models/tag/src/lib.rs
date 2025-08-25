@@ -6,9 +6,7 @@ use common::{DbConn, Error};
 use db::{creator, location, location_tag, profile, tag, translation, updater};
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
-use primitive_profile::PrimitiveProfile;
-use primitive_tag::PrimitiveTag;
-use primitive_translation::PrimitiveTranslation;
+use primitives::{PrimitiveProfile, PrimitiveTag, PrimitiveTranslation};
 use serde::{Deserialize, Serialize};
 
 pub type JoinedTagData = (

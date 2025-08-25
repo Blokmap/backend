@@ -10,7 +10,7 @@ use image::{Image as ImageModel, NewImage, OrderedImage};
 use image_processing::codecs::webp::WebPEncoder;
 use image_processing::{ColorType, ImageEncoder, ImageReader};
 use location::Location;
-use primitive_image::PrimitiveImage;
+use primitives::PrimitiveImage;
 use profile::Profile;
 use uuid::Uuid;
 

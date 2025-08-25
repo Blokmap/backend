@@ -5,10 +5,10 @@ use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
+use base::RESERVATION_BLOCK_SIZE_MINUTES;
 use chrono::{NaiveDateTime, NaiveTime, Utc};
 use common::{CreateReservationError, DbPool, Error};
 use location::{Location, LocationIncludes, LocationPermissions};
-use models_common::RESERVATION_BLOCK_SIZE_MINUTES;
 use opening_time::{OpeningTime, OpeningTimeIncludes};
 use reservation::{
 	NewReservation,
