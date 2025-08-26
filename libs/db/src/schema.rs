@@ -28,14 +28,44 @@ diesel::table! {
 }
 
 diesel::table! {
-	authority_profile (authority_id, profile_id) {
+	authority_profile (id) {
 		authority_id -> Int4,
 		profile_id -> Int4,
 		added_at -> Timestamp,
 		added_by -> Nullable<Int4>,
 		updated_at -> Timestamp,
 		updated_by -> Nullable<Int4>,
-		permissions -> Int8,
+		id -> Int4,
+	}
+}
+
+diesel::table! {
+	authority_profile_role (authority_profile_id, authority_role_id) {
+		authority_profile_id -> Int4,
+		authority_role_id -> Int4,
+		added_at -> Timestamp,
+		added_by -> Nullable<Int4>,
+	}
+}
+
+diesel::table! {
+	authority_role (id) {
+		id -> Int4,
+		authority_id -> Int4,
+		name -> Text,
+		created_at -> Timestamp,
+		created_by -> Nullable<Int4>,
+		updated_at -> Timestamp,
+		updated_by -> Nullable<Int4>,
+	}
+}
+
+diesel::table! {
+	authority_role_permission (authority_role_id, permission_id) {
+		authority_role_id -> Int4,
+		permission_id -> Int4,
+		created_at -> Timestamp,
+		created_by -> Nullable<Int4>,
 	}
 }
 
@@ -75,14 +105,44 @@ diesel::table! {
 }
 
 diesel::table! {
-	institution_profile (institution_id, profile_id) {
+	institution_profile (id) {
 		institution_id -> Int4,
 		profile_id -> Int4,
 		added_at -> Timestamp,
 		added_by -> Nullable<Int4>,
 		updated_at -> Timestamp,
 		updated_by -> Nullable<Int4>,
-		permissions -> Int8,
+		id -> Int4,
+	}
+}
+
+diesel::table! {
+	institution_profile_role (institution_profile_id, institution_role_id) {
+		institution_profile_id -> Int4,
+		institution_role_id -> Int4,
+		added_at -> Timestamp,
+		added_by -> Nullable<Int4>,
+	}
+}
+
+diesel::table! {
+	institution_role (id) {
+		id -> Int4,
+		institution_id -> Int4,
+		name -> Text,
+		created_at -> Timestamp,
+		created_by -> Nullable<Int4>,
+		updated_at -> Timestamp,
+		updated_by -> Nullable<Int4>,
+	}
+}
+
+diesel::table! {
+	institution_role_permission (institution_role_id, permission_id) {
+		institution_role_id -> Int4,
+		permission_id -> Int4,
+		created_at -> Timestamp,
+		created_by -> Nullable<Int4>,
 	}
 }
 
@@ -129,14 +189,44 @@ diesel::table! {
 }
 
 diesel::table! {
-	location_profile (location_id, profile_id) {
+	location_profile (id) {
 		location_id -> Int4,
 		profile_id -> Int4,
-		permissions -> Int8,
 		added_at -> Timestamp,
 		added_by -> Nullable<Int4>,
 		updated_at -> Timestamp,
 		updated_by -> Nullable<Int4>,
+		id -> Int4,
+	}
+}
+
+diesel::table! {
+	location_profile_role (location_profile_id, location_role_id) {
+		location_profile_id -> Int4,
+		location_role_id -> Int4,
+		added_at -> Timestamp,
+		added_by -> Nullable<Int4>,
+	}
+}
+
+diesel::table! {
+	location_role (id) {
+		id -> Int4,
+		location_id -> Int4,
+		name -> Text,
+		created_at -> Timestamp,
+		created_by -> Nullable<Int4>,
+		updated_at -> Timestamp,
+		updated_by -> Nullable<Int4>,
+	}
+}
+
+diesel::table! {
+	location_role_permission (location_role_id, permission_id) {
+		location_role_id -> Int4,
+		permission_id -> Int4,
+		created_at -> Timestamp,
+		created_by -> Nullable<Int4>,
 	}
 }
 
@@ -161,6 +251,13 @@ diesel::table! {
 		created_by -> Nullable<Int4>,
 		updated_at -> Timestamp,
 		updated_by -> Nullable<Int4>,
+	}
+}
+
+diesel::table! {
+	permission (id) {
+		id -> Int4,
+		name -> Text,
 	}
 }
 
@@ -249,13 +346,34 @@ diesel::table! {
 
 diesel::joinable!(authority -> institution (institution_id));
 diesel::joinable!(authority_profile -> authority (authority_id));
+diesel::joinable!(authority_profile_role -> authority_profile (authority_profile_id));
+diesel::joinable!(authority_profile_role -> authority_role (authority_role_id));
+diesel::joinable!(authority_profile_role -> profile (added_by));
+diesel::joinable!(authority_role -> authority (authority_id));
+diesel::joinable!(authority_role_permission -> authority_role (authority_role_id));
+diesel::joinable!(authority_role_permission -> permission (permission_id));
+diesel::joinable!(authority_role_permission -> profile (created_by));
 diesel::joinable!(institution -> translation (name_translation_id));
 diesel::joinable!(institution_profile -> institution (institution_id));
+diesel::joinable!(institution_profile_role -> institution_profile (institution_profile_id));
+diesel::joinable!(institution_profile_role -> institution_role (institution_role_id));
+diesel::joinable!(institution_profile_role -> profile (added_by));
+diesel::joinable!(institution_role -> institution (institution_id));
+diesel::joinable!(institution_role_permission -> institution_role (institution_role_id));
+diesel::joinable!(institution_role_permission -> permission (permission_id));
+diesel::joinable!(institution_role_permission -> profile (created_by));
 diesel::joinable!(location -> authority (authority_id));
 diesel::joinable!(location_image -> image (image_id));
 diesel::joinable!(location_image -> location (location_id));
 diesel::joinable!(location_image -> profile (approved_by));
 diesel::joinable!(location_profile -> location (location_id));
+diesel::joinable!(location_profile_role -> location_profile (location_profile_id));
+diesel::joinable!(location_profile_role -> location_role (location_role_id));
+diesel::joinable!(location_profile_role -> profile (added_by));
+diesel::joinable!(location_role -> location (location_id));
+diesel::joinable!(location_role_permission -> location_role (location_role_id));
+diesel::joinable!(location_role_permission -> permission (permission_id));
+diesel::joinable!(location_role_permission -> profile (created_by));
 diesel::joinable!(location_tag -> location (location_id));
 diesel::joinable!(location_tag -> tag (tag_id));
 diesel::joinable!(opening_time -> location (location_id));
@@ -267,14 +385,24 @@ diesel::joinable!(tag -> translation (name_translation_id));
 diesel::allow_tables_to_appear_in_same_query!(
 	authority,
 	authority_profile,
+	authority_profile_role,
+	authority_role,
+	authority_role_permission,
 	image,
 	institution,
 	institution_profile,
+	institution_profile_role,
+	institution_role,
+	institution_role_permission,
 	location,
 	location_image,
 	location_profile,
+	location_profile_role,
+	location_role,
+	location_role_permission,
 	location_tag,
 	opening_time,
+	permission,
 	profile,
 	reservation,
 	review,
