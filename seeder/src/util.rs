@@ -76,7 +76,6 @@ where
 	}
 
 	let optimal_chunk_size = calculate_optimal_batch_size(params_per_item);
-	let total_items = items.len();
 
 	let mut total_inserted = 0;
 	let mut batch_count = 0;

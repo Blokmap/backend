@@ -12,7 +12,14 @@ publish = false
 
 [dependencies]
 common = { path = "../libs/common" }
-models = { path = "../libs/models" }
+db = { path = "../libs/db" }
+base = { path = "../libs/models/base" }
+
+location = { path = "../libs/models/location" }
+opening_time = { path = "../libs/models/opening_time" }
+profile = { path = "../libs/models/profile" }
+reservation = { path = "../libs/models/reservation" }
+translation = { path = "../libs/models/translation" }
 
 chrono = { workspace = true }
 diesel = { workspace = true }

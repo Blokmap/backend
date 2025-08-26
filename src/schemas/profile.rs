@@ -1,14 +1,9 @@
 use bitflags::Flags;
 use chrono::NaiveDateTime;
 use common::Error;
-use models::{
-	Image,
-	PrimitiveProfile,
-	Profile,
-	ProfileState,
-	ProfileStats,
-	UpdateProfile,
-};
+use db::ProfileState;
+use primitives::{PrimitiveImage, PrimitiveProfile};
+use profile::{Profile, ProfileStats, UpdateProfile};
 use serde::{Deserialize, Serialize};
 
 use crate::Config;
@@ -78,7 +73,7 @@ pub struct ProfilePermissionsResponse {
 }
 
 impl<F> BuildResponse<ProfilePermissionsResponse>
-	for (PrimitiveProfile, Option<Image>, F)
+	for (PrimitiveProfile, Option<PrimitiveImage>, F)
 where
 	F: Flags<Bits = i64>,
 {

@@ -1,6 +1,6 @@
 use chrono::NaiveDateTime;
-use models::{NewTag, Tag, TagUpdate};
 use serde::{Deserialize, Serialize};
+use tag::{NewTag, Tag, TagUpdate};
 
 use crate::schemas::profile::ProfileResponse;
 use crate::schemas::translation::{

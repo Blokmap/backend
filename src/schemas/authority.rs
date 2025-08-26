@@ -1,12 +1,12 @@
-use chrono::NaiveDateTime;
-use models::{
+use authority::{
 	Authority,
 	AuthorityProfileUpdate,
 	AuthorityUpdate,
 	NewAuthority,
 	NewAuthorityProfile,
-	PrimitiveAuthority,
 };
+use chrono::NaiveDateTime;
+use primitives::PrimitiveAuthority;
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::profile::ProfileResponse;

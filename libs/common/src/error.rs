@@ -376,7 +376,7 @@ pub enum InternalServerError {
 	IOError(std::io::Error),
 	/// Error performing some image operation
 	#[error("image error -- {0:?}")]
-	ImageError(image::ImageError),
+	ImageError(image_processing::ImageError),
 	/// Error hashing some value
 	#[error("hash error -- {0:?}")]
 	HashError(argon2::password_hash::Error),
@@ -541,14 +541,16 @@ impl From<std::io::Error> for Error {
 	}
 }
 
-impl From<image::ImageError> for Error {
-	fn from(value: image::ImageError) -> Self {
+impl From<image_processing::ImageError> for Error {
+	fn from(value: image_processing::ImageError) -> Self {
 		match value {
-			image::ImageError::Decoding(e) => Self::InvalidImage(e.to_string()),
-			image::ImageError::Unsupported(e) => {
+			image_processing::ImageError::Decoding(e) => {
 				Self::InvalidImage(e.to_string())
 			},
-			image::ImageError::IoError(e) => {
+			image_processing::ImageError::Unsupported(e) => {
+				Self::InvalidImage(e.to_string())
+			},
+			image_processing::ImageError::IoError(e) => {
 				InternalServerError::IOError(e).into()
 			},
 			e => InternalServerError::ImageError(e).into(),

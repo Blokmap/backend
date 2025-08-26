@@ -1,25 +1,17 @@
 //! Controllers for [`Profile`]s
 
+use authority::{Authority, AuthorityIncludes};
 use axum::extract::{Multipart, Path, Query, Request, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use axum::{Json, RequestExt};
 use axum_extra::extract::PrivateCookieJar;
 use common::{DbPool, Error, RedisConn};
-use models::{
-	Authority,
-	AuthorityIncludes,
-	Location,
-	LocationIncludes,
-	Profile,
-	ProfileState,
-	ProfileStats,
-	Reservation,
-	ReservationFilter,
-	ReservationIncludes,
-	Review,
-	UpdateProfile,
-};
+use db::ProfileState;
+use location::{Location, LocationIncludes};
+use profile::{Profile, ProfileStats, UpdateProfile};
+use reservation::{Reservation, ReservationFilter, ReservationIncludes};
+use review::{Review, ReviewIncludes};
 use utils::image::{delete_image, store_profile_image};
 use uuid::Uuid;
 
@@ -28,14 +20,14 @@ use crate::schemas::BuildResponse;
 use crate::schemas::authority::AuthorityResponse;
 use crate::schemas::image::CreateImageRequest;
 use crate::schemas::location::LocationResponse;
-use crate::schemas::pagination::{PaginationOptions, PaginationResponse};
+use crate::schemas::pagination::{PaginatedResponse, PaginationOptions};
 use crate::schemas::profile::{
 	ProfileResponse,
 	ProfileStatsResponse,
 	UpdateProfileRequest,
 };
 use crate::schemas::reservation::ReservationResponse;
-use crate::schemas::review::ReviewLocationResponse;
+use crate::schemas::review::ReviewResponse;
 use crate::{AdminSession, AppState, Config, Session};
 
 /// Get all [`Profile`]s
@@ -44,11 +36,11 @@ pub async fn get_all_profiles(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,
 	Query(p_opts): Query<PaginationOptions>,
-) -> Result<Json<PaginationResponse<Vec<ProfileResponse>>>, Error> {
+) -> Result<Json<PaginatedResponse<Vec<ProfileResponse>>>, Error> {
 	let conn = pool.get().await?;
 
 	let (total, truncated, profiles) =
-		Profile::get_all(p_opts.limit(), p_opts.offset(), &conn).await?;
+		Profile::get_all(p_opts.into(), &conn).await?;
 
 	let profiles: Vec<ProfileResponse> = profiles
 		.into_iter()
@@ -60,6 +52,8 @@ pub async fn get_all_profiles(
 	Ok(Json(paginated))
 }
 
+/// # Panics
+/// Panics if the request doesn't have a valid cookie jar
 #[instrument(skip(state, config, pool))]
 pub async fn get_current_profile(
 	State(state): State<AppState>,
@@ -348,15 +342,14 @@ pub async fn get_profile_authorities(
 #[instrument(skip(pool))]
 pub async fn get_profile_reviews(
 	State(pool): State<DbPool>,
-	State(config): State<Config>,
+	Query(includes): Query<ReviewIncludes>,
 	Path(p_id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let reviews = Review::for_profile(p_id, &conn).await?;
-	let response: Result<Vec<ReviewLocationResponse>, Error> =
-		reviews.into_iter().map(|data| data.build_response(&config)).collect();
-	let response = response?;
+	let reviews = Review::for_profile(p_id, includes, &conn).await?;
+	let response: Vec<ReviewResponse> =
+		reviews.into_iter().map(Into::into).collect();
 
 	Ok((StatusCode::OK, Json(response)))
 }

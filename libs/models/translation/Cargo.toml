@@ -1,0 +1,14 @@
+[package]
+name = "translation"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+common = { path = "../../common" }
+db = { path = "../../db" }
+
+primitives = { path = "../../primitives" }
+
+diesel = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }

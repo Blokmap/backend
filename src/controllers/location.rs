@@ -1,22 +1,21 @@
 //! Controllers for [`Location`]s
 
+use authority::AuthorityPermissions;
 use axum::Json;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
-use models::{
-	AuthorityPermissions,
-	Image,
+use image::Image;
+use location::{
 	Location,
 	LocationFilter,
 	LocationIncludes,
 	LocationPermissions,
 	Point,
-	PrimitiveOpeningTime,
-	Tag,
-	TimeFilter,
 };
+use opening_time::{OpeningTime, OpeningTimeIncludes, TimeFilter};
+use tag::Tag;
 use utils::image::{delete_image, store_location_image};
 use validator::Validate;
 
@@ -202,8 +201,7 @@ pub(crate) async fn search_locations(
 		loc_filter,
 		time_filter,
 		includes,
-		p_opts.limit(),
-		p_opts.offset(),
+		p_opts.into(),
 		&conn,
 	)
 	.await?;
@@ -211,7 +209,11 @@ pub(crate) async fn search_locations(
 	let l_ids = locations.iter().map(|l| l.location.id).collect::<Vec<_>>();
 
 	let (times, tags, imgs) = tokio::join!(
-		PrimitiveOpeningTime::get_for_locations(l_ids.clone(), &conn),
+		OpeningTime::get_for_locations(
+			l_ids.clone(),
+			OpeningTimeIncludes::default(),
+			&conn
+		),
 		Tag::get_for_locations(l_ids.clone(), &conn),
 		Image::get_for_locations(l_ids, &conn),
 	);

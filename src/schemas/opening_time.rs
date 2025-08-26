@@ -1,10 +1,6 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-use models::{
-	NewOpeningTime,
-	OpeningTime,
-	OpeningTimeUpdate,
-	PrimitiveOpeningTime,
-};
+use opening_time::{NewOpeningTime, OpeningTime, OpeningTimeUpdate};
+use primitives::PrimitiveOpeningTime;
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::profile::ProfileResponse;

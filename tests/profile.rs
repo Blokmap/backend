@@ -1,8 +1,10 @@
 use axum::http::StatusCode;
 use blokmap::schemas::auth::LoginRequest;
-use blokmap::schemas::pagination::{PaginationOptions, PaginationResponse};
+use blokmap::schemas::pagination::{PaginatedResponse, PaginationOptions};
 use blokmap::schemas::reservation::ReservationResponse;
-use models::{PrimitiveProfile, Profile, ProfileState};
+use db::ProfileState;
+use primitives::PrimitiveProfile;
+use profile::Profile;
 
 mod common;
 
@@ -76,8 +78,8 @@ async fn update_current_profile_pending_email() {
 	let conn = env.db_guard.create_pool().get().await.unwrap();
 	let old_profile: PrimitiveProfile = conn
 		.interact(|conn| {
+			use db::profile::dsl::*;
 			use diesel::prelude::*;
-			use models::db::profile::dsl::*;
 
 			profile.filter(username.eq("test")).get_result(conn)
 		})
@@ -100,8 +102,8 @@ async fn update_current_profile_pending_email() {
 
 	let new_profile: PrimitiveProfile = conn
 		.interact(|conn| {
+			use db::profile::dsl::*;
 			use diesel::prelude::*;
-			use models::db::profile::dsl::*;
 
 			profile.filter(username.eq("test")).get_result(conn)
 		})
@@ -119,7 +121,7 @@ async fn disable_profile() {
 	let env = TestEnv::new().await.login_admin().await;
 
 	let response = env.app.get("/profiles").await;
-	let profiles: PaginationResponse<Vec<ProfileResponse>> = response.json();
+	let profiles: PaginatedResponse<Vec<ProfileResponse>> = response.json();
 	let test_id = profiles
 		.data
 		.iter()
@@ -143,7 +145,7 @@ async fn disable_profile_not_admin() {
 	let env = TestEnv::new().await.login("test").await;
 
 	let response = env.app.get("/profiles").await;
-	let profiles: PaginationResponse<Vec<ProfileResponse>> = response.json();
+	let profiles: PaginatedResponse<Vec<ProfileResponse>> = response.json();
 
 	let test_id = profiles
 		.data
@@ -170,7 +172,7 @@ async fn activate_profile() {
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
 	let pagination = PaginationOptions::default();
-	let test = Profile::get_all(pagination.limit(), pagination.offset(), &conn)
+	let test = Profile::get_all(pagination.into(), &conn)
 		.await
 		.unwrap()
 		.2
@@ -196,7 +198,7 @@ async fn activate_profile_not_admin() {
 	let pool = env.db_guard.create_pool();
 	let conn = pool.get().await.unwrap();
 	let pagination = PaginationOptions::default();
-	let test = Profile::get_all(pagination.limit(), pagination.offset(), &conn)
+	let test = Profile::get_all(pagination.into(), &conn)
 		.await
 		.unwrap()
 		.2

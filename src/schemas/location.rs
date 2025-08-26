@@ -1,14 +1,14 @@
 use chrono::NaiveDateTime;
 use common::Error;
-use models::{
+use image::NewLocationImage;
+use location::{
 	FullLocationData,
 	LocationProfileUpdate,
 	LocationUpdate,
 	NewLocation,
-	NewLocationImage,
 	NewLocationProfile,
-	PrimitiveLocation,
 };
+use primitives::PrimitiveLocation;
 use serde::{Deserialize, Serialize};
 use validator_derive::Validate;
 

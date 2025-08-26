@@ -1,16 +1,15 @@
+use authority::{
+	Authority,
+	AuthorityIncludes,
+	AuthorityPermissions,
+	NewAuthorityProfile,
+};
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
-use models::{
-	Authority,
-	AuthorityIncludes,
-	AuthorityPermissions,
-	Location,
-	LocationIncludes,
-	NewAuthorityProfile,
-};
+use location::{Location, LocationIncludes};
 
 use crate::schemas::BuildResponse;
 use crate::schemas::authority::{

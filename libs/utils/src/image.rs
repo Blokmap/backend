@@ -6,9 +6,10 @@ use axum::body::Bytes;
 use common::{DbConn, Error};
 use fast_image_resize::images::Image;
 use fast_image_resize::{IntoImageView, Resizer};
-use image::codecs::webp::WebPEncoder;
-use image::{ColorType, ImageEncoder, ImageReader};
-use models::{Location, NewImage, OrderedImage, Profile};
+use image::{Image as ImageModel, NewImage, OrderedImage};
+use image_processing::codecs::webp::WebPEncoder;
+use image_processing::{ColorType, ImageEncoder, ImageReader};
+use primitives::PrimitiveImage;
 use uuid::Uuid;
 
 /// This basically only exists to avoid circular imports, would be nice if it
@@ -64,13 +65,9 @@ pub async fn store_location_image(
 		location_id,
 	)?;
 
-	let image = Location::insert_image(
-		location_id,
-		new_image,
-		ordered_image.index,
-		conn,
-	)
-	.await?;
+	let image = new_image
+		.insert_for_location(location_id, ordered_image.index, conn)
+		.await?;
 
 	Ok(image)
 }
@@ -80,10 +77,10 @@ pub async fn store_profile_image(
 	profile_id: i32,
 	image: ImageVariant,
 	conn: &DbConn,
-) -> Result<models::Image, Error> {
+) -> Result<PrimitiveImage, Error> {
 	let new_image =
 		image.into_insertable(profile_id, ImageOwner::Profile, profile_id)?;
-	let image = Profile::insert_avatar(profile_id, new_image, conn).await?;
+	let image = new_image.insert_for_profile(profile_id, conn).await?;
 
 	Ok(image)
 }
@@ -91,8 +88,7 @@ pub async fn store_profile_image(
 /// Delete an image from both the database and disk storage
 pub async fn delete_image(id: i32, conn: &DbConn) -> Result<(), Error> {
 	// Delete the image record before the file to prevent dangling
-	let image = models::Image::get_by_id(id, conn).await?;
-	models::Image::delete_by_id(id, conn).await?;
+	let image = ImageModel::delete_by_id(id, conn).await?;
 
 	if let Some(file_path) = &image.file_path {
 		let filepath = PathBuf::from("/mnt/files").join(file_path);

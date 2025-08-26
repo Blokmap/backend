@@ -1,0 +1,9 @@
+[package]
+name = "base"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+common = { path = "../../common" }
+
+diesel = { workspace = true }

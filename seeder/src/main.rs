@@ -2,8 +2,10 @@ mod util;
 
 use std::env;
 
+use base::RESERVATION_BLOCK_SIZE_MINUTES;
 use clap::{Error, Parser};
 use common::DbConn;
+use db::ProfileState;
 use deadpool_diesel::postgres::{Manager, Pool};
 use diesel::RunQueryDsl;
 use diesel::prelude::*;
@@ -13,17 +15,13 @@ use fake::faker::internet::raw::{FreeEmail, Password, Username};
 use fake::faker::lorem::raw::Sentence;
 use fake::locales::{DE_DE, EN, FR_FR};
 use fake::{Dummy, Fake};
-use models::{
-	InsertableNewLocation,
-	NewOpeningTime,
-	NewProfileDirect,
-	NewReservation,
-	NewTranslation,
-	ProfileState,
-	RESERVATION_BLOCK_SIZE_MINUTES,
-};
+use location::InsertableNewLocation;
+use opening_time::NewOpeningTime;
+use profile::NewProfileDirect;
 use rand::seq::IndexedRandom;
 use rand::{Rng, rng};
+use reservation::NewReservation;
+use translation::NewTranslation;
 
 use crate::util::{batch_insert_optimized, generate_unique_set};
 
@@ -161,7 +159,7 @@ async fn seed_profiles(conn: &DbConn, count: usize) -> Result<usize, Error> {
 		.collect();
 
 	batch_insert_optimized(conn, profiles, 4, |conn, chunk| {
-		use models::db::profile::dsl::*;
+		use db::profile::dsl::*;
 		diesel::insert_into(profile).values(chunk).execute(conn)
 	})
 	.await
@@ -189,14 +187,14 @@ async fn seed_translations(
 		.collect();
 
 	batch_insert_optimized(conn, entries, 5, |conn, chunk| {
-		use models::db::translation::dsl::*;
+		use db::translation::dsl::*;
 		diesel::insert_into(translation).values(chunk).execute(conn)
 	})
 	.await?;
 
 	let inserted_ids = conn
 		.interact(move |c| {
-			use models::db::translation::dsl::*;
+			use db::translation::dsl::*;
 			translation.select(id).load::<i32>(c)
 		})
 		.await
@@ -210,7 +208,7 @@ async fn seed_translations(
 async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 	let profile_ids: Vec<i32> = conn
 		.interact(|c| {
-			use models::db::profile::dsl::*;
+			use db::profile::dsl::*;
 			profile.select(id).load::<i32>(c)
 		})
 		.await
@@ -269,7 +267,7 @@ async fn seed_locations(conn: &DbConn, count: usize) -> Result<usize, Error> {
 		.collect();
 
 	batch_insert_optimized(conn, locations, 18, |conn, chunk| {
-		use models::db::location::dsl::*;
+		use db::location::dsl::*;
 		diesel::insert_into(location).values(chunk).execute(conn)
 	})
 	.await
@@ -284,7 +282,7 @@ async fn seed_random_reservations(
 	// Get all profiles
 	let profile_ids: Vec<i32> = conn
 		.interact(|c| {
-			use models::db::profile::dsl::*;
+			use db::profile::dsl::*;
 			profile.select(id).load::<i32>(c)
 		})
 		.await
@@ -329,7 +327,7 @@ async fn seed_random_reservations(
 	}
 
 	batch_insert_optimized(conn, reservations, 4, |conn, chunk| {
-		use models::db::reservation::dsl::*;
+		use db::reservation::dsl::*;
 		diesel::insert_into(reservation).values(chunk).execute(conn)
 	})
 	.await
@@ -424,7 +422,7 @@ async fn seed_reservations_for_profile(
 		successful_reservations,
 		4,
 		|conn, chunk| {
-			use models::db::reservation::dsl::*;
+			use db::reservation::dsl::*;
 			diesel::insert_into(reservation).values(chunk).execute(conn)
 		},
 	)
@@ -447,8 +445,8 @@ async fn get_available_opening_times(
 	Error,
 > {
 	conn.interact(|c| {
-		use models::db::location::dsl as loc_dsl;
-		use models::db::opening_time::dsl::*;
+		use db::location::dsl as loc_dsl;
+		use db::opening_time::dsl::*;
 
 		opening_time
 			.inner_join(loc_dsl::location.on(location_id.eq(loc_dsl::id)))
@@ -478,9 +476,9 @@ async fn get_existing_reservations_for_profile(
 ) -> Result<Vec<(chrono::NaiveDateTime, chrono::NaiveDateTime)>, Error> {
 	let reservations = conn
 		.interact(move |c| {
-			use models::db::location::dsl as loc_dsl;
-			use models::db::opening_time::dsl as ot_dsl;
-			use models::db::reservation::dsl::*;
+			use db::location::dsl as loc_dsl;
+			use db::opening_time::dsl as ot_dsl;
+			use db::reservation::dsl::*;
 
 			reservation
 				.inner_join(
@@ -620,7 +618,7 @@ async fn seed_opening_times(
 ) -> Result<usize, Error> {
 	let profile_ids: Vec<i32> = conn
 		.interact(|c| {
-			use models::db::profile::dsl::*;
+			use db::profile::dsl::*;
 			profile.select(id).load::<i32>(c)
 		})
 		.await
@@ -634,7 +632,7 @@ async fn seed_opening_times(
 
 	let location_ids: Vec<i32> = conn
 		.interact(|c| {
-			use models::db::location::dsl::*;
+			use db::location::dsl::*;
 			location.select(id).get_results(c)
 		})
 		.await
@@ -687,7 +685,7 @@ async fn seed_opening_times(
 
 	// NewOpeningTime has 7 parameters
 	batch_insert_optimized(conn, opening_times, 7, |conn, chunk| {
-		use models::db::opening_time::dsl::*;
+		use db::opening_time::dsl::*;
 		diesel::insert_into(opening_time).values(chunk).execute(conn)
 	})
 	.await

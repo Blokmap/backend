@@ -1,0 +1,1 @@
+ALTER TABLE image ALTER COLUMN uploaded_by SET NOT NULL;
