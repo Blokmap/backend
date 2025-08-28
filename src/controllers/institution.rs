@@ -6,6 +6,7 @@ use axum::response::IntoResponse;
 use common::{DbPool, Error};
 use db::InstitutionCategory;
 use institution::{Institution, InstitutionIncludes};
+use permissions::Permissions;
 
 use crate::schemas::BuildResponse;
 use crate::schemas::authority::{AuthorityResponse, CreateAuthorityRequest};
@@ -58,9 +59,15 @@ pub async fn create_institution_authority(
 	Query(includes): Query<AuthorityIncludes>,
 	Json(request): Json<CreateAuthorityRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
+	Permissions::check_for_institution(
+		i_id,
+		session.data.profile_id,
+		Permissions::InstAddAuthority | Permissions::InstAdministrator,
+		&pool,
+	)
+	.await?;
 
-	// TODO: permissions
+	let conn = pool.get().await?;
 
 	let mut new_authority = request.to_insertable(session.data.profile_id);
 	new_authority.institution_id = Some(i_id);
@@ -77,9 +84,15 @@ pub async fn link_authority(
 	Path((i_id, a_id)): Path<(i32, i32)>,
 	Query(includes): Query<AuthorityIncludes>,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
+	Permissions::check_for_institution(
+		i_id,
+		session.data.profile_id,
+		Permissions::InstAddAuthority | Permissions::InstAdministrator,
+		&pool,
+	)
+	.await?;
 
-	// TODO: permissions
+	let conn = pool.get().await?;
 
 	let update = AuthorityUpdate {
 		name:           None,
@@ -134,8 +147,17 @@ pub async fn get_categories() -> impl IntoResponse {
 pub async fn get_institution_members(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,
+	session: Session,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
+	Permissions::check_for_institution(
+		id,
+		session.data.profile_id,
+		Permissions::InstManageMembers | Permissions::InstAdministrator,
+		&pool,
+	)
+	.await?;
+
 	let conn = pool.get().await?;
 
 	let members = Institution::get_members(id, &conn).await?;
@@ -155,19 +177,17 @@ pub(crate) async fn add_institution_member(
 	Path(id): Path<i32>,
 	Json(request): Json<CreateInstitutionMemberRequest>,
 ) -> Result<impl IntoResponse, Error> {
+	Permissions::check_for_institution(
+		id,
+		session.data.profile_id,
+		Permissions::InstManageMembers | Permissions::InstAdministrator,
+		&pool,
+	)
+	.await?;
+
 	let conn = pool.get().await?;
 
-	// TODO: better permissions
-
-	let actor_id = session.data.profile_id;
-	let actor_perms =
-		Institution::get_member_permissions(id, actor_id, &conn).await?;
-
-	if !actor_perms.intersects(InstitutionPermissions::Administrator) {
-		return Err(Error::Forbidden);
-	}
-
-	let new_inst_profile = request.to_insertable(id, actor_id);
+	let new_inst_profile = request.to_insertable(id, session.data.profile_id);
 	let member = new_inst_profile.insert(&conn).await?;
 	let response: ProfileResponse = member.build_response(&config)?;
 
@@ -180,18 +200,15 @@ pub async fn delete_institution_member(
 	session: Session,
 	Path((i_id, p_id)): Path<(i32, i32)>,
 ) -> Result<impl IntoResponse, Error> {
+	Permissions::check_for_institution(
+		i_id,
+		session.data.profile_id,
+		Permissions::InstManageMembers | Permissions::InstAdministrator,
+		&pool,
+	)
+	.await?;
+
 	let conn = pool.get().await?;
-
-	// TODO: better permissions
-
-	let actor_id = session.data.profile_id;
-	let actor_perms =
-		Institution::get_member_permissions(i_id, actor_id, &conn).await?;
-
-	if !actor_perms.intersects(InstitutionPermissions::Administrator) {
-		return Err(Error::Forbidden);
-	}
-
 	Institution::delete_member(i_id, p_id, &conn).await?;
 
 	Ok(StatusCode::NO_CONTENT)

@@ -12,7 +12,7 @@ use db::{
 };
 use diesel::pg::Pg;
 use diesel::prelude::*;
-use primitives::{PrimitiveAuthority, PrimitiveProfile};
+use primitives::PrimitiveAuthority;
 use serde::{Deserialize, Serialize};
 
 use crate::{Authority, AuthorityIncludes};
@@ -33,12 +33,12 @@ pub struct AuthorityProfile {
 }
 
 impl Authority {
-	/// Get all [members](SimpleProfile) of this [`Authority`]
+	/// Get all [members](Profile) of this [`Authority`]
 	#[instrument(skip(conn))]
 	pub async fn get_members(
 		auth_id: i32,
 		conn: &DbConn,
-	) -> Result<Vec<PrimitiveProfile>, Error> {
+	) -> Result<Vec<Profile>, Error> {
 		let members = conn
 			.interact(move |conn| {
 				authority_member::table
@@ -47,7 +47,12 @@ impl Authority {
 						profile::table
 							.on(profile::id.eq(authority_member::profile_id)),
 					)
-					.select(PrimitiveProfile::as_select())
+					.left_outer_join(
+						image::table
+							.on(profile::avatar_image_id
+								.eq(image::id.nullable())),
+					)
+					.select(Profile::as_select())
 					.get_results(conn)
 			})
 			.await??;

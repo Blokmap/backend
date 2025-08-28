@@ -17,64 +17,60 @@ use db::{
 	location_member,
 	location_member_role,
 	location_role,
+	profile,
 };
 use diesel::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 bitflags! {
 	/// All possible permissions
-	#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+	#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 	pub struct Permissions: i64 {
 		/// Institution admin, member can do everything
 		const InstAdministrator = 1 << 0;
-		/// Member can manage the institution itself, letting them change
-		/// the name, category, and adress
-		const InstManageInstitution = 1 << 0;
-		/// Member can manage institution members, letting them add, update,
-		/// and remove members
-		const InstManageMembers = 1 << 0;
-		/// Member can manage all authorities under this institution, letting
-		/// them add, update, and remove authorities
-		const InstManageAuthorities = 1 << 0;
-		/// Member can manage all locations under this institution, letting
-		/// them add, update, and remove locations
-		const InstManageLocations = 1 << 0;
+		/// Member can create or link new authorities for this institution
+		const InstAddAuthority = 1 << 1;
+		/// Member can delete authorities for this institution
+		const InstDeleteAuthority = 1 << 2;
+		/// Member can manage institution members:
+		/// - add members
+		/// - update member roles
+		/// - remove members
+		const InstManageMembers = 1 << 3;
 
 		/// Admin privileges, member can do everything
-		const AuthAdministrator = 1 << 1;
-		/// Member can manage the authority itself, letting them change
-		/// the name and description
-		const AuthManageAuthority = 1 << 2;
-		/// Member can manage all locations under this authority, letting them
-		/// update locations
-		const AuthManageLocations = 1 << 3;
+		const AuthAdministrator = 1 << 4;
 		/// Member can submit new locations
-		const AuthAddLocations = 1 << 4;
+		const AuthAddLocations = 1 << 5;
 		/// Member can approve/reject all locations under this authority
-		const AuthApproveLocations = 1 << 5;
+		const AuthApproveLocations = 1 << 6;
 		/// Member can delete all locations under this authority
-		const AuthDeleteLocations = 1 << 6;
-		/// Member can manage opening times for all locations under this
-		/// authority
-		const AuthManageOpeningTimes = 1 << 7;
-		/// Member can manage reservations on all of the authorities locations
-		const AuthManageReservations = 1 << 8;
-		/// Member can manage authority members, letting them add, update,
-		/// and remove members
-		const AuthManageMembers = 1 << 9;
+		const AuthDeleteLocations = 1 << 7;
+		/// Member can manage authority members:
+		/// - add members
+		/// - update member roles
+		/// - remove members
+		const AuthManageMembers = 1 << 8;
 
 		/// Admin privileges, member can do everything
-		const Administrator = 1 << 0;
-		/// Member can manage this location
-		const ManageLocation = 1 << 1;
-		/// Member can delete this location
-		const DeleteLocation = 1 << 2;
-		/// Member can manage opening times for this location
-		const ManageOpeningTimes = 1 << 3;
-		/// Member can manage reservations for this location
-		const ManageReservations = 1 << 4;
-		/// Member can manage this locations members
-		const ManageMembers = 1 << 5;
+		const LocAdministrator = 1 << 9;
+		/// Member can manage images for this location:
+		/// - upload new images
+		/// - reorder images
+		/// - delete images
+		const LocManageImages = 1 << 10;
+		/// Member can manage opening times for this location:
+		/// - create opening times
+		/// - update opening times
+		/// - delete opening times
+		const LocManageOpeningTimes = 1 << 11;
+		/// Member can manage location members
+		/// - add members
+		/// - update member roles
+		/// - remove members
+		const LocManageMembers = 1 << 12;
+		/// Member can confirm reservations for this location:
+		const LocConfirmReservations = 1 << 13;
 	}
 }
 
@@ -251,5 +247,120 @@ impl Permissions {
 			loc_handle.await.map_err(InternalServerError::JoinError)??;
 
 		Ok(l_perms | a_perms)
+	}
+
+	/// Checks whether the given profile has *any* of the specified permissions
+	/// for the given institution
+	///
+	/// Also returns `Ok(())` if the profile is a global admin
+	#[instrument(skip(pool))]
+	pub async fn check_for_institution(
+		inst_id: i32,
+		prof_id: i32,
+		perms: Self,
+		pool: &DbPool,
+	) -> Result<(), Error> {
+		let profile_conn = pool.get().await?;
+		let profile_fetch = profile_conn.interact(move |conn| {
+			profile::table
+				.find(prof_id)
+				.select(profile::is_admin)
+				.get_result(conn)
+		});
+
+		let inst_conn = pool.get().await?;
+		let (inst_perms, is_admin) = tokio::join!(
+			Self::get_for_institution_member(inst_id, prof_id, &inst_conn),
+			profile_fetch,
+		);
+
+		let inst_perms = inst_perms?;
+		let is_admin: bool = is_admin??;
+
+		if is_admin {
+			return Ok(());
+		}
+
+		if inst_perms.intersects(perms) {
+			return Ok(());
+		}
+
+		Err(Error::Forbidden)
+	}
+
+	/// Checks whether the given profile has *any* of the specified permissions
+	/// for the given authority
+	///
+	/// Also returns `Ok(())` if the profile is a global admin
+	#[instrument(skip(pool))]
+	pub async fn check_for_authority(
+		auth_id: i32,
+		prof_id: i32,
+		perms: Self,
+		pool: &DbPool,
+	) -> Result<(), Error> {
+		let profile_conn = pool.get().await?;
+		let profile_fetch = profile_conn.interact(move |conn| {
+			profile::table
+				.find(prof_id)
+				.select(profile::is_admin)
+				.get_result(conn)
+		});
+
+		let (auth_perms, is_admin) = tokio::join!(
+			Self::get_for_authority_member(auth_id, prof_id, pool),
+			profile_fetch,
+		);
+
+		let auth_perms = auth_perms?;
+		let is_admin: bool = is_admin??;
+
+		if is_admin {
+			return Ok(());
+		}
+
+		if auth_perms.intersects(perms) {
+			return Ok(());
+		}
+
+		Err(Error::Forbidden)
+	}
+
+	/// Checks whether the given profile has *any* of the specified permissions
+	/// for the given location
+	///
+	/// Also returns `Ok(())` if the profile is a global admin
+	#[instrument(skip(pool))]
+	pub async fn check_for_location(
+		loc_id: i32,
+		prof_id: i32,
+		perms: Self,
+		pool: &DbPool,
+	) -> Result<(), Error> {
+		let profile_conn = pool.get().await?;
+		let profile_fetch = profile_conn.interact(move |conn| {
+			profile::table
+				.find(prof_id)
+				.select(profile::is_admin)
+				.get_result(conn)
+		});
+
+		let (loc_perms, is_admin) = tokio::join!(
+			Self::get_for_location_member(loc_id, prof_id, pool),
+			profile_fetch,
+		);
+
+		let loc_perms = loc_perms?;
+		let is_admin: bool = is_admin??;
+
+		if is_admin {
+			return Ok(());
+		}
+
+		if loc_perms.intersects(perms) {
+			return Ok(());
+		}
+
+		Err(Error::Forbidden)
 	}
 }

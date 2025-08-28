@@ -84,8 +84,8 @@ use crate::controllers::profile::{
 use crate::controllers::reservation::{
 	create_reservation,
 	delete_reservation,
-	get_reservation_for_location,
-	get_reservation_for_opening_time,
+	get_reservations_for_location,
+	get_reservations_for_opening_time,
 };
 use crate::controllers::review::{
 	create_location_review,
@@ -196,10 +196,10 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 			"/{id}/opening-times/{time_id}",
 			patch(update_location_time).delete(delete_location_time),
 		)
-		.route("/{l_id}/reservations", get(get_reservation_for_location))
+		.route("/{l_id}/reservations", get(get_reservations_for_location))
 		.route(
 			"/{l_id}/opening-times/{t_id}/reservations",
-			get(get_reservation_for_opening_time).post(create_reservation),
+			get(get_reservations_for_opening_time).post(create_reservation),
 		)
 		.route(
 			"/{l_id}/opening-times/{t_id}/reservations/{r_id}",

@@ -9,6 +9,7 @@ use chrono::{NaiveDateTime, NaiveTime, Utc};
 use common::{CreateReservationError, DbPool, Error};
 use location::{Location, LocationIncludes};
 use opening_time::{OpeningTime, OpeningTimeIncludes};
+use permissions::Permissions;
 use reservation::{
 	NewReservation,
 	Reservation,
@@ -23,35 +24,24 @@ use crate::schemas::reservation::{
 };
 
 #[instrument(skip(pool))]
-pub async fn get_reservation_for_location(
+pub async fn get_reservations_for_location(
 	State(pool): State<DbPool>,
 	session: Session,
 	Path(loc_id): Path<i32>,
 	Query(filter): Query<ReservationFilter>,
 	Query(includes): Query<ReservationIncludes>,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let mut can_manage = false;
-
-	if session.data.profile_is_admin {
-		can_manage = true;
-	}
-
-	can_manage |= Location::owner_or_admin_or(
-		session.data.profile_id,
+	Permissions::check_for_location(
 		loc_id,
-		AuthorityPermissions::ManageLocation
-			| AuthorityPermissions::ManageReservations,
-		LocationPermissions::ManageLocation
-			| LocationPermissions::ManageReservations,
-		&conn,
+		session.data.profile_id,
+		Permissions::LocAdministrator
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
 	)
 	.await?;
 
-	if !can_manage {
-		return Err(Error::Forbidden);
-	}
+	let conn = pool.get().await?;
 
 	let reservations =
 		Reservation::for_location(loc_id, filter, includes, &conn).await?;
@@ -62,34 +52,23 @@ pub async fn get_reservation_for_location(
 }
 
 #[instrument(skip(pool))]
-pub async fn get_reservation_for_opening_time(
+pub async fn get_reservations_for_opening_time(
 	State(pool): State<DbPool>,
 	session: Session,
 	Path((l_id, t_id)): Path<(i32, i32)>,
 	Query(includes): Query<ReservationIncludes>,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let mut can_manage = false;
-
-	if session.data.profile_is_admin {
-		can_manage = true;
-	}
-
-	can_manage |= Location::owner_or_admin_or(
-		session.data.profile_id,
+	Permissions::check_for_location(
 		l_id,
-		AuthorityPermissions::ManageLocation
-			| AuthorityPermissions::ManageReservations,
-		LocationPermissions::ManageLocation
-			| LocationPermissions::ManageReservations,
-		&conn,
+		session.data.profile_id,
+		Permissions::LocAdministrator
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
 	)
 	.await?;
 
-	if !can_manage {
-		return Err(Error::Forbidden);
-	}
+	let conn = pool.get().await?;
 
 	let reservations =
 		Reservation::for_opening_time(t_id, includes, &conn).await?;
@@ -264,31 +243,16 @@ pub async fn delete_reservation(
 			.await?
 			.reservation;
 
-	let mut can_manage = false;
-
-	if session.data.profile_is_admin {
-		can_manage = true;
-	}
-
-	can_manage |= Location::owner_or_admin_or(
-		session.data.profile_id,
-		l_id,
-		AuthorityPermissions::ManageLocation
-			| AuthorityPermissions::ManageReservations,
-		LocationPermissions::ManageLocation
-			| LocationPermissions::ManageReservations,
-		&conn,
-	)
-	.await?;
-
-	if !can_manage {
-		return Err(Error::Forbidden);
-	}
-
-	if reservation.profile_id != session.data.profile_id
-		&& !session.data.profile_is_admin
-	{
-		return Err(Error::Forbidden);
+	if reservation.profile_id != session.data.profile_id {
+		Permissions::check_for_location(
+			l_id,
+			session.data.profile_id,
+			Permissions::LocAdministrator
+				| Permissions::AuthAdministrator
+				| Permissions::InstAdministrator,
+			&pool,
+		)
+		.await?;
 	}
 
 	Reservation::delete_by_id(r_id, &conn).await?;

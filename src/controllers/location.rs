@@ -8,6 +8,7 @@ use common::{DbPool, Error};
 use image::Image;
 use location::{Location, LocationFilter, LocationIncludes, Point};
 use opening_time::{OpeningTime, OpeningTimeIncludes, TimeFilter};
+use permissions::Permissions;
 use tag::Tag;
 use utils::image::{delete_image, store_location_image};
 use validator::Validate;
@@ -76,30 +77,19 @@ pub async fn reorder_location_images(
 	Path(id): Path<i32>,
 	Json(new_order): Json<Vec<LocationImageOrderUpdate>>,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
 	// TODO: only allow reordering if the current images are approved
 	// TODO: only allow reordering if {current_image_ids} =
 	// {reordered_image_ids}
 
-	let mut can_manage = false;
-
-	if session.data.profile_is_admin {
-		can_manage = true;
-	}
-
-	can_manage |= Location::owner_or_admin_or(
-		session.data.profile_id,
+	Permissions::check_for_location(
 		id,
-		AuthorityPermissions::ManageLocation,
-		LocationPermissions::ManageLocation,
-		&conn,
+		session.data.profile_id,
+		Permissions::LocManageImages,
+		&pool,
 	)
 	.await?;
 
-	if !can_manage {
-		return Err(Error::Forbidden);
-	}
+	let conn = pool.get().await?;
 
 	let new_order =
 		new_order.into_iter().map(|o| o.to_insertable(id)).collect();
@@ -119,27 +109,15 @@ pub async fn delete_location_image(
 	session: Session,
 	Path((l_id, img_id)): Path<(i32, i32)>,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let mut can_manage = false;
-
-	if session.data.profile_is_admin {
-		can_manage = true;
-	}
-
-	can_manage |= Location::owner_or_admin_or(
-		session.data.profile_id,
+	Permissions::check_for_location(
 		l_id,
-		AuthorityPermissions::ManageLocation,
-		LocationPermissions::ManageLocation,
-		&conn,
+		session.data.profile_id,
+		Permissions::LocManageImages,
+		&pool,
 	)
 	.await?;
 
-	if !can_manage {
-		return Err(Error::Forbidden);
-	}
-
+	let conn = pool.get().await?;
 	delete_image(img_id, &conn).await?;
 
 	Ok((StatusCode::NO_CONTENT, NoContent))
@@ -235,26 +213,15 @@ pub(crate) async fn update_location(
 	Query(includes): Query<LocationIncludes>,
 	Json(request): Json<UpdateLocationRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let mut can_manage = false;
-
-	if session.data.profile_is_admin {
-		can_manage = true;
-	}
-
-	can_manage |= Location::owner_or_admin_or(
-		session.data.profile_id,
+	Permissions::check_for_location(
 		id,
-		AuthorityPermissions::ManageLocation,
-		LocationPermissions::ManageLocation,
-		&conn,
+		session.data.profile_id,
+		Permissions::LocAdministrator,
+		&pool,
 	)
 	.await?;
 
-	if !can_manage {
-		return Err(Error::Forbidden);
-	}
+	let conn = pool.get().await?;
 
 	let loc_update = request.to_insertable(session.data.profile_id);
 	let updated_loc = loc_update.apply_to(id, includes, &conn).await?;
@@ -270,27 +237,17 @@ pub(crate) async fn approve_location(
 	session: AdminSession,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let mut can_manage = false;
-
-	if session.data.profile_is_admin {
-		can_manage = true;
-	}
-
-	can_manage |= Location::admin_or(
-		session.data.profile_id,
+	Permissions::check_for_location(
 		id,
-		AuthorityPermissions::ManageLocation
-			| AuthorityPermissions::ApproveLocation,
-		LocationPermissions::ManageLocation,
-		&conn,
+		session.data.profile_id,
+		Permissions::AuthApproveLocations
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
 	)
 	.await?;
 
-	if !can_manage {
-		return Err(Error::Forbidden);
-	}
+	let conn = pool.get().await?;
 
 	Location::approve_by(id, session.data.profile_id, &conn).await?;
 
@@ -305,27 +262,17 @@ pub(crate) async fn reject_location(
 	Path(id): Path<i32>,
 	Json(request): Json<RejectLocationRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let mut can_manage = false;
-
-	if session.data.profile_is_admin {
-		can_manage = true;
-	}
-
-	can_manage |= Location::admin_or(
-		session.data.profile_id,
+	Permissions::check_for_location(
 		id,
-		AuthorityPermissions::ManageLocation
-			| AuthorityPermissions::ApproveLocation,
-		LocationPermissions::ManageLocation,
-		&conn,
+		session.data.profile_id,
+		Permissions::AuthApproveLocations
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
 	)
 	.await?;
 
-	if !can_manage {
-		return Err(Error::Forbidden);
-	}
+	let conn = pool.get().await?;
 
 	Location::reject_by(id, session.data.profile_id, request.reason, &conn)
 		.await?;
@@ -340,26 +287,17 @@ pub async fn set_location_tags(
 	Path(id): Path<i32>,
 	Json(data): Json<SetLocationTagsRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let mut can_manage = false;
-
-	if session.data.profile_is_admin {
-		can_manage = true;
-	}
-
-	can_manage |= Location::owner_or_admin_or(
-		session.data.profile_id,
+	Permissions::check_for_location(
 		id,
-		AuthorityPermissions::ManageLocation,
-		LocationPermissions::ManageLocation,
-		&conn,
+		session.data.profile_id,
+		Permissions::LocAdministrator
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
 	)
 	.await?;
 
-	if !can_manage {
-		return Err(Error::Forbidden);
-	}
+	let conn = pool.get().await?;
 
 	Tag::bulk_set(id, data.tags, &conn).await?;
 
@@ -373,20 +311,18 @@ pub async fn get_location_members(
 	session: Session,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let can_manage = Location::owner_or_admin_or(
-		session.data.profile_id,
+	Permissions::check_for_location(
 		id,
-		AuthorityPermissions::ManageLocation,
-		LocationPermissions::ManageLocation,
-		&conn,
+		session.data.profile_id,
+		Permissions::LocManageMembers
+			| Permissions::LocAdministrator
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
 	)
 	.await?;
 
-	if !can_manage {
-		return Err(Error::Forbidden);
-	}
+	let conn = pool.get().await?;
 
 	let members = Location::get_members(id, &conn).await?;
 	let response: Vec<ProfileResponse> = members
@@ -405,20 +341,18 @@ pub async fn add_location_member(
 	Path(id): Path<i32>,
 	Json(request): Json<CreateLocationMemberRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let can_manage = Location::owner_or_admin_or(
-		session.data.profile_id,
+	Permissions::check_for_location(
 		id,
-		AuthorityPermissions::ManageLocation,
-		LocationPermissions::ManageLocation,
-		&conn,
+		session.data.profile_id,
+		Permissions::LocManageMembers
+			| Permissions::LocAdministrator
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
 	)
 	.await?;
 
-	if !can_manage {
-		return Err(Error::Forbidden);
-	}
+	let conn = pool.get().await?;
 
 	let new_loc_profile = request.to_insertable(id, session.data.profile_id);
 	let member = new_loc_profile.insert(&conn).await?;
@@ -433,21 +367,18 @@ pub async fn delete_location_member(
 	session: Session,
 	Path((l_id, p_id)): Path<(i32, i32)>,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let can_manage = Location::owner_or_admin_or(
-		session.data.profile_id,
+	Permissions::check_for_location(
 		l_id,
-		AuthorityPermissions::ManageLocation,
-		LocationPermissions::ManageLocation
-			| LocationPermissions::ManageMembers,
-		&conn,
+		session.data.profile_id,
+		Permissions::LocManageMembers
+			| Permissions::LocAdministrator
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
 	)
 	.await?;
 
-	if !can_manage {
-		return Err(Error::Forbidden);
-	}
+	let conn = pool.get().await?;
 
 	Location::delete_member(l_id, p_id, &conn).await?;
 
@@ -461,28 +392,18 @@ pub(crate) async fn delete_location(
 	session: Session,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let mut can_manage = false;
-
-	if session.data.profile_is_admin {
-		can_manage = true;
-	}
-
-	can_manage |= Location::owner_or_admin_or(
-		session.data.profile_id,
+	Permissions::check_for_location(
 		id,
-		AuthorityPermissions::ManageLocation
-			| AuthorityPermissions::DeleteLocation,
-		LocationPermissions::ManageLocation
-			| LocationPermissions::DeleteLocation,
-		&conn,
+		session.data.profile_id,
+		Permissions::LocAdministrator
+			| Permissions::AuthDeleteLocations
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
 	)
 	.await?;
 
-	if !can_manage {
-		return Err(Error::Forbidden);
-	}
+	let conn = pool.get().await?;
 
 	Location::delete_by_id(id, &conn).await?;
 

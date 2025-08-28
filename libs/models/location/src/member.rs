@@ -2,7 +2,6 @@ use ::profile::Profile;
 use common::{DbConn, Error};
 use db::{image, location_member, profile};
 use diesel::prelude::*;
-use primitives::{PrimitiveImage, PrimitiveProfile};
 use serde::{Deserialize, Serialize};
 
 use crate::Location;
@@ -71,10 +70,7 @@ pub struct NewLocationProfile {
 impl NewLocationProfile {
 	/// Insert this [`NewLocationProfile`]
 	#[instrument(skip(conn))]
-	pub async fn insert(
-		self,
-		conn: &DbConn,
-	) -> Result<(PrimitiveProfile, Option<PrimitiveImage>), Error> {
+	pub async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
 		conn.interact(move |conn| {
 			use self::location_member::dsl::*;
 
@@ -82,7 +78,7 @@ impl NewLocationProfile {
 		})
 		.await??;
 
-		let (profile, img) = conn
+		let profile = conn
 			.interact(move |conn| {
 				location_member::table
 					.filter(
@@ -99,10 +95,7 @@ impl NewLocationProfile {
 							.on(profile::avatar_image_id
 								.eq(image::id.nullable())),
 					)
-					.select((
-						PrimitiveProfile::as_select(),
-						image::all_columns.nullable(),
-					))
+					.select(Profile::as_select())
 					.get_result(conn)
 			})
 			.await??;
@@ -112,6 +105,6 @@ impl NewLocationProfile {
 			self.profile_id, self.location_id
 		);
 
-		Ok((profile, img))
+		Ok(profile)
 	}
 }

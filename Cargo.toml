@@ -87,6 +87,7 @@ image = { path = "./libs/models/image" }
 institution = { path = "./libs/models/institution" }
 location = { path = "./libs/models/location" }
 opening_time = { path = "./libs/models/opening_time" }
+permissions = { path = "./libs/models/permissions" }
 profile = { path = "./libs/models/profile" }
 reservation = { path = "./libs/models/reservation" }
 review = { path = "./libs/models/review" }

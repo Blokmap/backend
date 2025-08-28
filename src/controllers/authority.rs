@@ -5,6 +5,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
 use location::{Location, LocationIncludes};
+use permissions::Permissions;
 
 use crate::schemas::BuildResponse;
 use crate::schemas::authority::{
@@ -77,20 +78,17 @@ pub async fn update_authority(
 	Path(id): Path<i32>,
 	Json(request): Json<UpdateAuthorityRequest>,
 ) -> Result<impl IntoResponse, Error> {
+	Permissions::check_for_authority(
+		id,
+		session.data.profile_id,
+		Permissions::AuthAdministrator | Permissions::InstAdministrator,
+		&pool,
+	)
+	.await?;
+
 	let conn = pool.get().await?;
 
-	let actor_id = session.data.profile_id;
-	let actor_perms =
-		Authority::get_member_permissions(id, actor_id, &conn).await?;
-
-	if !actor_perms.intersects(
-		AuthorityPermissions::Administrator
-			| AuthorityPermissions::ManageAuthority,
-	) {
-		return Err(Error::Forbidden);
-	}
-
-	let auth_update = request.to_insertable(actor_id);
+	let auth_update = request.to_insertable(session.data.profile_id);
 	let updated_auth = auth_update.apply_to(id, includes, &conn).await?;
 	let response: AuthorityResponse = updated_auth.into();
 
@@ -123,19 +121,20 @@ pub(crate) async fn add_authority_location(
 	Path(id): Path<i32>,
 	Json(request): Json<CreateLocationRequest>,
 ) -> Result<impl IntoResponse, Error> {
+	Permissions::check_for_authority(
+		id,
+		session.data.profile_id,
+		Permissions::AuthAddLocations
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
+	)
+	.await?;
+
 	let conn = pool.get().await?;
 
-	let actor_id = session.data.profile_id;
-	let actor_perms =
-		Authority::get_member_permissions(id, actor_id, &conn).await?;
-
-	if !actor_perms.intersects(
-		AuthorityPermissions::Administrator | AuthorityPermissions::AddLocation,
-	) {
-		return Err(Error::Forbidden);
-	}
-
-	let new_location = request.to_insertable_for_authority(id, actor_id);
+	let new_location =
+		request.to_insertable_for_authority(id, session.data.profile_id);
 	let records = new_location.insert(includes, &conn).await?;
 	let response: LocationResponse = records.build_response(&config)?;
 
@@ -146,12 +145,23 @@ pub(crate) async fn add_authority_location(
 pub async fn get_authority_members(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,
+	session: Session,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
+	Permissions::check_for_authority(
+		id,
+		session.data.profile_id,
+		Permissions::AuthManageMembers
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
+	)
+	.await?;
+
 	let conn = pool.get().await?;
 
-	let members = Authority::get_members_with_permissions(id, &conn).await?;
-	let response: Vec<ProfilePermissionsResponse> = members
+	let members = Authority::get_members(id, &conn).await?;
+	let response: Vec<ProfileResponse> = members
 		.into_iter()
 		.map(|data| data.build_response(&config))
 		.collect::<Result<_, _>>()?;
@@ -168,20 +178,19 @@ pub(crate) async fn add_authority_member(
 	Path(id): Path<i32>,
 	Json(request): Json<CreateAuthorityMemberRequest>,
 ) -> Result<impl IntoResponse, Error> {
+	Permissions::check_for_authority(
+		id,
+		session.data.profile_id,
+		Permissions::AuthManageMembers
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
+	)
+	.await?;
+
 	let conn = pool.get().await?;
 
-	let actor_id = session.data.profile_id;
-	let actor_perms =
-		Authority::get_member_permissions(id, actor_id, &conn).await?;
-
-	if !actor_perms.intersects(
-		AuthorityPermissions::Administrator
-			| AuthorityPermissions::ManageMembers,
-	) {
-		return Err(Error::Forbidden);
-	}
-
-	let new_auth_profile = request.to_insertable(id, actor_id);
+	let new_auth_profile = request.to_insertable(id, session.data.profile_id);
 	let member = new_auth_profile.insert(&conn).await?;
 	let response: ProfileResponse = member.build_response(&config)?;
 
@@ -194,19 +203,17 @@ pub async fn delete_authority_member(
 	session: Session,
 	Path((a_id, p_id)): Path<(i32, i32)>,
 ) -> Result<impl IntoResponse, Error> {
+	Permissions::check_for_authority(
+		a_id,
+		session.data.profile_id,
+		Permissions::AuthManageMembers
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
+	)
+	.await?;
+
 	let conn = pool.get().await?;
-
-	let actor_id = session.data.profile_id;
-	let actor_perms =
-		Authority::get_member_permissions(a_id, actor_id, &conn).await?;
-
-	if !actor_perms.intersects(
-		AuthorityPermissions::Administrator
-			| AuthorityPermissions::ManageMembers,
-	) {
-		return Err(Error::Forbidden);
-	}
-
 	Authority::delete_member(a_id, p_id, &conn).await?;
 
 	Ok(StatusCode::NO_CONTENT)
