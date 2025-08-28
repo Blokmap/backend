@@ -568,6 +568,8 @@ impl NewProfileDirect {
 #[diesel(table_name = profile)]
 pub struct UpdateProfile {
 	pub username:      Option<String>,
+	pub first_name:    Option<String>,
+	pub last_name:     Option<String>,
 	pub pending_email: Option<String>,
 }
 

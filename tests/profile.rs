@@ -57,6 +57,8 @@ async fn update_current_profile_username() {
 				.patch("/profiles/me")
 				.json(&UpdateProfileRequest {
 					username:      Some("bobble".to_string()),
+					first_name:    None,
+					last_name:     None,
 					pending_email: None,
 				})
 				.await
@@ -93,6 +95,8 @@ async fn update_current_profile_pending_email() {
 				.patch("/profiles/me")
 				.json(&UpdateProfileRequest {
 					username:      None,
+					first_name:    None,
+					last_name:     None,
 					pending_email: Some("bobble@example.com".to_string()),
 				})
 				.await
