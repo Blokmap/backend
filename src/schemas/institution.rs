@@ -1,11 +1,6 @@
 use chrono::NaiveDateTime;
 use db::InstitutionCategory;
-use institution::{
-	Institution,
-	InstitutionProfileUpdate,
-	NewInstitution,
-	NewInstitutionProfile,
-};
+use institution::{Institution, NewInstitution, NewInstitutionProfile};
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::authority::{AuthorityResponse, CreateAuthorityRequest};
@@ -112,8 +107,7 @@ impl CreateInstitutionRequest {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateInstitutionMemberRequest {
-	pub profile_id:  i32,
-	pub permissions: i64,
+	pub profile_id: i32,
 }
 
 impl CreateInstitutionMemberRequest {
@@ -127,20 +121,6 @@ impl CreateInstitutionMemberRequest {
 			institution_id,
 			profile_id: self.profile_id,
 			added_by,
-			permissions: self.permissions,
 		}
-	}
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateInstitutionProfileRequest {
-	pub permissions: i64,
-}
-
-impl UpdateInstitutionProfileRequest {
-	#[must_use]
-	pub fn to_insertable(self, updated_by: i32) -> InstitutionProfileUpdate {
-		InstitutionProfileUpdate { updated_by, permissions: self.permissions }
 	}
 }

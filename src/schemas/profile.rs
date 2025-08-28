@@ -1,8 +1,6 @@
-use bitflags::Flags;
 use chrono::NaiveDateTime;
 use common::Error;
-use db::ProfileState;
-use primitives::{PrimitiveImage, PrimitiveProfile};
+use primitives::PrimitiveProfile;
 use profile::{Profile, ProfileStats, UpdateProfile};
 use serde::{Deserialize, Serialize};
 
@@ -55,44 +53,6 @@ impl BuildResponse<ProfileResponse> for Profile {
 				.avatar
 				.map(|i| i.build_response(config))
 				.transpose()?,
-		})
-	}
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProfilePermissionsResponse {
-	pub id:          i32,
-	pub username:    String,
-	pub avatar:      Option<ImageResponse>,
-	pub email:       Option<String>,
-	pub first_name:  Option<String>,
-	pub last_name:   Option<String>,
-	pub state:       ProfileState,
-	pub permissions: i64,
-}
-
-impl<F> BuildResponse<ProfilePermissionsResponse>
-	for (PrimitiveProfile, Option<PrimitiveImage>, F)
-where
-	F: Flags<Bits = i64>,
-{
-	fn build_response(
-		self,
-		config: &Config,
-	) -> Result<ProfilePermissionsResponse, Error> {
-		Ok(ProfilePermissionsResponse {
-			id:          self.0.id,
-			username:    self.0.username,
-			avatar:      self
-				.1
-				.map(|i| i.build_response(config))
-				.transpose()?,
-			email:       self.0.email,
-			first_name:  self.0.first_name,
-			last_name:   self.0.last_name,
-			state:       self.0.state,
-			permissions: self.2.bits(),
 		})
 	}
 }

@@ -1,19 +1,12 @@
 //! Controllers for [`Location`]s
 
-use authority::AuthorityPermissions;
 use axum::Json;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
 use image::Image;
-use location::{
-	Location,
-	LocationFilter,
-	LocationIncludes,
-	LocationPermissions,
-	Point,
-};
+use location::{Location, LocationFilter, LocationIncludes, Point};
 use opening_time::{OpeningTime, OpeningTimeIncludes, TimeFilter};
 use tag::Tag;
 use utils::image::{delete_image, store_location_image};
@@ -28,11 +21,10 @@ use crate::schemas::location::{
 	LocationResponse,
 	NearestLocationResponse,
 	RejectLocationRequest,
-	UpdateLocationMemberRequest,
 	UpdateLocationRequest,
 };
 use crate::schemas::pagination::PaginationOptions;
-use crate::schemas::profile::ProfilePermissionsResponse;
+use crate::schemas::profile::ProfileResponse;
 use crate::schemas::tag::SetLocationTagsRequest;
 use crate::{AdminSession, Config, Session};
 
@@ -374,13 +366,6 @@ pub async fn set_location_tags(
 	Ok((StatusCode::NO_CONTENT, NoContent))
 }
 
-#[instrument]
-pub async fn get_all_location_permissions() -> impl IntoResponse {
-	let perms = LocationPermissions::names();
-
-	(StatusCode::OK, Json(perms))
-}
-
 #[instrument(skip(pool))]
 pub async fn get_location_members(
 	State(pool): State<DbPool>,
@@ -404,7 +389,7 @@ pub async fn get_location_members(
 	}
 
 	let members = Location::get_members(id, &conn).await?;
-	let response: Vec<ProfilePermissionsResponse> = members
+	let response: Vec<ProfileResponse> = members
 		.into_iter()
 		.map(|data| data.build_response(&config))
 		.collect::<Result<_, _>>()?;
@@ -436,9 +421,8 @@ pub async fn add_location_member(
 	}
 
 	let new_loc_profile = request.to_insertable(id, session.data.profile_id);
-	let (member, img, perms) = new_loc_profile.insert(&conn).await?;
-	let response: ProfilePermissionsResponse =
-		(member, img, perms).build_response(&config)?;
+	let member = new_loc_profile.insert(&conn).await?;
+	let response: ProfileResponse = member.build_response(&config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -468,39 +452,6 @@ pub async fn delete_location_member(
 	Location::delete_member(l_id, p_id, &conn).await?;
 
 	Ok((StatusCode::NO_CONTENT, NoContent))
-}
-
-#[instrument(skip(pool))]
-pub async fn update_location_member(
-	State(pool): State<DbPool>,
-	State(config): State<Config>,
-	session: Session,
-	Path((l_id, p_id)): Path<(i32, i32)>,
-	Json(request): Json<UpdateLocationMemberRequest>,
-) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let can_manage = Location::owner_or_admin_or(
-		session.data.profile_id,
-		l_id,
-		AuthorityPermissions::ManageLocation,
-		LocationPermissions::ManageLocation
-			| LocationPermissions::ManageMembers,
-		&conn,
-	)
-	.await?;
-
-	if !can_manage {
-		return Err(Error::Forbidden);
-	}
-
-	let loc_update = request.to_insertable(session.data.profile_id);
-	let (updated_member, img, perms) =
-		loc_update.apply_to(l_id, p_id, &conn).await?;
-	let response: ProfilePermissionsResponse =
-		(updated_member, img, perms).build_response(&config)?;
-
-	Ok((StatusCode::OK, Json(response)))
 }
 
 /// Delete a location from the database.

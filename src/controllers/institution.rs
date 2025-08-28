@@ -5,7 +5,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
 use db::InstitutionCategory;
-use institution::{Institution, InstitutionIncludes, InstitutionPermissions};
+use institution::{Institution, InstitutionIncludes};
 
 use crate::schemas::BuildResponse;
 use crate::schemas::authority::{AuthorityResponse, CreateAuthorityRequest};
@@ -13,10 +13,9 @@ use crate::schemas::institution::{
 	CreateInstitutionMemberRequest,
 	CreateInstitutionRequest,
 	InstitutionResponse,
-	UpdateInstitutionProfileRequest,
 };
 use crate::schemas::pagination::PaginationOptions;
-use crate::schemas::profile::ProfilePermissionsResponse;
+use crate::schemas::profile::ProfileResponse;
 use crate::{Config, Session};
 
 #[instrument(skip(pool))]
@@ -131,13 +130,6 @@ pub async fn get_categories() -> impl IntoResponse {
 	(StatusCode::OK, Json(InstitutionCategory::get_variants()))
 }
 
-#[instrument]
-pub async fn get_all_institution_permissions() -> impl IntoResponse {
-	let perms = InstitutionPermissions::names();
-
-	(StatusCode::OK, Json(perms))
-}
-
 #[instrument(skip(pool))]
 pub async fn get_institution_members(
 	State(pool): State<DbPool>,
@@ -146,8 +138,8 @@ pub async fn get_institution_members(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	let members = Institution::get_members_with_permissions(id, &conn).await?;
-	let response: Vec<ProfilePermissionsResponse> = members
+	let members = Institution::get_members(id, &conn).await?;
+	let response: Vec<ProfileResponse> = members
 		.into_iter()
 		.map(|data| data.build_response(&config))
 		.collect::<Result<_, _>>()?;
@@ -176,9 +168,8 @@ pub(crate) async fn add_institution_member(
 	}
 
 	let new_inst_profile = request.to_insertable(id, actor_id);
-	let (member, img, perms) = new_inst_profile.insert(&conn).await?;
-	let response: ProfilePermissionsResponse =
-		(member, img, perms).build_response(&config)?;
+	let member = new_inst_profile.insert(&conn).await?;
+	let response: ProfileResponse = member.build_response(&config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -204,33 +195,4 @@ pub async fn delete_institution_member(
 	Institution::delete_member(i_id, p_id, &conn).await?;
 
 	Ok(StatusCode::NO_CONTENT)
-}
-
-#[instrument(skip(pool))]
-pub async fn update_institution_member(
-	State(pool): State<DbPool>,
-	State(config): State<Config>,
-	session: Session,
-	Path((i_id, p_id)): Path<(i32, i32)>,
-	Json(request): Json<UpdateInstitutionProfileRequest>,
-) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	// TODO: better permissions
-
-	let actor_id = session.data.profile_id;
-	let actor_perms =
-		Institution::get_member_permissions(i_id, actor_id, &conn).await?;
-
-	if !actor_perms.intersects(InstitutionPermissions::Administrator) {
-		return Err(Error::Forbidden);
-	}
-
-	let inst_update = request.to_insertable(actor_id);
-	let (updated_member, img, perms) =
-		inst_update.apply_to(i_id, p_id, &conn).await?;
-	let response: ProfilePermissionsResponse =
-		(updated_member, img, perms).build_response(&config)?;
-
-	Ok((StatusCode::OK, Json(response)))
 }

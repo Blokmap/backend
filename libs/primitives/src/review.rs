@@ -17,4 +17,6 @@ pub struct PrimitiveReview {
 	pub body:        Option<String>,
 	pub created_at:  NaiveDateTime,
 	pub updated_at:  NaiveDateTime,
+	pub hidden_at:   Option<NaiveDateTime>,
+	pub hidden_by:   Option<i32>,
 }

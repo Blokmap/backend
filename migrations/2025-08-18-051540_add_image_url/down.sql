@@ -1,3 +1,0 @@
-ALTER TABLE image DROP COLUMN image_url;
-
-ALTER TABLE image ALTER COLUMN file_path SET NOT NULL;

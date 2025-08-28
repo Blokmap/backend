@@ -1,6 +1,4 @@
 #[macro_use]
-extern crate bitflags;
-#[macro_use]
 extern crate tracing;
 
 use ::translation::NewTranslation;
@@ -70,11 +68,12 @@ impl Institution {
 				translation::table
 					.on(institution::name_translation_id.eq(translation::id)),
 			)
-			.left_outer_join(creator.on(
-				inc_created.into_sql::<Bool>().and(
-					institution::created_by.eq(creator.field(profile::id)),
-				),
-			))
+			.left_outer_join(
+				creator.on(inc_created.into_sql::<Bool>().and(
+					institution::created_by
+						.eq(creator.field(profile::id).nullable()),
+				)),
+			)
 			.left_outer_join(
 				updater.on(inc_updated.into_sql::<Bool>().and(
 					institution::updated_by

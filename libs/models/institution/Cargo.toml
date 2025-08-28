@@ -10,9 +10,9 @@ base = { path = "../base" }
 
 primitives = { path = "../../primitives" }
 
+profile = { path = "../profile" }
 translation = { path = "../translation" }
 
-bitflags = { workspace = true }
 chrono = { workspace = true }
 diesel = { workspace = true }
 serde = { workspace = true }

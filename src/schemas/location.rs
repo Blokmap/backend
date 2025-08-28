@@ -3,7 +3,6 @@ use common::Error;
 use image::NewLocationImage;
 use location::{
 	FullLocationData,
-	LocationProfileUpdate,
 	LocationUpdate,
 	NewLocation,
 	NewLocationProfile,
@@ -266,8 +265,7 @@ impl CreateLocationRequest {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateLocationMemberRequest {
-	pub profile_id:  i32,
-	pub permissions: i64,
+	pub profile_id: i32,
 }
 
 impl CreateLocationMemberRequest {
@@ -281,7 +279,6 @@ impl CreateLocationMemberRequest {
 			location_id,
 			profile_id: self.profile_id,
 			added_by,
-			permissions: self.permissions,
 		}
 	}
 }
@@ -319,19 +316,6 @@ impl UpdateLocationRequest {
 			longitude: self.longitude,
 			updated_by,
 		}
-	}
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateLocationMemberRequest {
-	pub permissions: i64,
-}
-
-impl UpdateLocationMemberRequest {
-	#[must_use]
-	pub fn to_insertable(self, updated_by: i32) -> LocationProfileUpdate {
-		LocationProfileUpdate { updated_by, permissions: self.permissions }
 	}
 }
 

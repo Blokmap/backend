@@ -377,6 +377,9 @@ pub enum InternalServerError {
 	/// Error performing some image operation
 	#[error("image error -- {0:?}")]
 	ImageError(image_processing::ImageError),
+	/// Error joining some async task
+	#[error("join error -- {0:?}")]
+	JoinError(tokio::task::JoinError),
 	/// Error hashing some value
 	#[error("hash error -- {0:?}")]
 	HashError(argon2::password_hash::Error),

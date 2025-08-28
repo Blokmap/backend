@@ -1,1 +1,0 @@
-ALTER TABLE image ALTER COLUMN uploaded_by DROP NOT NULL;

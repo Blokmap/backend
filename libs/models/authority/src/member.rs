@@ -1,10 +1,9 @@
-use std::collections::HashMap;
-
+use ::profile::Profile;
 use chrono::NaiveDateTime;
 use common::{DbConn, Error};
 use db::{
 	authority,
-	authority_profile,
+	authority_member,
 	creator,
 	image,
 	institution,
@@ -13,7 +12,7 @@ use db::{
 };
 use diesel::pg::Pg;
 use diesel::prelude::*;
-use primitives::{PrimitiveAuthority, PrimitiveImage, PrimitiveProfile};
+use primitives::{PrimitiveAuthority, PrimitiveProfile};
 use serde::{Deserialize, Serialize};
 
 use crate::{Authority, AuthorityIncludes};
@@ -21,49 +20,16 @@ use crate::{Authority, AuthorityIncludes};
 #[derive(
 	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
 )]
-#[diesel(table_name = authority_profile)]
-#[diesel(primary_key(authority_id, profile_id))]
+#[diesel(table_name = authority_member)]
 #[diesel(check_for_backend(Pg))]
 pub struct AuthorityProfile {
+	pub id:           i32,
 	pub authority_id: i32,
 	pub profile_id:   i32,
 	pub added_at:     NaiveDateTime,
 	pub added_by:     Option<i32>,
 	pub updated_at:   NaiveDateTime,
 	pub updated_by:   Option<i32>,
-	pub permissions:  i64,
-}
-
-bitflags! {
-	/// Possible permissions for a member of an [`Authority`]
-	#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
-	pub struct AuthorityPermissions: i64 {
-		/// Admin privileges, member can do everything
-		const Administrator = 1 << 0;
-		/// Member can manage the authority itself
-		const ManageAuthority = 1 << 1;
-		/// Member can manage locations
-		const ManageLocation = 1 << 2;
-		/// Member can submit new locations
-		const AddLocation = 1 << 3;
-		/// Member can approve/reject locations
-		const ApproveLocation = 1 << 4;
-		/// Member can delete locations
-		const DeleteLocation = 1 << 5;
-		/// Member can manage opening times for locations
-		const ManageOpeningTimes = 1 << 6;
-		/// Member can manage reservations on the authorities locations
-		const ManageReservations = 1 << 7;
-		/// Member can manage authority members
-		const ManageMembers = 1 << 8;
-	}
-}
-
-impl AuthorityPermissions {
-	#[must_use]
-	pub fn names() -> HashMap<&'static str, i64> {
-		Self::all().iter_names().map(|(n, v)| (n, v.bits())).collect()
-	}
 }
 
 impl Authority {
@@ -75,11 +41,11 @@ impl Authority {
 	) -> Result<Vec<PrimitiveProfile>, Error> {
 		let members = conn
 			.interact(move |conn| {
-				authority_profile::table
-					.filter(authority_profile::authority_id.eq(auth_id))
+				authority_member::table
+					.filter(authority_member::authority_id.eq(auth_id))
 					.inner_join(
 						profile::table
-							.on(profile::id.eq(authority_profile::profile_id)),
+							.on(profile::id.eq(authority_member::profile_id)),
 					)
 					.select(PrimitiveProfile::as_select())
 					.get_results(conn)
@@ -87,68 +53,6 @@ impl Authority {
 			.await??;
 
 		Ok(members)
-	}
-
-	/// Get all [members](SimpleProfile) of this [`Authority`] alongside their
-	/// permissions
-	#[instrument(skip(conn))]
-	pub async fn get_members_with_permissions(
-		auth_id: i32,
-		conn: &DbConn,
-	) -> Result<
-		Vec<(PrimitiveProfile, Option<PrimitiveImage>, AuthorityPermissions)>,
-		Error,
-	> {
-		let members = conn
-			.interact(move |conn| {
-				authority_profile::table
-					.filter(authority_profile::authority_id.eq(auth_id))
-					.inner_join(
-						profile::table
-							.on(profile::id.eq(authority_profile::profile_id)),
-					)
-					.left_outer_join(
-						image::table
-							.on(profile::avatar_image_id
-								.eq(image::id.nullable())),
-					)
-					.select((
-						PrimitiveProfile::as_select(),
-						image::all_columns.nullable(),
-						authority_profile::permissions,
-					))
-					.get_results(conn)
-			})
-			.await??
-			.into_iter()
-			.map(|(prof, img, perm): (_, _, i64)| {
-				let perm = AuthorityPermissions::from_bits_truncate(perm);
-				(prof, img, perm)
-			})
-			.collect();
-
-		Ok(members)
-	}
-
-	/// Get the permissions for a single member
-	#[instrument(skip(conn))]
-	pub async fn get_member_permissions(
-		auth_id: i32,
-		prof_id: i32,
-		conn: &DbConn,
-	) -> Result<AuthorityPermissions, Error> {
-		let permissions = conn
-			.interact(move |conn| {
-				use self::authority_profile::dsl::*;
-
-				authority_profile
-					.find((auth_id, prof_id))
-					.select(permissions)
-					.get_result(conn)
-			})
-			.await??;
-
-		Ok(AuthorityPermissions::from_bits_truncate(permissions))
 	}
 
 	/// Delete a member from this authority
@@ -159,10 +63,14 @@ impl Authority {
 		conn: &DbConn,
 	) -> Result<(), Error> {
 		conn.interact(move |conn| {
-			use self::authority_profile::dsl::*;
+			use self::authority_member::dsl::*;
 
-			diesel::delete(authority_profile.find((auth_id, prof_id)))
-				.execute(conn)
+			diesel::delete(
+				authority_member.filter(
+					authority_id.eq(auth_id).and(profile_id.eq(prof_id)),
+				),
+			)
+			.execute(conn)
 		})
 		.await??;
 
@@ -182,9 +90,9 @@ impl Authority {
 
 		let authorities = conn
 			.interact(move |conn| {
-				use self::authority_profile::dsl::*;
+				use self::authority_member::dsl::*;
 
-				authority_profile
+				authority_member
 					.filter(profile_id.eq(p_id))
 					.inner_join(query.on(authority_id.eq(authority::id)))
 					.select((
@@ -205,129 +113,55 @@ impl Authority {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Insertable, Serialize)]
-#[diesel(table_name = authority_profile)]
+#[diesel(table_name = authority_member)]
 #[diesel(check_for_backend(Pg))]
 pub struct NewAuthorityProfile {
 	pub authority_id: i32,
 	pub profile_id:   i32,
 	pub added_by:     i32,
-	pub permissions:  i64,
 }
 
 impl NewAuthorityProfile {
 	/// Insert this [`NewAuthorityProfile`]
 	#[instrument(skip(conn))]
-	pub async fn insert(
-		self,
-		conn: &DbConn,
-	) -> Result<
-		(PrimitiveProfile, Option<PrimitiveImage>, AuthorityPermissions),
-		Error,
-	> {
+	pub async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
 		conn.interact(move |conn| {
-			use self::authority_profile::dsl::*;
+			use self::authority_member::dsl::*;
 
-			diesel::insert_into(authority_profile).values(self).execute(conn)
+			diesel::insert_into(authority_member).values(self).execute(conn)
 		})
 		.await??;
 
-		let (profile, img, permissions): (_, _, i64) = conn
+		let profile = conn
 			.interact(move |conn| {
-				authority_profile::table
+				authority_member::table
 					.filter(
-						authority_profile::authority_id
+						authority_member::authority_id
 							.eq(self.authority_id)
 							.and(
-								authority_profile::profile_id
+								authority_member::profile_id
 									.eq(self.profile_id),
 							),
 					)
 					.inner_join(
 						profile::table
-							.on(profile::id.eq(authority_profile::profile_id)),
+							.on(profile::id.eq(authority_member::profile_id)),
 					)
 					.left_outer_join(
 						image::table
 							.on(profile::avatar_image_id
 								.eq(image::id.nullable())),
 					)
-					.select((
-						PrimitiveProfile::as_select(),
-						image::all_columns.nullable(),
-						authority_profile::permissions,
-					))
+					.select(Profile::as_select())
 					.get_result(conn)
 			})
 			.await??;
-
-		let permissions = AuthorityPermissions::from_bits_truncate(permissions);
 
 		info!(
 			"added profile {} to authority {}",
 			self.profile_id, self.authority_id
 		);
 
-		Ok((profile, img, permissions))
-	}
-}
-
-#[derive(AsChangeset, Clone, Copy, Debug, Deserialize, Serialize)]
-#[diesel(table_name = authority_profile)]
-#[diesel(check_for_backend(Pg))]
-pub struct AuthorityProfileUpdate {
-	pub updated_by:  i32,
-	pub permissions: i64,
-}
-
-impl AuthorityProfileUpdate {
-	/// Apply this update to the [`Authority`] with the given id
-	pub async fn apply_to(
-		self,
-		auth_id: i32,
-		prof_id: i32,
-		conn: &DbConn,
-	) -> Result<
-		(PrimitiveProfile, Option<PrimitiveImage>, AuthorityPermissions),
-		Error,
-	> {
-		conn.interact(move |conn| {
-			use self::authority_profile::dsl::*;
-
-			diesel::update(authority_profile.find((auth_id, prof_id)))
-				.set(self)
-				.execute(conn)
-		})
-		.await??;
-
-		let (profile, img, permissions): (_, _, i64) = conn
-			.interact(move |conn| {
-				authority_profile::table
-					.find((auth_id, prof_id))
-					.inner_join(
-						profile::table
-							.on(profile::id.eq(authority_profile::profile_id)),
-					)
-					.left_outer_join(
-						image::table
-							.on(profile::avatar_image_id
-								.eq(image::id.nullable())),
-					)
-					.select((
-						PrimitiveProfile::as_select(),
-						image::all_columns.nullable(),
-						authority_profile::permissions,
-					))
-					.get_result(conn)
-			})
-			.await??;
-
-		let permissions = AuthorityPermissions::from_bits_truncate(permissions);
-
-		info!(
-			"set permissions for profile {} to {} in authority {}",
-			prof_id, self.permissions, auth_id
-		);
-
-		Ok((profile, img, permissions))
+		Ok(profile)
 	}
 }

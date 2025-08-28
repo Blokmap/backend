@@ -9,6 +9,8 @@ db = { path = "../../db" }
 
 primitives = { path = "../../primitives" }
 
+profile = { path = "../profile" }
+
 bitflags = { workspace = true }
 chrono = { workspace = true }
 diesel = { workspace = true }

@@ -22,6 +22,7 @@ use db::{
 	profile,
 	reservation,
 };
+use diesel::pg::Pg;
 use diesel::prelude::*;
 use lettre::message::Mailbox;
 use openidconnect::core::CoreGenderClaim;
@@ -60,11 +61,13 @@ impl TryFrom<&Profile> for Mailbox {
 	}
 }
 
-#[derive(Clone, Debug, Queryable, Serialize)]
+#[derive(Clone, Debug, Queryable, Selectable, Serialize)]
 #[diesel(table_name = profile)]
 #[diesel(check_for_backend(Pg))]
 pub struct Profile {
+	#[diesel(embed)]
 	pub profile: PrimitiveProfile,
+	#[diesel(embed)]
 	pub avatar:  Option<PrimitiveImage>,
 }
 

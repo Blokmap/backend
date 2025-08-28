@@ -12,11 +12,12 @@ use serde::{Deserialize, Serialize};
 pub struct PrimitiveReservation {
 	pub id:               i32,
 	pub profile_id:       i32,
-	pub state:            ReservationState,
 	pub opening_time_id:  i32,
 	pub base_block_index: i32,
 	pub block_count:      i32,
+	pub state:            ReservationState,
 	pub created_at:       NaiveDateTime,
 	pub updated_at:       NaiveDateTime,
 	pub confirmed_at:     Option<NaiveDateTime>,
+	pub confirmed_by:     Option<i32>,
 }

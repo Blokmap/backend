@@ -1,3 +1,0 @@
-ALTER TABLE image ALTER COLUMN file_path DROP NOT NULL;
-
-ALTER TABLE image ADD COLUMN image_url TEXT;

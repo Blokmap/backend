@@ -1,5 +1,5 @@
 [package]
-name = "location"
+name = "permissions"
 version = "0.1.0"
 edition = "2024"
 
@@ -10,18 +10,9 @@ base = { path = "../base" }
 
 primitives = { path = "../../primitives" }
 
-authority = { path = "../authority" }
-image = { path = "../image" }
-opening_time = { path = "../opening_time" }
-profile = { path = "../profile" }
-tag = { path = "../tag" }
-translation = { path = "../translation" }
-
+bitflags = { workspace = true }
 chrono = { workspace = true }
 diesel = { workspace = true }
-diesel-dynamic-schema = { workspace = true }
-rayon = { workspace = true }
 serde = { workspace = true }
-serde_with = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

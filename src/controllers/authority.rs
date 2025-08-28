@@ -1,9 +1,4 @@
-use authority::{
-	Authority,
-	AuthorityIncludes,
-	AuthorityPermissions,
-	NewAuthorityProfile,
-};
+use authority::{Authority, AuthorityIncludes, NewAuthorityProfile};
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
@@ -16,11 +11,10 @@ use crate::schemas::authority::{
 	AuthorityResponse,
 	CreateAuthorityMemberRequest,
 	CreateAuthorityRequest,
-	UpdateAuthorityProfileRequest,
 	UpdateAuthorityRequest,
 };
 use crate::schemas::location::{CreateLocationRequest, LocationResponse};
-use crate::schemas::profile::ProfilePermissionsResponse;
+use crate::schemas::profile::ProfileResponse;
 use crate::{Config, Session};
 
 #[instrument(skip(pool))]
@@ -53,20 +47,12 @@ pub async fn create_authority(
 		authority_id: auth.authority.id,
 		profile_id:   session.data.profile_id,
 		added_by:     session.data.profile_id,
-		permissions:  AuthorityPermissions::Administrator.bits(),
 	};
 	new_member_req.insert(&conn).await?;
 
 	let response: AuthorityResponse = auth.into();
 
 	Ok((StatusCode::CREATED, Json(response)))
-}
-
-#[instrument]
-pub async fn get_all_authority_permissions() -> impl IntoResponse {
-	let perms = AuthorityPermissions::names();
-
-	(StatusCode::OK, Json(perms))
 }
 
 #[instrument(skip(pool))]
@@ -196,9 +182,8 @@ pub(crate) async fn add_authority_member(
 	}
 
 	let new_auth_profile = request.to_insertable(id, actor_id);
-	let (member, img, perms) = new_auth_profile.insert(&conn).await?;
-	let response: ProfilePermissionsResponse =
-		(member, img, perms).build_response(&config)?;
+	let member = new_auth_profile.insert(&conn).await?;
+	let response: ProfileResponse = member.build_response(&config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -225,34 +210,4 @@ pub async fn delete_authority_member(
 	Authority::delete_member(a_id, p_id, &conn).await?;
 
 	Ok(StatusCode::NO_CONTENT)
-}
-
-#[instrument(skip(pool))]
-pub async fn update_authority_member(
-	State(pool): State<DbPool>,
-	State(config): State<Config>,
-	session: Session,
-	Path((a_id, p_id)): Path<(i32, i32)>,
-	Json(request): Json<UpdateAuthorityProfileRequest>,
-) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let actor_id = session.data.profile_id;
-	let actor_perms =
-		Authority::get_member_permissions(a_id, actor_id, &conn).await?;
-
-	if !actor_perms.intersects(
-		AuthorityPermissions::Administrator
-			| AuthorityPermissions::ManageMembers,
-	) {
-		return Err(Error::Forbidden);
-	}
-
-	let auth_update = request.to_insertable(actor_id);
-	let (updated_member, img, perms) =
-		auth_update.apply_to(a_id, p_id, &conn).await?;
-	let response: ProfilePermissionsResponse =
-		(updated_member, img, perms).build_response(&config)?;
-
-	Ok((StatusCode::OK, Json(response)))
 }

@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 pub struct PrimitiveInstitution {
 	pub id:                  i32,
 	pub name_translation_id: i32,
+	pub slug:                String,
+	pub category:            InstitutionCategory,
 	pub email:               Option<String>,
 	pub phone_number:        Option<String>,
 	pub street:              Option<String>,
@@ -21,9 +23,7 @@ pub struct PrimitiveInstitution {
 	pub province:            Option<String>,
 	pub country:             Option<String>,
 	pub created_at:          NaiveDateTime,
-	pub created_by:          i32,
+	pub created_by:          Option<i32>,
 	pub updated_at:          NaiveDateTime,
 	pub updated_by:          Option<i32>,
-	pub category:            InstitutionCategory,
-	pub slug:                String,
 }

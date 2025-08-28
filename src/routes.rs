@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use axum::Router;
-use axum::routing::{delete, get, patch, post, put};
+use axum::routing::{delete, get, patch, post};
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
@@ -25,12 +25,10 @@ use crate::controllers::authority::{
 	create_authority,
 	delete_authority_member,
 	get_all_authorities,
-	get_all_authority_permissions,
 	get_authority,
 	get_authority_locations,
 	get_authority_members,
 	update_authority,
-	update_authority_member,
 };
 use crate::controllers::healthcheck;
 use crate::controllers::institution::{
@@ -38,13 +36,11 @@ use crate::controllers::institution::{
 	create_institution,
 	create_institution_authority,
 	delete_institution_member,
-	get_all_institution_permissions,
 	get_all_institutions,
 	get_categories,
 	get_institution,
 	get_institution_members,
 	link_authority,
-	update_institution_member,
 };
 use crate::controllers::location::{
 	add_location_member,
@@ -53,7 +49,6 @@ use crate::controllers::location::{
 	delete_location,
 	delete_location_image,
 	delete_location_member,
-	get_all_location_permissions,
 	get_location,
 	get_location_members,
 	get_nearest_location,
@@ -62,7 +57,6 @@ use crate::controllers::location::{
 	search_locations,
 	set_location_tags,
 	update_location,
-	update_location_member,
 	upload_location_image,
 };
 use crate::controllers::opening_time::{
@@ -182,7 +176,6 @@ fn profile_routes(state: &AppState) -> Router<AppState> {
 fn location_routes(state: &AppState) -> Router<AppState> {
 	let protected = Router::new()
 		.route("/", post(create_location))
-		.route("/permissions", get(get_all_location_permissions))
 		.route("/{id}", patch(update_location).delete(delete_location))
 		.route("/{id}/approve", post(approve_location))
 		.route("/{id}/reject", post(reject_location))
@@ -192,10 +185,6 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 			get(get_location_members).post(add_location_member),
 		)
 		.route("/{id}/members/{profile_id}", delete(delete_location_member))
-		.route(
-			"/{id}/members/{profile_id}/permissions",
-			post(update_location_member),
-		)
 		.route("/{id}/images", post(upload_location_image))
 		.route("/{id}/images/{image_id}", delete(delete_location_image))
 		.route("/{id}/images/reorder", post(reorder_location_images))
@@ -233,7 +222,6 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 fn authority_routes(state: &AppState) -> Router<AppState> {
 	Router::new()
 		.route("/", get(get_all_authorities).post(create_authority))
-		.route("/permissions", get(get_all_authority_permissions))
 		.route("/{id}", get(get_authority).patch(update_authority))
 		.route(
 			"/{id}/locations",
@@ -244,10 +232,6 @@ fn authority_routes(state: &AppState) -> Router<AppState> {
 			get(get_authority_members).post(add_authority_member),
 		)
 		.route("/{a_id}/members/{p_id}", delete(delete_authority_member))
-		.route(
-			"/{a_id}/members/{p_id}/permissions",
-			put(update_authority_member),
-		)
 		.route_layer(AuthLayer::new(state.clone()))
 }
 
@@ -276,7 +260,6 @@ fn tag_routes(state: &AppState) -> Router<AppState> {
 fn institution_routes(state: &AppState) -> Router<AppState> {
 	Router::new()
 		.route("/", get(get_all_institutions).post(create_institution))
-		.route("/permissions", get(get_all_institution_permissions))
 		.route("/categories", get(get_categories))
 		.route("/{id}", get(get_institution))
 		.route("/{id}/authority", post(create_institution_authority))
@@ -286,9 +269,5 @@ fn institution_routes(state: &AppState) -> Router<AppState> {
 			get(get_institution_members).post(add_institution_member),
 		)
 		.route("/{i_id}/members/{p_id}", delete(delete_institution_member))
-		.route(
-			"/{i_id}/members/{p_id}/permissions",
-			put(update_institution_member),
-		)
 		.route_layer(AuthLayer::new(state.clone()))
 }

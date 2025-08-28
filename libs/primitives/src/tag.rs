@@ -10,7 +10,10 @@ use serde::{Deserialize, Serialize};
 #[diesel(table_name = tag)]
 #[diesel(check_for_backend(Pg))]
 pub struct PrimitiveTag {
-	pub id:         i32,
-	pub created_at: NaiveDateTime,
-	pub updated_at: NaiveDateTime,
+	pub id:                  i32,
+	pub name_translation_id: i32,
+	pub created_at:          NaiveDateTime,
+	pub created_by:          Option<i32>,
+	pub updated_at:          NaiveDateTime,
+	pub updated_by:          Option<i32>,
 }

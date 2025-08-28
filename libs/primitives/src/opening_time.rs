@@ -26,5 +26,7 @@ pub struct PrimitiveOpeningTime {
 	pub reservable_from:  Option<NaiveDateTime>,
 	pub reservable_until: Option<NaiveDateTime>,
 	pub created_at:       NaiveDateTime,
+	pub created_by:       Option<i32>,
 	pub updated_at:       NaiveDateTime,
+	pub updated_by:       Option<i32>,
 }

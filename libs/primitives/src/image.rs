@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 pub struct PrimitiveImage {
 	pub id:          i32,
 	pub file_path:   Option<String>,
+	pub image_url:   Option<String>,
 	pub uploaded_at: NaiveDateTime,
 	pub uploaded_by: Option<i32>,
-	pub image_url:   Option<String>,
 }

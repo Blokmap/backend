@@ -1,13 +1,10 @@
 #[macro_use]
-extern crate bitflags;
-#[macro_use]
 extern crate serde_with;
 #[macro_use]
 extern crate tracing;
 
 use std::hash::Hash;
 
-use ::authority::AuthorityPermissions;
 use ::image::{Image, OrderedImage};
 use ::opening_time::{OpeningTime, OpeningTimeIncludes, TimeBoundsFilter};
 use ::tag::Tag;
@@ -17,12 +14,10 @@ use common::{DbConn, Error};
 use db::{
 	approver,
 	authority,
-	authority_profile,
 	creator,
 	description,
 	excerpt,
 	location,
-	location_profile,
 	opening_time,
 	profile,
 	rejecter,
@@ -229,61 +224,6 @@ impl Location {
 				(l, (times, tags, imgs))
 			})
 			.collect()
-	}
-
-	/// Get the permissions for a given user for this location
-	#[instrument(skip(conn))]
-	pub async fn get_profile_permissions(
-		l_id: i32,
-		p_id: i32,
-		conn: &DbConn,
-	) -> Result<
-		(Option<AuthorityPermissions>, Option<LocationPermissions>),
-		Error,
-	> {
-		let auth_perms: Option<i64> = conn
-			.interact(move |conn| {
-				use self::{authority, authority_profile};
-
-				location::table
-					.find(l_id)
-					.left_outer_join(authority::table.on(
-						location::authority_id.eq(authority::id.nullable()),
-					))
-					.left_outer_join(
-						authority_profile::table.on(
-							authority_profile::authority_id
-								.eq(authority::id)
-								.and(authority_profile::profile_id.eq(p_id)),
-						),
-					)
-					.select(authority_profile::permissions.nullable())
-					.get_result(conn)
-			})
-			.await??;
-
-		let auth_perms =
-			auth_perms.map(AuthorityPermissions::from_bits_truncate);
-
-		let loc_perms: Option<i64> = conn
-			.interact(move |conn| {
-				use self::location::dsl::*;
-				use self::location_profile::dsl::*;
-
-				location
-					.find(l_id)
-					.left_outer_join(
-						location_profile
-							.on(location_id.eq(id).and(profile_id.eq(p_id))),
-					)
-					.select(permissions.nullable())
-					.get_result(conn)
-			})
-			.await??;
-
-		let loc_perms = loc_perms.map(LocationPermissions::from_bits_truncate);
-
-		Ok((auth_perms, loc_perms))
 	}
 
 	/// Get a [`Location`] with no extra info by its id

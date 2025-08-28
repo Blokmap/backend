@@ -253,6 +253,7 @@ dependencies = [
  "db",
  "diesel",
  "primitives",
+ "profile",
  "serde",
  "tracing",
 ]
@@ -1971,12 +1972,12 @@ name = "institution"
 version = "0.1.0"
 dependencies = [
  "base",
- "bitflags 2.9.3",
  "chrono",
  "common",
  "db",
  "diesel",
  "primitives",
+ "profile",
  "serde",
  "tracing",
  "translation",
@@ -2151,7 +2152,6 @@ version = "0.1.0"
 dependencies = [
  "authority",
  "base",
- "bitflags 2.9.3",
  "chrono",
  "common",
  "db",
@@ -2160,6 +2160,7 @@ dependencies = [
  "image 0.1.0",
  "opening_time",
  "primitives",
+ "profile",
  "rayon",
  "serde",
  "serde_with",
@@ -2675,6 +2676,22 @@ name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
+
+[[package]]
+name = "permissions"
+version = "0.1.0"
+dependencies = [
+ "base",
+ "bitflags 2.9.3",
+ "chrono",
+ "common",
+ "db",
+ "diesel",
+ "primitives",
+ "serde",
+ "tokio",
+ "tracing",
+]
 
 [[package]]
 name = "pin-project-lite"
