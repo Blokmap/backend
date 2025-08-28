@@ -28,8 +28,6 @@ pub async fn create_institution(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	// TODO: permissions
-
 	let (new_institution, authority_request) =
 		request.to_insertable(session.data.profile_id);
 	let institution = new_institution.insert(includes, &conn).await?;

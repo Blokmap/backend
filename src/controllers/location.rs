@@ -57,14 +57,22 @@ pub async fn upload_location_image(
 	Path(id): Path<i32>,
 	mut data: Multipart,
 ) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
+	Permissions::check_for_location(
+		id,
+		session.data.profile_id,
+		Permissions::LocManageImages
+			| Permissions::LocAdministrator
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
+	)
+	.await?;
 
-	// TODO: permissions
-	let profile_id = session.data.profile_id;
+	let conn = pool.get().await?;
 
 	let image = CreateOrderedImageRequest::parse(&mut data).await?.into();
 	let inserted_image =
-		store_location_image(profile_id, id, image, &conn).await?;
+		store_location_image(session.data.profile_id, id, image, &conn).await?;
 	let response: ImageResponse = inserted_image.build_response(&config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
@@ -84,7 +92,10 @@ pub async fn reorder_location_images(
 	Permissions::check_for_location(
 		id,
 		session.data.profile_id,
-		Permissions::LocManageImages,
+		Permissions::LocManageImages
+			| Permissions::LocAdministrator
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
 		&pool,
 	)
 	.await?;
@@ -112,7 +123,10 @@ pub async fn delete_location_image(
 	Permissions::check_for_location(
 		l_id,
 		session.data.profile_id,
-		Permissions::LocManageImages,
+		Permissions::LocManageImages
+			| Permissions::LocAdministrator
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
 		&pool,
 	)
 	.await?;
@@ -216,7 +230,9 @@ pub(crate) async fn update_location(
 	Permissions::check_for_location(
 		id,
 		session.data.profile_id,
-		Permissions::LocAdministrator,
+		Permissions::LocAdministrator
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
 		&pool,
 	)
 	.await?;
