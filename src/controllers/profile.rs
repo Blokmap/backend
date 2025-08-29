@@ -96,7 +96,7 @@ pub async fn get_profile(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	if !session.data.profile_is_admin && p_id != session.data.profile_id {
+	if !session.data.is_admin && p_id != session.data.profile_id {
 		return Err(Error::Forbidden);
 	}
 
@@ -165,7 +165,7 @@ pub async fn update_profile(
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
-	if !session.data.profile_is_admin && p_id != session.data.profile_id {
+	if !session.data.is_admin && p_id != session.data.profile_id {
 		return Err(Error::Forbidden);
 	}
 
@@ -236,7 +236,7 @@ pub async fn delete_profile_avatar(
 	session: Session,
 	Path(p_id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
-	if session.data.profile_id != p_id && !session.data.profile_is_admin {
+	if session.data.profile_id != p_id && !session.data.is_admin {
 		return Err(Error::Forbidden);
 	}
 

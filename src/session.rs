@@ -44,8 +44,8 @@ pub struct AdminSession {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct SessionData {
-	pub profile_id:       i32,
-	pub profile_is_admin: bool,
+	pub profile_id: i32,
+	pub is_admin:   bool,
 }
 
 impl FromRequestParts<AppState> for Session {
@@ -90,7 +90,7 @@ impl FromRequestParts<AppState> for AdminSession {
 		let session =
 			parts.extract_with_state::<Session, AppState>(state).await?;
 
-		if !session.data.profile_is_admin {
+		if !session.data.is_admin {
 			return Err(Error::Forbidden);
 		}
 
@@ -111,10 +111,8 @@ impl Session {
 		let id = profile.primitive.id;
 		let profile_id = profile.primitive.id;
 
-		let data = SessionData {
-			profile_id,
-			profile_is_admin: profile.primitive.is_admin,
-		};
+		let data =
+			SessionData { profile_id, is_admin: profile.primitive.is_admin };
 
 		let session = Self { id, data };
 

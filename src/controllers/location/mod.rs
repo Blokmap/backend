@@ -22,7 +22,7 @@ use crate::schemas::location::{
 };
 use crate::schemas::pagination::PaginationOptions;
 use crate::schemas::tag::SetLocationTagsRequest;
-use crate::{AdminSession, Config, Session};
+use crate::{Config, Session};
 
 mod image;
 mod member;
@@ -166,20 +166,28 @@ pub(crate) async fn update_location(
 #[instrument(skip(pool))]
 pub(crate) async fn approve_location(
 	State(pool): State<DbPool>,
-	session: AdminSession,
+	session: Session,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
-		id,
-		session.data.profile_id,
-		Permissions::AuthApproveLocations
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
-		&pool,
-	)
-	.await?;
-
 	let conn = pool.get().await?;
+
+	let location =
+		Location::get_by_id(id, LocationIncludes::default(), &conn).await?;
+	let location = location.0.primitive;
+
+	if let Some(auth_id) = location.authority_id {
+		Permissions::check_for_authority(
+			auth_id,
+			session.data.profile_id,
+			Permissions::AuthApproveLocations
+				| Permissions::AuthAdministrator
+				| Permissions::InstAdministrator,
+			&pool,
+		)
+		.await?;
+	} else if !session.data.is_admin {
+		return Err(Error::Forbidden);
+	}
 
 	Location::approve_by(id, session.data.profile_id, &conn).await?;
 
@@ -190,21 +198,29 @@ pub(crate) async fn approve_location(
 #[instrument(skip(pool))]
 pub(crate) async fn reject_location(
 	State(pool): State<DbPool>,
-	session: AdminSession,
+	session: Session,
 	Path(id): Path<i32>,
 	Json(request): Json<RejectLocationRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
-		id,
-		session.data.profile_id,
-		Permissions::AuthApproveLocations
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
-		&pool,
-	)
-	.await?;
-
 	let conn = pool.get().await?;
+
+	let location =
+		Location::get_by_id(id, LocationIncludes::default(), &conn).await?;
+	let location = location.0.primitive;
+
+	if let Some(auth_id) = location.authority_id {
+		Permissions::check_for_authority(
+			auth_id,
+			session.data.profile_id,
+			Permissions::AuthApproveLocations
+				| Permissions::AuthAdministrator
+				| Permissions::InstAdministrator,
+			&pool,
+		)
+		.await?;
+	} else if !session.data.is_admin {
+		return Err(Error::Forbidden);
+	}
 
 	Location::reject_by(id, session.data.profile_id, request.reason, &conn)
 		.await?;
@@ -219,18 +235,32 @@ pub(crate) async fn delete_location(
 	session: Session,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
-		id,
-		session.data.profile_id,
-		Permissions::LocAdministrator
-			| Permissions::AuthDeleteLocations
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
-		&pool,
-	)
-	.await?;
-
 	let conn = pool.get().await?;
+
+	let location =
+		Location::get_simple_by_id(id, LocationIncludes::default(), &conn)
+			.await?;
+	let location = location.primitive;
+
+	if let Some(auth_id) = location.authority_id {
+		Permissions::check_for_authority(
+			auth_id,
+			session.data.profile_id,
+			Permissions::AuthDeleteLocations
+				| Permissions::AuthAdministrator
+				| Permissions::InstAdministrator,
+			&pool,
+		)
+		.await?;
+	} else if location.created_by != Some(session.data.profile_id) {
+		Permissions::check_for_location(
+			id,
+			session.data.profile_id,
+			Permissions::LocAdministrator,
+			&pool,
+		)
+		.await?;
+	}
 
 	Location::delete_by_id(id, &conn).await?;
 
