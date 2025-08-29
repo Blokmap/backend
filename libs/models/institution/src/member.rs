@@ -1,27 +1,10 @@
 use ::profile::Profile;
-use chrono::NaiveDateTime;
 use common::{DbConn, Error};
 use db::{image, institution, institution_member, profile};
-use diesel::pg::Pg;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{Institution, InstitutionIncludes};
-
-#[derive(
-	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
-)]
-#[diesel(table_name = institution_member)]
-#[diesel(check_for_backend(Pg))]
-pub struct InstitutionMember {
-	pub id:             i32,
-	pub institution_id: i32,
-	pub profile_id:     i32,
-	pub added_at:       NaiveDateTime,
-	pub added_by:       Option<i32>,
-	pub updated_at:     NaiveDateTime,
-	pub updated_by:     Option<i32>,
-}
 
 impl Institution {
 	/// Get all [members](Profile) of this [`Institution`]

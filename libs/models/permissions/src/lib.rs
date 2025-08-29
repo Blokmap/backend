@@ -7,15 +7,12 @@ use common::{DbConn, DbPool, Error, InternalServerError};
 use db::{
 	authority,
 	authority_member,
-	authority_member_role,
 	authority_role,
 	institution,
 	institution_member,
-	institution_member_role,
 	institution_role,
 	location,
 	location_member,
-	location_member_role,
 	location_role,
 	profile,
 };
@@ -81,11 +78,11 @@ impl Permissions {
 		prof_id: i32,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let perms: i64 = conn
+		let perms: Option<i64> = conn
 			.interact(move |conn| {
 				institution::table
 					.find(inst_id)
-					.left_join(
+					.inner_join(
 						institution_member::table.on(
 							institution_member::institution_id.eq(inst_id).and(
 								institution_member::profile_id.eq(prof_id),
@@ -93,19 +90,16 @@ impl Permissions {
 						),
 					)
 					.inner_join(
-						institution_member_role::table
-							.on(institution_member_role::institution_member_id
-								.eq(institution_member::id)),
+						institution_role::table
+							.on(institution_member::institution_role_id
+								.eq(institution_role::id.nullable())),
 					)
-					.inner_join(
-						institution_role::table.on(institution_role::id
-							.eq(institution_member_role::institution_role_id)),
-					)
-					.select(institution_role::permissions)
+					.select(institution_role::permissions.nullable())
 					.get_result(conn)
 			})
 			.await??;
 
+		let perms = perms.unwrap_or_default();
 		let perms = Self::from_bits_truncate(perms);
 
 		Ok(perms)
@@ -117,11 +111,11 @@ impl Permissions {
 		prof_id: i32,
 		conn: DbConn,
 	) -> Result<Self, Error> {
-		let perms: i64 = conn
+		let perms: Option<i64> = conn
 			.interact(move |conn| {
 				authority::table
 					.find(auth_id)
-					.left_join(
+					.inner_join(
 						authority_member::table.on(
 							authority_member::authority_id
 								.eq(auth_id)
@@ -129,19 +123,16 @@ impl Permissions {
 						),
 					)
 					.inner_join(
-						authority_member_role::table
-							.on(authority_member_role::authority_member_id
-								.eq(authority_member::id)),
+						authority_role::table
+							.on(authority_member::authority_role_id
+								.eq(authority_role::id.nullable())),
 					)
-					.inner_join(
-						authority_role::table.on(authority_role::id
-							.eq(authority_member_role::authority_role_id)),
-					)
-					.select(authority_role::permissions)
+					.select(authority_role::permissions.nullable())
 					.get_result(conn)
 			})
 			.await??;
 
+		let perms = perms.unwrap_or_default();
 		let perms = Self::from_bits_truncate(perms);
 
 		Ok(perms)
@@ -188,29 +179,26 @@ impl Permissions {
 		prof_id: i32,
 		conn: DbConn,
 	) -> Result<Self, Error> {
-		let perms: i64 = conn
+		let perms: Option<i64> = conn
 			.interact(move |conn| {
 				location::table
 					.find(loc_id)
-					.left_join(
+					.inner_join(
 						location_member::table.on(location_member::location_id
 							.eq(loc_id)
 							.and(location_member::profile_id.eq(prof_id))),
 					)
 					.inner_join(
-						location_member_role::table
-							.on(location_member_role::location_member_id
-								.eq(location_member::id)),
+						location_role::table
+							.on(location_member::location_role_id
+								.eq(location_role::id.nullable())),
 					)
-					.inner_join(
-						location_role::table.on(location_role::id
-							.eq(location_member_role::location_role_id)),
-					)
-					.select(location_role::permissions)
+					.select(location_role::permissions.nullable())
 					.get_result(conn)
 			})
 			.await??;
 
+		let perms = perms.unwrap_or_default();
 		let perms = Self::from_bits_truncate(perms);
 
 		Ok(perms)

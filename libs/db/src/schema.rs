@@ -28,23 +28,14 @@ diesel::table! {
 }
 
 diesel::table! {
-	authority_member (id) {
-		id -> Int4,
+	authority_member (authority_id, profile_id) {
 		authority_id -> Int4,
 		profile_id -> Int4,
+		authority_role_id -> Nullable<Int4>,
 		added_at -> Timestamp,
 		added_by -> Nullable<Int4>,
 		updated_at -> Timestamp,
 		updated_by -> Nullable<Int4>,
-	}
-}
-
-diesel::table! {
-	authority_member_role (authority_member_id, authority_role_id) {
-		authority_member_id -> Int4,
-		authority_role_id -> Int4,
-		added_at -> Timestamp,
-		added_by -> Nullable<Int4>,
 	}
 }
 
@@ -97,23 +88,14 @@ diesel::table! {
 }
 
 diesel::table! {
-	institution_member (id) {
-		id -> Int4,
+	institution_member (institution_id, profile_id) {
 		institution_id -> Int4,
 		profile_id -> Int4,
+		institution_role_id -> Nullable<Int4>,
 		added_at -> Timestamp,
 		added_by -> Nullable<Int4>,
 		updated_at -> Timestamp,
 		updated_by -> Nullable<Int4>,
-	}
-}
-
-diesel::table! {
-	institution_member_role (institution_member_id, institution_role_id) {
-		institution_member_id -> Int4,
-		institution_role_id -> Int4,
-		added_at -> Timestamp,
-		added_by -> Nullable<Int4>,
 	}
 }
 
@@ -173,23 +155,14 @@ diesel::table! {
 }
 
 diesel::table! {
-	location_member (id) {
-		id -> Int4,
+	location_member (location_id, profile_id) {
 		location_id -> Int4,
 		profile_id -> Int4,
+		location_role_id -> Nullable<Int4>,
 		added_at -> Timestamp,
 		added_by -> Nullable<Int4>,
 		updated_at -> Timestamp,
 		updated_by -> Nullable<Int4>,
-	}
-}
-
-diesel::table! {
-	location_member_role (location_member_id, location_role_id) {
-		location_member_id -> Int4,
-		location_role_id -> Int4,
-		added_at -> Timestamp,
-		added_by -> Nullable<Int4>,
 	}
 }
 
@@ -317,24 +290,18 @@ diesel::table! {
 
 diesel::joinable!(authority -> institution (institution_id));
 diesel::joinable!(authority_member -> authority (authority_id));
-diesel::joinable!(authority_member_role -> authority_member (authority_member_id));
-diesel::joinable!(authority_member_role -> authority_role (authority_role_id));
-diesel::joinable!(authority_member_role -> profile (added_by));
+diesel::joinable!(authority_member -> authority_role (authority_role_id));
 diesel::joinable!(authority_role -> authority (authority_id));
 diesel::joinable!(institution -> translation (name_translation_id));
 diesel::joinable!(institution_member -> institution (institution_id));
-diesel::joinable!(institution_member_role -> institution_member (institution_member_id));
-diesel::joinable!(institution_member_role -> institution_role (institution_role_id));
-diesel::joinable!(institution_member_role -> profile (added_by));
+diesel::joinable!(institution_member -> institution_role (institution_role_id));
 diesel::joinable!(institution_role -> institution (institution_id));
 diesel::joinable!(location -> authority (authority_id));
 diesel::joinable!(location_image -> image (image_id));
 diesel::joinable!(location_image -> location (location_id));
 diesel::joinable!(location_image -> profile (approved_by));
 diesel::joinable!(location_member -> location (location_id));
-diesel::joinable!(location_member_role -> location_member (location_member_id));
-diesel::joinable!(location_member_role -> location_role (location_role_id));
-diesel::joinable!(location_member_role -> profile (added_by));
+diesel::joinable!(location_member -> location_role (location_role_id));
 diesel::joinable!(location_role -> location (location_id));
 diesel::joinable!(location_tag -> location (location_id));
 diesel::joinable!(location_tag -> tag (tag_id));
@@ -346,17 +313,14 @@ diesel::joinable!(tag -> translation (name_translation_id));
 diesel::allow_tables_to_appear_in_same_query!(
 	authority,
 	authority_member,
-	authority_member_role,
 	authority_role,
 	image,
 	institution,
 	institution_member,
-	institution_member_role,
 	institution_role,
 	location,
 	location_image,
 	location_member,
-	location_member_role,
 	location_role,
 	location_tag,
 	opening_time,

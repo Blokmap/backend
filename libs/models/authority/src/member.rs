@@ -4,9 +4,6 @@ use db::{authority, authority_member, image, profile};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
-// use base::JoinParts;
-
-// use crate::{Authority, AuthorityIncludes, AuthorityParts};
 use crate::{Authority, AuthorityIncludes};
 
 impl Authority {

@@ -10,7 +10,6 @@ base = { path = "../base" }
 
 primitives = { path = "../../primitives" }
 
-authority = { path = "../authority" }
 image = { path = "../image" }
 opening_time = { path = "../opening_time" }
 profile = { path = "../profile" }

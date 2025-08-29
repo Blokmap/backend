@@ -1,11 +1,3 @@
-DROP TABLE location_member_role;
-DROP TABLE authority_member_role;
-DROP TABLE institution_member_role;
-
-DROP TABLE location_role;
-DROP TABLE authority_role;
-DROP TABLE institution_role;
-
 DROP TABLE location_image;
 
 ALTER TABLE PROFILE DROP CONSTRAINT fk__profile__avatar_image_id;
@@ -29,14 +21,16 @@ DROP TABLE tag;
 DROP TABLE review;
 
 DROP TABLE location_member;
+DROP TABLE authority_member;
+DROP TABLE institution_member;
+
+DROP TABLE location_role;
+DROP TABLE authority_role;
+DROP TABLE institution_role;
 
 DROP TABLE location;
 
-DROP TABLE authority_member;
-
 DROP TABLE authority;
-
-DROP TABLE institution_member;
 
 ALTER TABLE profile DROP CONSTRAINT fk__profile__institution_id;
 DROP TABLE institution;

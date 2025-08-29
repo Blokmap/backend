@@ -17,13 +17,6 @@ pub trait ToFilter<S> {
 	fn to_filter(&self) -> BoxedCondition<S, Self::SqlType>;
 }
 
-pub trait JoinParts {
-	type Target;
-	type Includes;
-
-	fn join(self, includes: Self::Includes) -> Self::Target;
-}
-
 #[derive(Clone, Copy, Debug)]
 pub struct PaginationConfig {
 	pub limit:  usize,

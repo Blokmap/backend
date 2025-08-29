@@ -6,13 +6,11 @@ edition = "2024"
 [dependencies]
 common = { path = "../../common" }
 db = { path = "../../db" }
-base = { path = "../base" }
 
 primitives = { path = "../../primitives" }
 
 profile = { path = "../profile" }
 
-chrono = { workspace = true }
 diesel = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }

@@ -6,12 +6,8 @@ edition = "2024"
 [dependencies]
 common = { path = "../../common" }
 db = { path = "../../db" }
-base = { path = "../base" }
-
-primitives = { path = "../../primitives" }
 
 bitflags = { workspace = true }
-chrono = { workspace = true }
 diesel = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }

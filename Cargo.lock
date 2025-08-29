@@ -247,8 +247,6 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 name = "authority"
 version = "0.1.0"
 dependencies = [
- "base",
- "chrono",
  "common",
  "db",
  "diesel",
@@ -1892,7 +1890,6 @@ dependencies = [
 name = "image"
 version = "0.1.0"
 dependencies = [
- "base",
  "chrono",
  "common",
  "db",
@@ -1973,7 +1970,6 @@ name = "institution"
 version = "0.1.0"
 dependencies = [
  "base",
- "chrono",
  "common",
  "db",
  "diesel",
@@ -2151,7 +2147,6 @@ checksum = "f5e54036fe321fd421e10d732f155734c4e4afd610dd556d9a82833ab3ee0bed"
 name = "location"
 version = "0.1.0"
 dependencies = [
- "authority",
  "base",
  "chrono",
  "common",
@@ -2682,13 +2677,10 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 name = "permissions"
 version = "0.1.0"
 dependencies = [
- "base",
  "bitflags 2.9.3",
- "chrono",
  "common",
  "db",
  "diesel",
- "primitives",
  "serde",
  "tokio",
  "tracing",
