@@ -111,15 +111,15 @@ impl Institution {
 #[derive(Clone, Copy, Debug, Deserialize, Insertable, Serialize)]
 #[diesel(table_name = institution_member)]
 #[diesel(check_for_backend(Pg))]
-pub struct NewInstitutionProfile {
+pub struct NewInstitutionMember {
 	pub institution_id: i32,
 	pub profile_id:     i32,
 	pub added_by:       i32,
 }
 
 #[rustfmt::skip]
-impl NewInstitutionProfile {
-	/// Insert this [`NewInstitutionProfile`]
+impl NewInstitutionMember {
+	/// Insert this [`NewInstitutionMember`]
 	#[instrument(skip(conn))]
 	pub async fn insert(
 		self,

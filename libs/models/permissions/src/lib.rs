@@ -337,8 +337,8 @@ impl Permissions {
 		perms: Self,
 		pool: &DbPool,
 	) -> Result<(), Error> {
-		let profile_conn = pool.get().await?;
-		let profile_fetch = profile_conn.interact(move |conn| {
+		let admin_conn = pool.get().await?;
+		let admin_fetch = admin_conn.interact(move |conn| {
 			profile::table
 				.find(prof_id)
 				.select(profile::is_admin)
@@ -347,7 +347,7 @@ impl Permissions {
 
 		let (loc_perms, is_admin) = tokio::join!(
 			Self::get_for_location_member(loc_id, prof_id, pool),
-			profile_fetch,
+			admin_fetch,
 		);
 
 		let loc_perms = loc_perms?;

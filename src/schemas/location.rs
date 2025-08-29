@@ -5,7 +5,7 @@ use location::{
 	FullLocationData,
 	LocationUpdate,
 	NewLocation,
-	NewLocationProfile,
+	NewLocationMember,
 };
 use primitives::PrimitiveLocation;
 use serde::{Deserialize, Serialize};
@@ -274,12 +274,8 @@ impl CreateLocationMemberRequest {
 		self,
 		location_id: i32,
 		added_by: i32,
-	) -> NewLocationProfile {
-		NewLocationProfile {
-			location_id,
-			profile_id: self.profile_id,
-			added_by,
-		}
+	) -> NewLocationMember {
+		NewLocationMember { location_id, profile_id: self.profile_id, added_by }
 	}
 }
 

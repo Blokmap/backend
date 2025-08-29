@@ -1,4 +1,4 @@
-use authority::{Authority, AuthorityIncludes, NewAuthorityProfile};
+use authority::{Authority, AuthorityIncludes, NewAuthorityMember};
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
@@ -44,7 +44,7 @@ pub async fn create_authority(
 	let new_auth = request.to_insertable(session.data.profile_id);
 	let auth = new_auth.insert(includes, &conn).await?;
 
-	let new_member_req = NewAuthorityProfile {
+	let new_member_req = NewAuthorityMember {
 		authority_id: auth.authority.id,
 		profile_id:   session.data.profile_id,
 		added_by:     session.data.profile_id,

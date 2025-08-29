@@ -1,6 +1,6 @@
 use chrono::NaiveDateTime;
 use db::InstitutionCategory;
-use institution::{Institution, NewInstitution, NewInstitutionProfile};
+use institution::{Institution, NewInstitution, NewInstitutionMember};
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::authority::{AuthorityResponse, CreateAuthorityRequest};
@@ -116,8 +116,8 @@ impl CreateInstitutionMemberRequest {
 		self,
 		institution_id: i32,
 		added_by: i32,
-	) -> NewInstitutionProfile {
-		NewInstitutionProfile {
+	) -> NewInstitutionMember {
+		NewInstitutionMember {
 			institution_id,
 			profile_id: self.profile_id,
 			added_by,

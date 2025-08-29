@@ -1,9 +1,4 @@
-use authority::{
-	Authority,
-	AuthorityUpdate,
-	NewAuthority,
-	NewAuthorityProfile,
-};
+use authority::{Authority, AuthorityUpdate, NewAuthority, NewAuthorityMember};
 use chrono::NaiveDateTime;
 use primitives::PrimitiveAuthority;
 use serde::{Deserialize, Serialize};
@@ -101,8 +96,8 @@ impl CreateAuthorityMemberRequest {
 		self,
 		authority_id: i32,
 		added_by: i32,
-	) -> NewAuthorityProfile {
-		NewAuthorityProfile {
+	) -> NewAuthorityMember {
+		NewAuthorityMember {
 			authority_id,
 			profile_id: self.profile_id,
 			added_by,

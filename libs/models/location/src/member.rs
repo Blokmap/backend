@@ -61,14 +61,14 @@ impl Location {
 #[derive(Clone, Copy, Debug, Deserialize, Insertable, Serialize)]
 #[diesel(table_name = location_member)]
 #[diesel(check_for_backend(Pg))]
-pub struct NewLocationProfile {
+pub struct NewLocationMember {
 	pub location_id: i32,
 	pub profile_id:  i32,
 	pub added_by:    i32,
 }
 
-impl NewLocationProfile {
-	/// Insert this [`NewLocationProfile`]
+impl NewLocationMember {
+	/// Insert this [`NewLocationMember`]
 	#[instrument(skip(conn))]
 	pub async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
 		conn.interact(move |conn| {

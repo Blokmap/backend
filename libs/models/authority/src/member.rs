@@ -1,5 +1,4 @@
 use ::profile::Profile;
-use chrono::NaiveDateTime;
 use common::{DbConn, Error};
 use db::{
 	authority,
@@ -10,27 +9,11 @@ use db::{
 	profile,
 	updater,
 };
-use diesel::pg::Pg;
 use diesel::prelude::*;
 use primitives::PrimitiveAuthority;
 use serde::{Deserialize, Serialize};
 
 use crate::{Authority, AuthorityIncludes};
-
-#[derive(
-	Clone, Debug, Deserialize, Identifiable, Queryable, Selectable, Serialize,
-)]
-#[diesel(table_name = authority_member)]
-#[diesel(check_for_backend(Pg))]
-pub struct AuthorityProfile {
-	pub id:           i32,
-	pub authority_id: i32,
-	pub profile_id:   i32,
-	pub added_at:     NaiveDateTime,
-	pub added_by:     Option<i32>,
-	pub updated_at:   NaiveDateTime,
-	pub updated_by:   Option<i32>,
-}
 
 impl Authority {
 	/// Get all [members](Profile) of this [`Authority`]
@@ -120,14 +103,14 @@ impl Authority {
 #[derive(Clone, Copy, Debug, Deserialize, Insertable, Serialize)]
 #[diesel(table_name = authority_member)]
 #[diesel(check_for_backend(Pg))]
-pub struct NewAuthorityProfile {
+pub struct NewAuthorityMember {
 	pub authority_id: i32,
 	pub profile_id:   i32,
 	pub added_by:     i32,
 }
 
-impl NewAuthorityProfile {
-	/// Insert this [`NewAuthorityProfile`]
+impl NewAuthorityMember {
+	/// Insert this [`NewAuthorityMember`]
 	#[instrument(skip(conn))]
 	pub async fn insert(self, conn: &DbConn) -> Result<Profile, Error> {
 		conn.interact(move |conn| {
