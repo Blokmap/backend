@@ -48,9 +48,11 @@ use tag::TagIncludes;
 
 mod filter;
 mod member;
+mod role;
 
 pub use filter::*;
 pub use member::*;
+pub use role::*;
 
 pub type JoinedLocationData = (
 	PrimitiveLocation,

@@ -46,17 +46,21 @@ use crate::controllers::location::{
 	add_location_member,
 	approve_location,
 	create_location,
+	create_location_role,
 	delete_location,
 	delete_location_image,
 	delete_location_member,
+	delete_location_role,
 	get_location,
 	get_location_members,
+	get_location_roles,
 	get_nearest_location,
 	reject_location,
 	reorder_location_images,
 	search_locations,
 	set_location_tags,
 	update_location,
+	update_location_role,
 	upload_location_image,
 };
 use crate::controllers::opening_time::{
@@ -185,6 +189,14 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 			get(get_location_members).post(add_location_member),
 		)
 		.route("/{id}/members/{profile_id}", delete(delete_location_member))
+		.route(
+			"/{id}/roles",
+			get(get_location_roles).post(create_location_role),
+		)
+		.route(
+			"/{loc_id}/roles/{role_id}",
+			patch(update_location_role).delete(delete_location_role),
+		)
 		.route("/{id}/images", post(upload_location_image))
 		.route("/{id}/images/{image_id}", delete(delete_location_image))
 		.route("/{id}/images/reorder", post(reorder_location_images))

@@ -6,6 +6,7 @@ mod opening_time;
 mod profile;
 mod reservation;
 mod review;
+mod roles;
 mod tag;
 mod translation;
 
@@ -17,5 +18,6 @@ pub use opening_time::*;
 pub use profile::*;
 pub use reservation::*;
 pub use review::*;
+pub use roles::*;
 pub use tag::*;
 pub use translation::*;
