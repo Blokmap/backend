@@ -44,7 +44,7 @@ pub async fn get_all_profiles(
 
 	let profiles: Vec<ProfileResponse> = profiles
 		.into_iter()
-		.map(|data| data.build_response(&config))
+		.map(|data| data.build_response((), &config))
 		.collect::<Result<_, _>>()?;
 
 	let paginated = p_opts.paginate(total, truncated, profiles);
@@ -82,7 +82,7 @@ pub async fn get_current_profile(
 	};
 
 	let profile = Profile::get(session.data.profile_id, &conn).await?;
-	let response: ProfileResponse = profile.build_response(&config)?;
+	let response = profile.build_response((), &config)?;
 
 	Ok((StatusCode::OK, Json(Some(response))))
 }
@@ -101,7 +101,7 @@ pub async fn get_profile(
 	}
 
 	let profile = Profile::get(p_id, &conn).await?;
-	let response: ProfileResponse = profile.build_response(&config)?;
+	let response = profile.build_response((), &config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -122,8 +122,8 @@ pub async fn update_current_profile(
 		.apply_to(session.data.profile_id, &conn)
 		.await?;
 
-	if old_profile.profile.pending_email
-		!= updated_profile.profile.pending_email
+	if old_profile.primitive.pending_email
+		!= updated_profile.primitive.pending_email
 	{
 		let email_confirmation_token = Uuid::new_v4().to_string();
 
@@ -145,11 +145,11 @@ pub async fn update_current_profile(
 
 		info!(
 			"set new pending email for profile {}",
-			updated_profile.profile.id
+			updated_profile.primitive.id
 		);
 	}
 
-	let response: ProfileResponse = updated_profile.build_response(&config)?;
+	let response = updated_profile.build_response((), &config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -174,8 +174,8 @@ pub async fn update_profile(
 	let mut updated_profile =
 		UpdateProfile::from(update).apply_to(p_id, &conn).await?;
 
-	if old_profile.profile.pending_email
-		!= updated_profile.profile.pending_email
+	if old_profile.primitive.pending_email
+		!= updated_profile.primitive.pending_email
 	{
 		let email_confirmation_token = Uuid::new_v4().to_string();
 
@@ -197,11 +197,11 @@ pub async fn update_profile(
 
 		info!(
 			"set new pending email for profile {}",
-			updated_profile.profile.id
+			updated_profile.primitive.id
 		);
 	}
 
-	let response: ProfileResponse = updated_profile.build_response(&config)?;
+	let response = updated_profile.build_response((), &config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -220,7 +220,7 @@ pub async fn upload_profile_avatar(
 	let conn = pool.get().await?;
 
 	let profile = Profile::get(p_id, &conn).await?;
-	if let Some(img_id) = profile.profile.avatar_image_id {
+	if let Some(img_id) = profile.primitive.avatar_image_id {
 		delete_image(img_id, &conn).await?;
 	}
 
@@ -243,7 +243,7 @@ pub async fn delete_profile_avatar(
 	let conn = pool.get().await?;
 
 	let profile = Profile::get(p_id, &conn).await?;
-	let Some(img_id) = profile.profile.avatar_image_id else {
+	let Some(img_id) = profile.primitive.avatar_image_id else {
 		return Ok((StatusCode::NO_CONTENT, NoContent));
 	};
 
@@ -262,7 +262,7 @@ pub async fn disable_profile(
 	let conn = pool.get().await?;
 	let mut profile = Profile::get(profile_id, &conn).await?;
 
-	profile.profile.state = ProfileState::Disabled;
+	profile.primitive.state = ProfileState::Disabled;
 	profile.update(&conn).await?;
 
 	Session::delete(profile_id, &mut r_conn).await?;
@@ -281,7 +281,7 @@ pub async fn activate_profile(
 	let conn = pool.get().await?;
 	let mut profile = Profile::get(profile_id, &conn).await?;
 
-	profile.profile.state = ProfileState::Active;
+	profile.primitive.state = ProfileState::Active;
 	profile.update(&conn).await?;
 
 	info!("activated profile {profile_id}");
@@ -300,15 +300,17 @@ pub async fn get_profile_locations(
 
 	let locations =
 		Location::get_by_profile_id(profile_id, includes, &conn).await?;
-	let response: Result<Vec<LocationResponse>, _> =
-		locations.into_iter().map(|l| l.build_response(&config)).collect();
-	let response = response?;
+	let response: Vec<LocationResponse> = locations
+		.into_iter()
+		.map(|l| l.build_response(includes, &config))
+		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
 
 #[instrument(skip(pool))]
 pub async fn get_profile_reservations(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	Query(filter): Query<ReservationFilter>,
 	Query(includes): Query<ReservationIncludes>,
@@ -318,14 +320,17 @@ pub async fn get_profile_reservations(
 
 	let reservations =
 		Reservation::for_profile(profile_id, filter, includes, &conn).await?;
-	let response: Vec<ReservationResponse> =
-		reservations.into_iter().map(Into::into).collect();
+	let response: Vec<ReservationResponse> = reservations
+		.into_iter()
+		.map(|r| r.build_response(includes, &config))
+		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
 
 #[instrument(skip(pool))]
 pub async fn get_profile_authorities(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	Query(includes): Query<AuthorityIncludes>,
 	Path(p_id): Path<i32>,
@@ -333,8 +338,10 @@ pub async fn get_profile_authorities(
 	let conn = pool.get().await?;
 
 	let authorities = Authority::for_profile(p_id, includes, &conn).await?;
-	let response: Vec<AuthorityResponse> =
-		authorities.into_iter().map(Into::into).collect();
+	let response: Vec<AuthorityResponse> = authorities
+		.into_iter()
+		.map(|a| a.build_response(includes, &config))
+		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
 }

@@ -76,16 +76,16 @@ pub(crate) async fn register_profile(
 
 		let profile = profile.update_last_login(&conn).await?;
 
-		info!("confirmed email for profile {}", profile.profile.id);
+		info!("confirmed email for profile {}", profile.primitive.id);
 
-		let response: ProfileResponse = profile.build_response(&config)?;
+		let response: ProfileResponse = profile.build_response((), &config)?;
 
 		Ok((StatusCode::CREATED, jar, Json(response)).into_response())
 	} else {
 		// Unwrap is safe as the token was explicitly set in the insertable
 		// profile
 		let confirmation_token =
-			new_profile.profile.email_confirmation_token.clone().unwrap();
+			new_profile.primitive.email_confirmation_token.clone().unwrap();
 
 		mailer
 			.send_confirm_email(
@@ -97,12 +97,13 @@ pub(crate) async fn register_profile(
 
 		info!(
 			"registered new profile id: {} username: {} email: {}",
-			new_profile.profile.id,
-			new_profile.profile.username,
-			new_profile.profile.pending_email.clone().unwrap()
+			new_profile.primitive.id,
+			new_profile.primitive.username,
+			new_profile.primitive.pending_email.clone().unwrap()
 		);
 
-		let response: ProfileResponse = new_profile.build_response(&config)?;
+		let response: ProfileResponse =
+			new_profile.build_response((), &config)?;
 
 		Ok((StatusCode::CREATED, Json(response)).into_response())
 	}
@@ -152,7 +153,7 @@ pub(crate) async fn confirm_email(
 
 	// Unwrap is safe because profiles with a confirmation token will always
 	// have a token expiry
-	let expiry = profile.profile.email_confirmation_token_expiry.unwrap();
+	let expiry = profile.primitive.email_confirmation_token_expiry.unwrap();
 	if Utc::now().naive_utc() > expiry {
 		return Err(TokenError::ExpiredEmailToken.into());
 	}
@@ -173,7 +174,7 @@ pub(crate) async fn confirm_email(
 
 	let profile = profile.update_last_login(&conn).await?;
 
-	info!("confirmed email for profile {}", profile.profile.id);
+	info!("confirmed email for profile {}", profile.primitive.id);
 
 	Ok((jar, NoContent))
 }
@@ -225,7 +226,7 @@ pub(crate) async fn reset_password(
 
 	// Unwrap is safe because profiles with a reset token will always
 	// have a token expiry
-	let expiry = profile.profile.password_reset_token_expiry.unwrap();
+	let expiry = profile.primitive.password_reset_token_expiry.unwrap();
 	if Utc::now().naive_utc() > expiry {
 		return Err(TokenError::ExpiredPasswordToken.into());
 	}
@@ -246,7 +247,7 @@ pub(crate) async fn reset_password(
 
 	let profile = profile.update_last_login(&conn).await?;
 
-	info!("reset password for profile {}", profile.profile.id);
+	info!("reset password for profile {}", profile.primitive.id);
 
 	Ok((jar, NoContent))
 }
@@ -263,7 +264,7 @@ pub(crate) async fn login_profile(
 	let profile =
 		Profile::get_by_email_or_username(login_data.username, &conn).await?;
 
-	match profile.profile.state {
+	match profile.primitive.state {
 		ProfileState::Active => (),
 		ProfileState::Disabled => return Err(LoginError::Disabled.into()),
 		ProfileState::PendingEmailVerification => {
@@ -271,7 +272,7 @@ pub(crate) async fn login_profile(
 		},
 	}
 
-	let password_hash = PasswordHash::new(&profile.profile.password_hash)?;
+	let password_hash = PasswordHash::new(&profile.primitive.password_hash)?;
 
 	Argon2::default()
 		.verify_password(login_data.password.as_bytes(), &password_hash)?;
@@ -295,7 +296,7 @@ pub(crate) async fn login_profile(
 
 	let profile = profile.update_last_login(&conn).await?;
 
-	info!("logged in profile {} with username", profile.profile.id);
+	info!("logged in profile {} with username", profile.primitive.id);
 
 	Ok((jar, NoContent))
 }

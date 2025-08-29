@@ -56,14 +56,14 @@ async fn get_location_test() {
 	// Get the location by ID from the app router
 	let response = env
 		.app
-		.get(format!("/locations/{}", location.location.id).as_str())
+		.get(format!("/locations/{}", location.primitive.id).as_str())
 		.await;
 
 	assert_eq!(response.status_code(), StatusCode::OK);
 	let location_response = response.json::<LocationResponse>();
 
-	assert_eq!(location_response.id, location.location.id);
-	assert_eq!(location_response.name, location.location.name);
+	assert_eq!(location_response.id, location.primitive.id);
+	assert_eq!(location_response.name, location.primitive.name);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -79,8 +79,8 @@ async fn get_locations_test() {
 
 	// Check if the location is in the response
 	let locations = response.json::<PaginatedResponse<Vec<LocationResponse>>>();
-	assert!(locations.data.iter().any(|l| l.id == location.location.id));
-	assert!(locations.data.iter().any(|l| l.name == location.location.name));
+	assert!(locations.data.iter().any(|l| l.id == location.primitive.id));
+	assert!(locations.data.iter().any(|l| l.name == location.primitive.name));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -96,10 +96,10 @@ async fn search_locations_test() {
 		.app
 		.get("/locations")
 		.add_query_params([
-			("northEastLat", location.location.latitude + 1.0),
-			("northEastLng", location.location.longitude + 1.0),
-			("southWestLat", location.location.latitude - 1.0),
-			("southWestLng", location.location.longitude - 1.0),
+			("northEastLat", location.primitive.latitude + 1.0),
+			("northEastLng", location.primitive.longitude + 1.0),
+			("southWestLat", location.primitive.latitude - 1.0),
+			("southWestLng", location.primitive.longitude - 1.0),
 		])
 		.await;
 
@@ -107,8 +107,8 @@ async fn search_locations_test() {
 
 	// Check if the location is in the response
 	let locations = response.json::<PaginatedResponse<Vec<LocationResponse>>>();
-	assert!(locations.data.iter().any(|l| l.id == location.location.id));
-	assert!(locations.data.iter().any(|l| l.name == location.location.name));
+	assert!(locations.data.iter().any(|l| l.id == location.primitive.id));
+	assert!(locations.data.iter().any(|l| l.name == location.primitive.name));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -121,11 +121,11 @@ async fn update_location_test() {
 	// Update the location with a new name
 	let response = env
 		.app
-		.patch(format!("/locations/{}", location.location.id).as_str())
+		.patch(format!("/locations/{}", location.primitive.id).as_str())
 		.json(&serde_json::json!({
 			"name": "Updated Location",
-			"isVisible": !location.location.is_visible,
-			"isReservable": !location.location.is_reservable,
+			"isVisible": !location.primitive.is_visible,
+			"isReservable": !location.primitive.is_reservable,
 		}))
 		.await;
 
@@ -133,12 +133,12 @@ async fn update_location_test() {
 
 	// Check if the location is updated
 	let updated_location = response.json::<LocationResponse>();
-	assert_eq!(updated_location.id, location.location.id);
+	assert_eq!(updated_location.id, location.primitive.id);
 	assert_eq!(updated_location.name, "Updated Location");
-	assert_eq!(updated_location.is_visible, !location.location.is_visible);
+	assert_eq!(updated_location.is_visible, !location.primitive.is_visible);
 	assert_eq!(
 		updated_location.is_reservable,
-		!location.location.is_reservable
+		!location.primitive.is_reservable
 	);
 }
 
@@ -152,11 +152,11 @@ async fn update_location_unauthorized_test() {
 	// Attempt to update the location without admin privileges
 	let response = env
 		.app
-		.patch(format!("/locations/{}", location.location.id).as_str())
+		.patch(format!("/locations/{}", location.primitive.id).as_str())
 		.json(&serde_json::json!({
 			"name": "Updated Location",
-			"isVisible": !location.location.is_visible,
-			"isReservable": !location.location.is_reservable,
+			"isVisible": !location.primitive.is_visible,
+			"isReservable": !location.primitive.is_reservable,
 		}))
 		.await;
 
@@ -174,7 +174,7 @@ async fn approve_location_test() {
 	// Approve the location
 	let response = env
 		.app
-		.post(format!("/locations/{}/approve", location.location.id).as_str())
+		.post(format!("/locations/{}/approve", location.primitive.id).as_str())
 		.await;
 
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
@@ -182,7 +182,7 @@ async fn approve_location_test() {
 	// Check if the location is approved
 	let updated_location = env
 		.app
-		.get(&format!("/locations/{}?approved_by=true", location.location.id))
+		.get(&format!("/locations/{}?approved_by=true", location.primitive.id))
 		.await
 		.json::<LocationResponse>();
 
@@ -199,7 +199,7 @@ async fn approve_location_unauthorized_test() {
 	// Attempt to approve the location without admin privileges
 	let response = env
 		.app
-		.post(format!("/locations/{}/approve", location.location.id).as_str())
+		.post(format!("/locations/{}/approve", location.primitive.id).as_str())
 		.await;
 
 	assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
@@ -215,14 +215,14 @@ async fn delete_location_test() {
 	// Delete the location
 	let response = env
 		.app
-		.delete(format!("/locations/{}", location.location.id).as_str())
+		.delete(format!("/locations/{}", location.primitive.id).as_str())
 		.await;
 	assert_eq!(response.status_code(), StatusCode::NO_CONTENT);
 
 	// Check if the location is deleted
 	let response = env
 		.app
-		.get(format!("/locations/{}", location.location.id).as_str())
+		.get(format!("/locations/{}", location.primitive.id).as_str())
 		.await;
 
 	assert_eq!(response.status_code(), StatusCode::NOT_FOUND);

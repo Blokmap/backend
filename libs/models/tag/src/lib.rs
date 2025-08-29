@@ -3,7 +3,19 @@ extern crate tracing;
 
 use ::translation::{NewTranslation, TranslationUpdate};
 use common::{DbConn, Error};
-use db::{creator, location, location_tag, profile, tag, translation, updater};
+use db::{
+	CreatorAlias,
+	UpdaterAlias,
+	creator,
+	location,
+	location_tag,
+	profile,
+	tag,
+	translation,
+	updater,
+};
+use diesel::dsl::{AliasedFields, Nullable};
+use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
 use primitives::{PrimitiveProfile, PrimitiveTag, PrimitiveTranslation};
@@ -24,25 +36,40 @@ pub struct TagIncludes {
 	pub updated_by: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, Queryable, Serialize)]
-#[diesel(table_name = tag)]
+#[derive(Clone, Debug, Deserialize, Queryable, Selectable, Serialize)]
 #[diesel(check_for_backend(Pg))]
 pub struct Tag {
-	pub tag:        PrimitiveTag,
+	#[diesel(embed)]
+	pub primitive:  PrimitiveTag,
+	#[diesel(embed)]
 	pub name:       PrimitiveTranslation,
-	pub created_by: Option<Option<PrimitiveProfile>>,
-	pub updated_by: Option<Option<PrimitiveProfile>>,
+	#[diesel(select_expression = created_by_fragment())]
+	pub created_by: Option<PrimitiveProfile>,
+	#[diesel(select_expression = updated_by_fragment())]
+	pub updated_by: Option<PrimitiveProfile>,
 }
 
-mod auto_type_helpers {
-	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
+#[allow(non_camel_case_types)]
+type created_by_fragment = Nullable<
+	AliasedFields<CreatorAlias, <profile::table as Table>::AllColumns>,
+>;
+fn created_by_fragment() -> created_by_fragment {
+	creator.fields(profile::all_columns).nullable()
+}
+
+#[allow(non_camel_case_types)]
+type updated_by_fragment = Nullable<
+	AliasedFields<UpdaterAlias, <profile::table as Table>::AllColumns>,
+>;
+fn updated_by_fragment() -> updated_by_fragment {
+	updater.fields(profile::all_columns).nullable()
 }
 
 impl Tag {
 	/// Build a query with all required (dynamic) joins to select a full
 	/// tag data tuple
-	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
-	fn joined_query(includes: TagIncludes) -> _ {
+	#[diesel::dsl::auto_type(no_type_alias)]
+	fn query(includes: TagIncludes) -> _ {
 		let inc_created_by: bool = includes.created_by;
 		let inc_updated_by: bool = includes.updated_by;
 
@@ -51,23 +78,12 @@ impl Tag {
 				translation::table
 					.on(tag::name_translation_id.eq(translation::id)),
 			)
-			.left_outer_join(creator.on(inc_created_by.into_sql::<Bool>().and(
+			.left_join(creator.on(inc_created_by.into_sql::<Bool>().and(
 				tag::created_by.eq(creator.field(profile::id).nullable()),
 			)))
-			.left_outer_join(updater.on(inc_updated_by.into_sql::<Bool>().and(
+			.left_join(updater.on(inc_updated_by.into_sql::<Bool>().and(
 				tag::updated_by.eq(updater.field(profile::id).nullable()),
 			)))
-	}
-
-	/// Construct a full [`Tag`] struct from the data returned by a
-	/// joined query
-	fn from_joined(includes: TagIncludes, data: JoinedTagData) -> Self {
-		Self {
-			tag:        data.0,
-			name:       data.1,
-			created_by: if includes.created_by { Some(data.2) } else { None },
-			updated_by: if includes.updated_by { Some(data.3) } else { None },
-		}
 	}
 
 	/// Get a single [`Tag`] given its id
@@ -77,23 +93,16 @@ impl Tag {
 		includes: TagIncludes,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let tag = conn
 			.interact(move |conn| {
 				query
 					.filter(tag::id.eq(tag_id))
-					.select((
-						PrimitiveTag::as_select(),
-						PrimitiveTranslation::as_select(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.get_result(conn)
 			})
 			.await??;
-
-		let tag = Self::from_joined(includes, tag);
 
 		Ok(tag)
 	}
@@ -105,23 +114,11 @@ impl Tag {
 		includes: TagIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let tags = conn
-			.interact(move |c| {
-				query
-					.select((
-						PrimitiveTag::as_select(),
-						PrimitiveTranslation::as_select(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-					))
-					.load(c)
-			})
-			.await??
-			.into_iter()
-			.map(|data| Self::from_joined(includes, data))
-			.collect();
+			.interact(move |c| query.select(Self::as_select()).load(c))
+			.await??;
 
 		Ok(tags)
 	}
@@ -145,8 +142,11 @@ impl Tag {
 	#[instrument(skip(conn))]
 	pub async fn get_for_location(
 		l_id: i32,
+		includes: TagIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
+		let query = Self::query(includes);
+
 		let tags = conn
 			.interact(move |conn| {
 				use self::location;
@@ -156,23 +156,11 @@ impl Tag {
 				location::table
 					.find(l_id)
 					.inner_join(location_tag.on(location_id.eq(location::id)))
-					.inner_join(tag.on(tag_id.eq(id)))
-					.inner_join(
-						translation::table
-							.on(name_translation_id.eq(translation::id)),
-					)
-					.select((
-						PrimitiveTag::as_select(),
-						PrimitiveTranslation::as_select(),
-					))
+					.inner_join(query.on(tag_id.eq(id)))
+					.select(Self::as_select())
 					.get_results(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|(tag, name)| {
-				Tag { tag, name, created_by: None, updated_by: None }
-			})
-			.collect();
+			.await??;
 
 		Ok(tags)
 	}
@@ -181,8 +169,11 @@ impl Tag {
 	#[instrument(skip(conn))]
 	pub async fn get_for_locations(
 		l_ids: Vec<i32>,
+		includes: TagIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<(i32, Self)>, Error> {
+		let query = Self::query(includes);
+
 		let tags = conn
 			.interact(move |conn| {
 				use self::location;
@@ -192,24 +183,11 @@ impl Tag {
 				location::table
 					.filter(location::id.eq_any(l_ids))
 					.inner_join(location_tag.on(location_id.eq(location::id)))
-					.inner_join(tag.on(tag_id.eq(id)))
-					.inner_join(
-						translation::table
-							.on(name_translation_id.eq(translation::id)),
-					)
-					.select((
-						location::id,
-						PrimitiveTag::as_select(),
-						PrimitiveTranslation::as_select(),
-					))
+					.inner_join(query.on(tag_id.eq(id)))
+					.select((location::id, Self::as_select()))
 					.get_results(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|(id, tag, name)| {
-				(id, Tag { tag, name, created_by: None, updated_by: None })
-			})
-			.collect();
+			.await??;
 
 		Ok(tags)
 	}

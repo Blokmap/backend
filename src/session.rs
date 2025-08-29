@@ -108,12 +108,12 @@ impl Session {
 		profile: &Profile,
 		conn: &mut RedisConn,
 	) -> Result<Self, Error> {
-		let id = profile.profile.id;
-		let profile_id = profile.profile.id;
+		let id = profile.primitive.id;
+		let profile_id = profile.primitive.id;
 
 		let data = SessionData {
 			profile_id,
-			profile_is_admin: profile.profile.is_admin,
+			profile_is_admin: profile.primitive.is_admin,
 		};
 
 		let session = Self { id, data };
@@ -130,7 +130,7 @@ impl Session {
 
 		debug!(
 			"stored session {} in cache for profile {}",
-			id, profile.profile.id
+			id, profile.primitive.id
 		);
 
 		Ok(session)

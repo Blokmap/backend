@@ -10,24 +10,11 @@ use base::{
 	manual_pagination,
 };
 use common::{DbConn, Error};
-use db::{
-	approver,
-	authority,
-	creator,
-	description,
-	excerpt,
-	location,
-	opening_time,
-	profile,
-	rejecter,
-	translation,
-	updater,
-};
+use db::{location, opening_time};
 use diesel::dsl::sql;
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Nullable, Text};
-use primitives::PrimitiveLocation;
 use serde::{Deserialize, Serialize};
 use serde_with::DisplayFromStr;
 
@@ -179,7 +166,7 @@ impl Location {
 		conn: &DbConn,
 	) -> Result<PaginatedData<Vec<Self>>, Error> {
 		let filter = loc_filter.to_filter();
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let time_filter = time_filter.to_filter();
 
@@ -195,26 +182,12 @@ impl Location {
 							.filter(opening_time::location_id.eq(id))
 							.select(opening_time::id),
 					))
-					.select((
-						PrimitiveLocation::as_select(),
-						description.fields(translation::all_columns),
-						excerpt.fields(translation::all_columns),
-						authority::all_columns.nullable(),
-						approver.fields(profile::all_columns).nullable(),
-						rejecter.fields(profile::all_columns).nullable(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.order(id)
 					.limit(QUERY_HARD_LIMIT)
 					.get_results(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|(l, d, e, y, a, r, c, u)| {
-				Self::from_joined(includes, (l, d, e, y, a, r, c, u))
-			})
-			.collect::<Vec<_>>();
+			.await??;
 
 		manual_pagination(locations, p_cfg)
 	}

@@ -13,7 +13,7 @@ async fn test_get_location_opening_times() {
 
 	let response = env
 		.app
-		.get(&format!("/locations/{}/opening-times", location.location.id))
+		.get(&format!("/locations/{}/opening-times", location.primitive.id))
 		.await;
 
 	assert_eq!(response.status_code(), StatusCode::OK);
@@ -40,7 +40,7 @@ async fn test_create_opening_time() {
 
 	let response = env
 		.app
-		.post(&format!("/locations/{}/opening-times", location.location.id))
+		.post(&format!("/locations/{}/opening-times", location.primitive.id))
 		.json(&create_req)
 		.await;
 
@@ -73,7 +73,7 @@ async fn test_update_opening_time() {
 
 	let create_response = env
 		.app
-		.post(&format!("/locations/{}/opening-times", location.location.id))
+		.post(&format!("/locations/{}/opening-times", location.primitive.id))
 		.json(&create_request)
 		.await;
 
@@ -92,7 +92,7 @@ async fn test_update_opening_time() {
 		.app
 		.patch(&format!(
 			"/locations/{}/opening-times/{}",
-			location.location.id, first.id
+			location.primitive.id, first.id
 		))
 		.json(&update_request)
 		.await;
@@ -126,7 +126,7 @@ async fn test_delete_location_time() {
 
 	let create_response = env
 		.app
-		.post(&format!("/locations/{}/opening-times", location.location.id))
+		.post(&format!("/locations/{}/opening-times", location.primitive.id))
 		.json(&create_request)
 		.await;
 
@@ -139,7 +139,7 @@ async fn test_delete_location_time() {
 		.app
 		.delete(&format!(
 			"/locations/{}/opening-times/{}",
-			location.location.id, first.id
+			location.primitive.id, first.id
 		))
 		.await;
 

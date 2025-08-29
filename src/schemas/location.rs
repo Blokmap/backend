@@ -1,14 +1,17 @@
 use chrono::NaiveDateTime;
 use common::Error;
-use image::NewLocationImage;
+use image::{ImageIncludes, NewLocationImage};
 use location::{
 	FullLocationData,
+	LocationIncludes,
 	LocationUpdate,
 	NewLocation,
 	NewLocationMember,
 };
+use opening_time::OpeningTimeIncludes;
 use primitives::PrimitiveLocation;
 use serde::{Deserialize, Serialize};
+use tag::TagIncludes;
 use validator_derive::Validate;
 
 use crate::Config;
@@ -117,55 +120,82 @@ impl From<PrimitiveLocation> for LocationResponse {
 }
 
 impl BuildResponse<LocationResponse> for FullLocationData {
+	type Includes = LocationIncludes;
+
 	fn build_response(
 		self,
+		includes: Self::Includes,
 		config: &Config,
 	) -> Result<LocationResponse, Error> {
 		let (location, (opening_times, tags, images)) = self;
 
+		let authority = location.authority.map(Into::into);
+		let approved_by = location.approved_by.map(Into::into);
+		let rejected_by = location.rejected_by.map(Into::into);
+		let created_by = location.created_by.map(Into::into);
+		let updated_by = location.updated_by.map(Into::into);
+
 		Ok(LocationResponse {
-			id:                     location.location.id,
-			name:                   location.location.name,
-			authority:              location
-				.authority
-				.map(|inner| inner.map(Into::into)),
+			id:                     location.primitive.id,
+			name:                   location.primitive.name,
+			authority:              if includes.authority {
+				Some(authority)
+			} else {
+				None
+			},
 			description:            Some(location.description.into()),
 			excerpt:                Some(location.excerpt.into()),
-			seat_count:             location.location.seat_count,
-			is_reservable:          location.location.is_reservable,
-			max_reservation_length: location.location.max_reservation_length,
-			is_visible:             location.location.is_visible,
-			street:                 location.location.street,
-			number:                 location.location.number,
-			zip:                    location.location.zip,
-			city:                   location.location.city,
-			province:               location.location.province,
-			country:                location.location.country,
-			latitude:               location.location.latitude,
-			longitude:              location.location.longitude,
-			approved_at:            location.location.approved_at,
-			approved_by:            location
-				.approved_by
-				.map(|p| p.map(Into::into)),
-			rejected_at:            location.location.rejected_at,
-			rejected_by:            location
-				.rejected_by
-				.map(|p| p.map(Into::into)),
-			rejected_reason:        location.location.rejected_reason,
-			created_at:             location.location.created_at,
-			created_by:             location
-				.created_by
-				.map(|p| p.map(Into::into)),
-			updated_at:             location.location.updated_at,
-			updated_by:             location
-				.updated_by
-				.map(|p| p.map(Into::into)),
+			seat_count:             location.primitive.seat_count,
+			is_reservable:          location.primitive.is_reservable,
+			max_reservation_length: location.primitive.max_reservation_length,
+			is_visible:             location.primitive.is_visible,
+			street:                 location.primitive.street,
+			number:                 location.primitive.number,
+			zip:                    location.primitive.zip,
+			city:                   location.primitive.city,
+			province:               location.primitive.province,
+			country:                location.primitive.country,
+			latitude:               location.primitive.latitude,
+			longitude:              location.primitive.longitude,
+			approved_at:            location.primitive.approved_at,
+			approved_by:            if includes.approved_by {
+				Some(approved_by)
+			} else {
+				None
+			},
+			rejected_at:            location.primitive.rejected_at,
+			rejected_by:            if includes.rejected_by {
+				Some(rejected_by)
+			} else {
+				None
+			},
+			rejected_reason:        location.primitive.rejected_reason,
+			created_at:             location.primitive.created_at,
+			created_by:             if includes.created_by {
+				Some(created_by)
+			} else {
+				None
+			},
+			updated_at:             location.primitive.updated_at,
+			updated_by:             if includes.updated_by {
+				Some(updated_by)
+			} else {
+				None
+			},
 
-			opening_times: opening_times.into_iter().map(Into::into).collect(),
-			tags:          tags.into_iter().map(Into::into).collect(),
+			opening_times: opening_times
+				.into_iter()
+				.map(|t| {
+					t.build_response(OpeningTimeIncludes::default(), config)
+				})
+				.collect::<Result<_, _>>()?,
+			tags:          tags
+				.into_iter()
+				.map(|t| t.build_response(TagIncludes::default(), config))
+				.collect::<Result<_, _>>()?,
 			images:        images
 				.into_iter()
-				.map(|i| i.build_response(config))
+				.map(|i| i.build_response(ImageIncludes::default(), config))
 				.collect::<Result<_, _>>()?,
 		})
 	}

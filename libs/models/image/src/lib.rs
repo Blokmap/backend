@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate tracing;
 
-use base::JoinParts;
 use chrono::NaiveDateTime;
 use common::{DbConn, Error};
 use db::{image, location, location_image, profile};
@@ -18,41 +17,18 @@ pub struct ImageIncludes {
 	pub uploaded_by: bool,
 }
 
-#[derive(Clone, Debug, Queryable, Selectable)]
-#[diesel(table_name = image)]
+#[derive(Clone, Debug, Deserialize, Queryable, Selectable, Serialize)]
 #[diesel(check_for_backend(Pg))]
-pub struct ImageParts {
+pub struct Image {
 	#[diesel(embed)]
 	pub primitive:   PrimitiveImage,
 	#[diesel(embed)]
 	pub uploaded_by: Option<PrimitiveProfile>,
 }
 
-impl JoinParts for ImageParts {
-	type Includes = ImageIncludes;
-	type Target = Image;
-
-	fn join(self, includes: Self::Includes) -> Self::Target {
-		Image {
-			primitive:   self.primitive,
-			uploaded_by: if includes.uploaded_by {
-				Some(self.uploaded_by)
-			} else {
-				None
-			},
-		}
-	}
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Image {
-	pub primitive:   PrimitiveImage,
-	pub uploaded_by: Option<Option<PrimitiveProfile>>,
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct OrderedImage {
-	pub image: PrimitiveImage,
+	pub image: Image,
 	pub index: i32,
 }
 
@@ -60,7 +36,7 @@ impl Image {
 	/// Build a query with all required (dynamic) joins to select a full
 	/// image data tuple
 	#[diesel::dsl::auto_type(no_type_alias)]
-	fn _query(includes: ImageIncludes) -> _ {
+	fn query(includes: ImageIncludes) -> _ {
 		let inc_uploaded: bool = includes.uploaded_by;
 
 		image::table.left_join(
@@ -68,6 +44,24 @@ impl Image {
 				.into_sql::<Bool>()
 				.and(image::uploaded_by.eq(profile::id.nullable()))),
 		)
+	}
+
+	/// Get an [`Image`]s given its id
+	#[instrument(skip(conn))]
+	pub async fn get_by_id(
+		i_id: i32,
+		includes: ImageIncludes,
+		conn: &DbConn,
+	) -> Result<Self, Error> {
+		let query = Self::query(includes);
+
+		let img = conn
+			.interact(move |conn| {
+				query.select(Self::as_select()).get_result(conn)
+			})
+			.await??;
+
+		Ok(img)
 	}
 
 	/// Delete an [`Image`] given its id
@@ -93,8 +87,11 @@ impl Image {
 	#[instrument(skip(conn))]
 	pub async fn get_for_location(
 		l_id: i32,
+		includes: ImageIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<OrderedImage>, Error> {
+		let query = Self::query(includes);
+
 		let imgs = conn
 			.interact(move |conn| {
 				use self::image::dsl::*;
@@ -102,9 +99,9 @@ impl Image {
 
 				location_image
 					.filter(location_id.eq(l_id))
-					.inner_join(image.on(image_id.eq(id)))
+					.inner_join(query.on(image_id.eq(id)))
 					.order(index.asc())
-					.select((PrimitiveImage::as_select(), index))
+					.select((Self::as_select(), index))
 					.get_results(conn)
 			})
 			.await??
@@ -119,8 +116,11 @@ impl Image {
 	#[instrument(skip(l_ids, conn))]
 	pub async fn get_for_locations(
 		l_ids: Vec<i32>,
+		includes: ImageIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<(i32, OrderedImage)>, Error> {
+		let query = Self::query(includes);
+
 		let imgs = conn
 			.interact(move |conn| {
 				use self::image::dsl::*;
@@ -130,8 +130,8 @@ impl Image {
 				location::table
 					.filter(location::id.eq_any(l_ids))
 					.inner_join(location_image.on(location_id.eq(location::id)))
-					.inner_join(image.on(image_id.eq(id)))
-					.select((location::id, PrimitiveImage::as_select(), index))
+					.inner_join(query.on(image_id.eq(id)))
+					.select((location::id, Self::as_select(), index))
 					.get_results(conn)
 			})
 			.await??
@@ -152,9 +152,12 @@ impl Image {
 	pub async fn reorder(
 		l_id: i32,
 		new_order: Vec<NewLocationImage>,
+		includes: ImageIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<OrderedImage>, Error> {
 		// TODO: reordered images should be approved
+
+		let query = Self::query(includes);
 
 		let images = conn
 			.interact(move |conn| {
@@ -171,9 +174,9 @@ impl Image {
 
 					location_image
 						.filter(location_id.eq(l_id))
-						.inner_join(image.on(image_id.eq(id)))
+						.inner_join(query.on(image_id.eq(id)))
 						.order(index.asc())
-						.select((PrimitiveImage::as_select(), index))
+						.select((Self::as_select(), index))
 						.get_results(conn)
 						.map_err(Into::into)
 				})
@@ -204,7 +207,7 @@ impl NewImage {
 		image_index: i32,
 		conn: &DbConn,
 	) -> Result<OrderedImage, Error> {
-		let image = conn
+		let primitive = conn
 			.interact(move |conn| {
 				conn.transaction::<_, Error, _>(|conn| {
 					use self::image::dsl::*;
@@ -230,6 +233,10 @@ impl NewImage {
 			})
 			.await??;
 
+		let image =
+			Image::get_by_id(primitive.id, ImageIncludes::default(), conn)
+				.await?;
+
 		let ordered_image = OrderedImage { image, index: image_index };
 
 		Ok(ordered_image)
@@ -241,10 +248,10 @@ impl NewImage {
 		self,
 		p_id: i32,
 		conn: &DbConn,
-	) -> Result<PrimitiveImage, Error> {
-		let image = conn
+	) -> Result<Image, Error> {
+		let primitive = conn
 			.interact(move |conn| {
-				conn.transaction::<PrimitiveImage, Error, _>(|conn| {
+				conn.transaction::<_, Error, _>(|conn| {
 					use self::profile::dsl::*;
 
 					let image_record = diesel::insert_into(image::table)
@@ -260,6 +267,10 @@ impl NewImage {
 				})
 			})
 			.await??;
+
+		let image =
+			Image::get_by_id(primitive.id, ImageIncludes::default(), conn)
+				.await?;
 
 		Ok(image)
 	}

@@ -17,14 +17,16 @@ use reservation::{
 	ReservationIncludes,
 };
 
-use crate::Session;
+use crate::schemas::BuildResponse;
 use crate::schemas::reservation::{
 	CreateReservationRequest,
 	ReservationResponse,
 };
+use crate::{Config, Session};
 
 #[instrument(skip(pool))]
 pub async fn get_reservations_for_location(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	session: Session,
 	Path(loc_id): Path<i32>,
@@ -45,14 +47,17 @@ pub async fn get_reservations_for_location(
 
 	let reservations =
 		Reservation::for_location(loc_id, filter, includes, &conn).await?;
-	let response: Vec<ReservationResponse> =
-		reservations.into_iter().map(Into::into).collect();
+	let response: Vec<ReservationResponse> = reservations
+		.into_iter()
+		.map(|r| r.build_response(includes, &config))
+		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
 
 #[instrument(skip(pool))]
 pub async fn get_reservations_for_opening_time(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	session: Session,
 	Path((l_id, t_id)): Path<(i32, i32)>,
@@ -72,14 +77,17 @@ pub async fn get_reservations_for_opening_time(
 
 	let reservations =
 		Reservation::for_opening_time(t_id, includes, &conn).await?;
-	let response: Vec<ReservationResponse> =
-		reservations.into_iter().map(Into::into).collect();
+	let response: Vec<ReservationResponse> = reservations
+		.into_iter()
+		.map(|r| r.build_response(includes, &config))
+		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
 
 #[instrument(skip(pool))]
 pub async fn create_reservation(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	session: Session,
 	Path((l_id, t_id)): Path<(i32, i32)>,
@@ -91,7 +99,7 @@ pub async fn create_reservation(
 	let time =
 		OpeningTime::get_by_id(t_id, OpeningTimeIncludes::default(), &conn)
 			.await?
-			.opening_time;
+			.primitive;
 
 	check_reservation_bounds(
 		time.start_time,
@@ -116,7 +124,10 @@ pub async fn create_reservation(
 	#[allow(clippy::cast_possible_truncation)]
 	let block_count = (span / block_size) as i32;
 
-	check_reservation_length(loc.location.max_reservation_length, block_count)?;
+	check_reservation_length(
+		loc.primitive.max_reservation_length,
+		block_count,
+	)?;
 
 	#[allow(clippy::cast_possible_truncation)]
 	let num_blocks =
@@ -126,7 +137,7 @@ pub async fn create_reservation(
 	check_reservation_occupation(
 		num_blocks,
 		&spans,
-		time.seat_count.unwrap_or(loc.location.seat_count),
+		time.seat_count.unwrap_or(loc.primitive.seat_count),
 	)?;
 
 	let new_reservation = NewReservation {
@@ -137,7 +148,7 @@ pub async fn create_reservation(
 	};
 
 	let new_reservation = new_reservation.insert(includes, &conn).await?;
-	let response = ReservationResponse::from(new_reservation);
+	let response = new_reservation.build_response(includes, &config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -241,7 +252,7 @@ pub async fn delete_reservation(
 	let reservation =
 		Reservation::get_by_id(r_id, ReservationIncludes::default(), &conn)
 			.await?
-			.reservation;
+			.primitive;
 
 	if reservation.profile_id != session.data.profile_id {
 		Permissions::check_for_location(

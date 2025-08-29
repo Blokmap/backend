@@ -163,7 +163,7 @@ impl Mailer {
 
 		info!(
 			"sent new email confirmation email for profile {}",
-			profile.profile.id
+			profile.primitive.id
 		);
 
 		Ok(())
@@ -187,7 +187,7 @@ impl Mailer {
 
 		self.send(mail).await?;
 
-		info!("sent password reset email for profile {}", profile.profile.id,);
+		info!("sent password reset email for profile {}", profile.primitive.id,);
 
 		Ok(())
 	}

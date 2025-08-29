@@ -137,7 +137,7 @@ async fn disable_profile() {
 	let conn = pool.get().await.unwrap();
 	let bob = Profile::get(test_id, &conn).await.unwrap();
 
-	assert_eq!(bob.profile.state, ProfileState::Disabled);
+	assert_eq!(bob.primitive.state, ProfileState::Disabled);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -162,7 +162,7 @@ async fn disable_profile_not_admin() {
 	let conn = pool.get().await.unwrap();
 	let bob = Profile::get(test_id, &conn).await.unwrap();
 
-	assert_eq!(bob.profile.state, ProfileState::Active);
+	assert_eq!(bob.primitive.state, ProfileState::Active);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -177,10 +177,10 @@ async fn activate_profile() {
 		.unwrap()
 		.2
 		.into_iter()
-		.find(|p| p.profile.username == "test-disabled")
+		.find(|p| p.primitive.username == "test-disabled")
 		.unwrap();
 
-	let test_id = test.profile.id;
+	let test_id = test.primitive.id;
 
 	let response = env.app.post(&format!("/profiles/{test_id}/unblock")).await;
 
@@ -188,7 +188,7 @@ async fn activate_profile() {
 
 	let bob = Profile::get(test_id, &conn).await.unwrap();
 
-	assert_eq!(bob.profile.state, ProfileState::Active);
+	assert_eq!(bob.primitive.state, ProfileState::Active);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -203,10 +203,10 @@ async fn activate_profile_not_admin() {
 		.unwrap()
 		.2
 		.into_iter()
-		.find(|p| p.profile.username == "test-disabled")
+		.find(|p| p.primitive.username == "test-disabled")
 		.unwrap();
 
-	let test_id = test.profile.id;
+	let test_id = test.primitive.id;
 
 	let response = env.app.post(&format!("/profiles/{test_id}/unblock")).await;
 
@@ -216,7 +216,7 @@ async fn activate_profile_not_admin() {
 	let conn = pool.get().await.unwrap();
 	let bob = Profile::get(test_id, &conn).await.unwrap();
 
-	assert_eq!(bob.profile.state, ProfileState::Disabled);
+	assert_eq!(bob.primitive.state, ProfileState::Disabled);
 }
 
 #[tokio::test(flavor = "multi_thread")]

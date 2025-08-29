@@ -10,15 +10,17 @@ use opening_time::{
 	TimeBoundsFilter,
 };
 
-use crate::Session;
+use crate::schemas::BuildResponse;
 use crate::schemas::opening_time::{
 	CreateOpeningTimeRequest,
 	OpeningTimeResponse,
 	UpdateOpeningTimeRequest,
 };
+use crate::{Config, Session};
 
 #[instrument(skip(pool))]
 pub async fn get_location_times(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	Path(id): Path<i32>,
 	Query(filter): Query<TimeBoundsFilter>,
@@ -28,8 +30,10 @@ pub async fn get_location_times(
 
 	let times =
 		OpeningTime::get_for_location(id, filter, includes, &conn).await?;
-	let times: Vec<OpeningTimeResponse> =
-		times.into_iter().map(Into::into).collect();
+	let times: Vec<OpeningTimeResponse> = times
+		.into_iter()
+		.map(|t| t.build_response(includes, &config))
+		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(times)))
 }
@@ -58,6 +62,7 @@ pub async fn create_location_times(
 
 #[instrument(skip(pool))]
 pub async fn update_location_time(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	session: Session,
 	Path((id, time_id)): Path<(i32, i32)>,
@@ -68,7 +73,7 @@ pub async fn update_location_time(
 
 	let time_update = request.to_insertable(session.data.profile_id);
 	let updated_time = time_update.apply_to(time_id, includes, &conn).await?;
-	let response = OpeningTimeResponse::from(updated_time);
+	let response = updated_time.build_response(includes, &config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }

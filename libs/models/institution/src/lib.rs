@@ -5,13 +5,17 @@ use ::translation::NewTranslation;
 use base::{PaginatedData, PaginationConfig, manual_pagination};
 use common::{DbConn, Error};
 use db::{
+	CreatorAlias,
 	InstitutionCategory,
+	UpdaterAlias,
 	creator,
 	institution,
 	profile,
 	translation,
 	updater,
 };
+use diesel::dsl::{AliasedFields, Nullable};
+use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
 use primitives::{
@@ -25,13 +29,6 @@ mod member;
 
 pub use member::*;
 
-pub type JoinedInstitutionData = (
-	PrimitiveInstitution,
-	PrimitiveTranslation,
-	Option<PrimitiveProfile>,
-	Option<PrimitiveProfile>,
-);
-
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[allow(clippy::struct_excessive_bools)]
 #[serde(rename_all = "camelCase")]
@@ -42,24 +39,40 @@ pub struct InstitutionIncludes {
 	pub updated_by: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, Queryable, Serialize)]
+#[derive(Clone, Debug, Deserialize, Queryable, Selectable, Serialize)]
 #[diesel(check_for_backend(Pg))]
 pub struct Institution {
-	pub institution: PrimitiveInstitution,
-	pub name:        PrimitiveTranslation,
-	pub created_by:  Option<PrimitiveProfile>,
-	pub updated_by:  Option<Option<PrimitiveProfile>>,
+	#[diesel(embed)]
+	pub primitive:  PrimitiveInstitution,
+	#[diesel(embed)]
+	pub name:       PrimitiveTranslation,
+	#[diesel(select_expression = created_by_fragment())]
+	pub created_by: Option<PrimitiveProfile>,
+	#[diesel(select_expression = updated_by_fragment())]
+	pub updated_by: Option<PrimitiveProfile>,
 }
 
-mod auto_type_helpers {
-	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
+#[allow(non_camel_case_types)]
+type created_by_fragment = Nullable<
+	AliasedFields<CreatorAlias, <profile::table as Table>::AllColumns>,
+>;
+fn created_by_fragment() -> created_by_fragment {
+	creator.fields(profile::all_columns).nullable()
+}
+
+#[allow(non_camel_case_types)]
+type updated_by_fragment = Nullable<
+	AliasedFields<UpdaterAlias, <profile::table as Table>::AllColumns>,
+>;
+fn updated_by_fragment() -> updated_by_fragment {
+	updater.fields(profile::all_columns).nullable()
 }
 
 impl Institution {
 	/// Build a query with all required (dynamic) joins to select a full
 	/// institution data tuple
-	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
-	fn joined_query(includes: InstitutionIncludes) -> _ {
+	#[diesel::dsl::auto_type(no_type_alias)]
+	fn query(includes: InstitutionIncludes) -> _ {
 		let inc_created: bool = includes.created_by;
 		let inc_updated: bool = includes.updated_by;
 
@@ -68,32 +81,18 @@ impl Institution {
 				translation::table
 					.on(institution::name_translation_id.eq(translation::id)),
 			)
-			.left_outer_join(
+			.left_join(
 				creator.on(inc_created.into_sql::<Bool>().and(
 					institution::created_by
 						.eq(creator.field(profile::id).nullable()),
 				)),
 			)
-			.left_outer_join(
+			.left_join(
 				updater.on(inc_updated.into_sql::<Bool>().and(
 					institution::updated_by
 						.eq(updater.field(profile::id).nullable()),
 				)),
 			)
-	}
-
-	/// Construct a full [`Institution`] struct from the data returned by a
-	/// joined query
-	fn from_joined(
-		includes: InstitutionIncludes,
-		data: JoinedInstitutionData,
-	) -> Self {
-		Self {
-			institution: data.0,
-			name:        data.1,
-			created_by:  if includes.created_by { data.2 } else { None },
-			updated_by:  if includes.updated_by { Some(data.3) } else { None },
-		}
 	}
 
 	#[instrument(skip(conn))]
@@ -102,23 +101,13 @@ impl Institution {
 		p_cfg: PaginationConfig,
 		conn: &DbConn,
 	) -> Result<PaginatedData<Vec<Self>>, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let institutions = conn
 			.interact(move |conn| {
-				query
-					.select((
-						PrimitiveInstitution::as_select(),
-						PrimitiveTranslation::as_select(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-					))
-					.get_results(conn)
+				query.select(Self::as_select()).get_results(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|data| Self::from_joined(includes, data))
-			.collect();
+			.await??;
 
 		manual_pagination(institutions, p_cfg)
 	}
@@ -130,7 +119,7 @@ impl Institution {
 		includes: InstitutionIncludes,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let institution = conn
 			.interact(move |conn| {
@@ -138,17 +127,10 @@ impl Institution {
 
 				query
 					.filter(id.eq(i_id))
-					.select((
-						PrimitiveInstitution::as_select(),
-						PrimitiveTranslation::as_select(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.get_result(conn)
 			})
 			.await??;
-
-		let institution = Self::from_joined(includes, institution);
 
 		Ok(institution)
 	}
@@ -195,7 +177,7 @@ impl NewInstitution {
 		includes: InstitutionIncludes,
 		conn: &DbConn,
 	) -> Result<Institution, Error> {
-		let institution = conn
+		let primitive = conn
 			.interact(move |conn| {
 				conn.transaction::<_, Error, _>(|conn| {
 					use self::institution::dsl::institution;
@@ -232,7 +214,7 @@ impl NewInstitution {
 			.await??;
 
 		let institution =
-			Institution::get_by_id(institution.id, includes, conn).await?;
+			Institution::get_by_id(primitive.id, includes, conn).await?;
 
 		info!("inserted new institution {institution:?}");
 

@@ -20,20 +20,24 @@ use crate::{Config, Session};
 
 #[instrument(skip(pool))]
 pub async fn get_all_authorities(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	Query(includes): Query<AuthorityIncludes>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
 	let authorities = Authority::get_all(includes, &conn).await?;
-	let response: Vec<AuthorityResponse> =
-		authorities.into_iter().map(Into::into).collect();
+	let response: Vec<AuthorityResponse> = authorities
+		.into_iter()
+		.map(|a| a.build_response(includes, &config))
+		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
 
 #[instrument(skip(pool))]
 pub async fn create_authority(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	session: Session,
 	Query(includes): Query<AuthorityIncludes>,
@@ -45,19 +49,20 @@ pub async fn create_authority(
 	let auth = new_auth.insert(includes, &conn).await?;
 
 	let new_member_req = NewAuthorityMember {
-		authority_id: auth.authority.id,
+		authority_id: auth.primitive.id,
 		profile_id:   session.data.profile_id,
 		added_by:     session.data.profile_id,
 	};
 	new_member_req.insert(&conn).await?;
 
-	let response: AuthorityResponse = auth.into();
+	let response = auth.build_response(includes, &config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
 
 #[instrument(skip(pool))]
 pub async fn get_authority(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	Query(includes): Query<AuthorityIncludes>,
 	Path(id): Path<i32>,
@@ -65,13 +70,14 @@ pub async fn get_authority(
 	let conn = pool.get().await?;
 
 	let authority = Authority::get_by_id(id, includes, &conn).await?;
-	let response = AuthorityResponse::from(authority);
+	let response = authority.build_response(includes, &config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
 
 #[instrument(skip(pool))]
 pub async fn update_authority(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	session: Session,
 	Query(includes): Query<AuthorityIncludes>,
@@ -90,7 +96,7 @@ pub async fn update_authority(
 
 	let auth_update = request.to_insertable(session.data.profile_id);
 	let updated_auth = auth_update.apply_to(id, includes, &conn).await?;
-	let response: AuthorityResponse = updated_auth.into();
+	let response = updated_auth.build_response(includes, &config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -105,9 +111,10 @@ pub async fn get_authority_locations(
 	let conn = pool.get().await?;
 
 	let locations = Location::get_by_authority_id(id, includes, &conn).await?;
-	let response: Result<Vec<LocationResponse>, Error> =
-		locations.into_iter().map(|l| l.build_response(&config)).collect();
-	let response = response?;
+	let response: Vec<LocationResponse> = locations
+		.into_iter()
+		.map(|l| l.build_response(includes, &config))
+		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -136,7 +143,7 @@ pub(crate) async fn add_authority_location(
 	let new_location =
 		request.to_insertable_for_authority(id, session.data.profile_id);
 	let records = new_location.insert(includes, &conn).await?;
-	let response: LocationResponse = records.build_response(&config)?;
+	let response = records.build_response(includes, &config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -163,7 +170,7 @@ pub async fn get_authority_members(
 	let members = Authority::get_members(id, &conn).await?;
 	let response: Vec<ProfileResponse> = members
 		.into_iter()
-		.map(|data| data.build_response(&config))
+		.map(|p| p.build_response((), &config))
 		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
@@ -192,7 +199,7 @@ pub(crate) async fn add_authority_member(
 
 	let new_auth_profile = request.to_insertable(id, session.data.profile_id);
 	let member = new_auth_profile.insert(&conn).await?;
-	let response: ProfileResponse = member.build_response(&config)?;
+	let response = member.build_response((), &config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }

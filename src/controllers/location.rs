@@ -5,11 +5,11 @@ use axum::extract::{Multipart, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
-use image::Image;
+use image::{Image, ImageIncludes};
 use location::{Location, LocationFilter, LocationIncludes, Point};
 use opening_time::{OpeningTime, OpeningTimeIncludes, TimeFilter};
 use permissions::Permissions;
-use tag::Tag;
+use tag::{Tag, TagIncludes};
 use utils::image::{delete_image, store_location_image};
 use validator::Validate;
 
@@ -44,7 +44,7 @@ pub(crate) async fn create_location(
 
 	let new_location = request.to_insertable(session.data.profile_id);
 	let records = new_location.insert(includes, &conn).await?;
-	let response: LocationResponse = records.build_response(&config)?;
+	let response = records.build_response(includes, &config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -73,7 +73,8 @@ pub async fn upload_location_image(
 	let image = CreateOrderedImageRequest::parse(&mut data).await?.into();
 	let inserted_image =
 		store_location_image(session.data.profile_id, id, image, &conn).await?;
-	let response: ImageResponse = inserted_image.build_response(&config)?;
+	let response =
+		inserted_image.build_response(ImageIncludes::default(), &config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -82,6 +83,7 @@ pub async fn reorder_location_images(
 	State(pool): State<DbPool>,
 	State(config): State<Config>,
 	session: Session,
+	Query(includes): Query<ImageIncludes>,
 	Path(id): Path<i32>,
 	Json(new_order): Json<Vec<LocationImageOrderUpdate>>,
 ) -> Result<impl IntoResponse, Error> {
@@ -104,11 +106,11 @@ pub async fn reorder_location_images(
 
 	let new_order =
 		new_order.into_iter().map(|o| o.to_insertable(id)).collect();
-	let images = Image::reorder(id, new_order, &conn).await?;
+	let images = Image::reorder(id, new_order, includes, &conn).await?;
 
 	let response: Vec<ImageResponse> = images
 		.into_iter()
-		.map(|i| i.build_response(&config))
+		.map(|i| i.build_response(includes, &config))
 		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
@@ -148,7 +150,7 @@ pub(crate) async fn get_location(
 	let conn = pool.get().await?;
 
 	let result = Location::get_by_id(id, includes, &conn).await?;
-	let response: LocationResponse = result.build_response(&config)?;
+	let response = result.build_response(includes, &config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -190,7 +192,7 @@ pub(crate) async fn search_locations(
 	)
 	.await?;
 
-	let l_ids = locations.iter().map(|l| l.location.id).collect::<Vec<_>>();
+	let l_ids = locations.iter().map(|l| l.primitive.id).collect::<Vec<_>>();
 
 	let (times, tags, imgs) = tokio::join!(
 		OpeningTime::get_for_locations(
@@ -198,8 +200,8 @@ pub(crate) async fn search_locations(
 			OpeningTimeIncludes::default(),
 			&conn
 		),
-		Tag::get_for_locations(l_ids.clone(), &conn),
-		Image::get_for_locations(l_ids, &conn),
+		Tag::get_for_locations(l_ids.clone(), TagIncludes::default(), &conn),
+		Image::get_for_locations(l_ids, ImageIncludes::default(), &conn),
 	);
 
 	let times = times?;
@@ -208,9 +210,10 @@ pub(crate) async fn search_locations(
 
 	let locations = Location::group(locations, &times, &tags, &imgs);
 
-	let locations: Result<Vec<LocationResponse>, _> =
-		locations.into_iter().map(|l| l.build_response(&config)).collect();
-	let locations = locations?;
+	let locations: Vec<LocationResponse> = locations
+		.into_iter()
+		.map(|l| l.build_response(includes, &config))
+		.collect::<Result<_, _>>()?;
 
 	let paginated = p_opts.paginate(total, truncated, locations);
 
@@ -241,7 +244,7 @@ pub(crate) async fn update_location(
 
 	let loc_update = request.to_insertable(session.data.profile_id);
 	let updated_loc = loc_update.apply_to(id, includes, &conn).await?;
-	let response: LocationResponse = updated_loc.build_response(&config)?;
+	let response = updated_loc.build_response(includes, &config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -343,7 +346,7 @@ pub async fn get_location_members(
 	let members = Location::get_members(id, &conn).await?;
 	let response: Vec<ProfileResponse> = members
 		.into_iter()
-		.map(|data| data.build_response(&config))
+		.map(|data| data.build_response((), &config))
 		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
@@ -372,7 +375,7 @@ pub async fn add_location_member(
 
 	let new_loc_profile = request.to_insertable(id, session.data.profile_id);
 	let member = new_loc_profile.insert(&conn).await?;
-	let response: ProfileResponse = member.build_response(&config)?;
+	let response = member.build_response((), &config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }

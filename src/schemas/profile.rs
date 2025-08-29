@@ -39,19 +39,25 @@ impl From<PrimitiveProfile> for ProfileResponse {
 }
 
 impl BuildResponse<ProfileResponse> for Profile {
-	fn build_response(self, config: &Config) -> Result<ProfileResponse, Error> {
+	type Includes = ();
+
+	fn build_response(
+		self,
+		_includes: Self::Includes,
+		config: &Config,
+	) -> Result<ProfileResponse, Error> {
 		Ok(ProfileResponse {
-			id:            self.profile.id,
-			username:      self.profile.username,
-			email:         self.profile.email,
-			first_name:    self.profile.first_name,
-			last_name:     self.profile.last_name,
-			is_admin:      self.profile.is_admin,
-			created_at:    self.profile.created_at,
-			last_login_at: self.profile.last_login_at,
+			id:            self.primitive.id,
+			username:      self.primitive.username,
+			email:         self.primitive.email,
+			first_name:    self.primitive.first_name,
+			last_name:     self.primitive.last_name,
+			is_admin:      self.primitive.is_admin,
+			created_at:    self.primitive.created_at,
+			last_login_at: self.primitive.last_login_at,
 			avatar_url:    self
 				.avatar
-				.map(|i| i.build_response(config))
+				.map(|i| i.build_response((), config))
 				.transpose()?,
 		})
 	}

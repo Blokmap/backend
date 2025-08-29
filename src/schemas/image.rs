@@ -2,23 +2,31 @@ use axum::body::Bytes;
 use axum::extract::Multipart;
 use axum::extract::multipart::Field;
 use common::{Error, MultipartParseError};
-use image::OrderedImage;
+use image::{Image, ImageIncludes, OrderedImage};
 use primitives::PrimitiveImage;
 use serde::{Deserialize, Serialize};
 use utils::image::{ImageVariant, OrderedImageVariant};
 
 use crate::Config;
 use crate::schemas::BuildResponse;
+use crate::schemas::profile::ProfileResponse;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ImageResponse {
-	pub id:    i32,
-	pub url:   String,
-	pub index: Option<i32>,
+	pub id:          i32,
+	pub url:         String,
+	pub index:       Option<i32>,
+	pub uploaded_by: Option<Option<Box<ProfileResponse>>>,
 }
 
 impl BuildResponse<ImageResponse> for PrimitiveImage {
-	fn build_response(self, config: &Config) -> Result<ImageResponse, Error> {
+	type Includes = ();
+
+	fn build_response(
+		self,
+		_includes: Self::Includes,
+		config: &Config,
+	) -> Result<ImageResponse, Error> {
 		let url = if let Some(file_path) = &self.file_path {
 			let url = config.static_url.join(file_path)?;
 			Ok(url)
@@ -32,21 +40,45 @@ impl BuildResponse<ImageResponse> for PrimitiveImage {
 		let url = url?;
 
 		let response = ImageResponse {
-			id:    self.id,
-			url:   url.to_string(),
-			index: None,
+			id:          self.id,
+			url:         url.to_string(),
+			index:       None,
+			uploaded_by: None,
 		};
 
 		Ok(response)
 	}
 }
 
-impl BuildResponse<ImageResponse> for OrderedImage {
+impl BuildResponse<ImageResponse> for Image {
+	type Includes = ImageIncludes;
+
 	fn build_response(
 		self,
+		includes: Self::Includes,
+		config: &Config,
+	) -> Result<ImageResponse, Error> {
+		let mut response = self.primitive.build_response((), config)?;
+
+		let uploaded_by = self.uploaded_by.map(|p| Box::new(p.into()));
+
+		if includes.uploaded_by {
+			response.uploaded_by = Some(uploaded_by);
+		}
+
+		Ok(response)
+	}
+}
+
+impl BuildResponse<ImageResponse> for OrderedImage {
+	type Includes = ImageIncludes;
+
+	fn build_response(
+		self,
+		includes: Self::Includes,
 		config: &Config,
 	) -> Result<ImageResponse, common::Error> {
-		let mut response = self.image.build_response(config)?;
+		let mut response = self.image.build_response(includes, config)?;
 		response.index = Some(self.index);
 
 		Ok(response)

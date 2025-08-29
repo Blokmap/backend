@@ -1,10 +1,9 @@
 use ::profile::Profile;
 use chrono::NaiveDateTime;
 use common::{DbConn, Error};
-use db::{creator, image, institution, institution_member, profile, updater};
+use db::{image, institution, institution_member, profile};
 use diesel::pg::Pg;
 use diesel::prelude::*;
-use primitives::{PrimitiveInstitution, PrimitiveTranslation};
 use serde::{Deserialize, Serialize};
 
 use crate::{Institution, InstitutionIncludes};
@@ -25,7 +24,7 @@ pub struct InstitutionMember {
 }
 
 impl Institution {
-	/// Get all [members](SimpleProfile) of this [`Institution`]
+	/// Get all [members](Profile) of this [`Institution`]
 	#[instrument(skip(conn))]
 	pub async fn get_members(
 		inst_id: i32,
@@ -82,7 +81,7 @@ impl Institution {
 		includes: InstitutionIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let institutions = conn
 			.interact(move |conn| {
@@ -91,18 +90,10 @@ impl Institution {
 				institution_member
 					.filter(profile_id.eq(p_id))
 					.inner_join(query.on(institution_id.eq(institution::id)))
-					.select((
-						PrimitiveInstitution::as_select(),
-						PrimitiveTranslation::as_select(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.get_results(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|data| Self::from_joined(includes, data))
-			.collect();
+			.await??;
 
 		Ok(institutions)
 	}

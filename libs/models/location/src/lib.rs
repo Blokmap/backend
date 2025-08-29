@@ -12,6 +12,12 @@ use ::translation::NewTranslation;
 use chrono::{NaiveDateTime, Utc};
 use common::{DbConn, Error};
 use db::{
+	ApproverAlias,
+	CreatorAlias,
+	DescriptionAlias,
+	ExcerptAlias,
+	RejecterAlias,
+	UpdaterAlias,
 	approver,
 	authority,
 	creator,
@@ -24,10 +30,11 @@ use db::{
 	translation,
 	updater,
 };
-use diesel::Queryable;
-use diesel::dsl::sql;
+use diesel::dsl::{AliasedFields, Nullable, sql};
+use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Double};
+use image::ImageIncludes;
 use primitives::{
 	PrimitiveAuthority,
 	PrimitiveLocation,
@@ -37,6 +44,7 @@ use primitives::{
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_with::DisplayFromStr;
+use tag::TagIncludes;
 
 mod filter;
 mod member;
@@ -83,42 +91,93 @@ pub struct Point {
 	pub center_lng: f64,
 }
 
-#[derive(Clone, Debug, Queryable, Serialize)]
-#[diesel(table_name = location)]
+#[derive(Clone, Debug, Queryable, Selectable, Serialize)]
 #[diesel(check_for_backend(Pg))]
 pub struct Location {
-	pub location:    PrimitiveLocation,
-	pub authority:   Option<Option<PrimitiveAuthority>>,
+	#[diesel(embed)]
+	pub primitive:   PrimitiveLocation,
+	#[diesel(embed)]
+	pub authority:   Option<PrimitiveAuthority>,
+	#[diesel(select_expression = description_fragment())]
 	pub description: PrimitiveTranslation,
+	#[diesel(select_expression = excerpt_fragment())]
 	pub excerpt:     PrimitiveTranslation,
-	pub approved_by: Option<Option<PrimitiveProfile>>,
-	pub rejected_by: Option<Option<PrimitiveProfile>>,
-	pub created_by:  Option<Option<PrimitiveProfile>>,
-	pub updated_by:  Option<Option<PrimitiveProfile>>,
+	#[diesel(select_expression = approved_by_fragment())]
+	pub approved_by: Option<PrimitiveProfile>,
+	#[diesel(select_expression = rejected_by_fragment())]
+	pub rejected_by: Option<PrimitiveProfile>,
+	#[diesel(select_expression = created_by_fragment())]
+	pub created_by:  Option<PrimitiveProfile>,
+	#[diesel(select_expression = updated_by_fragment())]
+	pub updated_by:  Option<PrimitiveProfile>,
+}
+
+#[allow(non_camel_case_types)]
+type description_fragment =
+	AliasedFields<DescriptionAlias, <translation::table as Table>::AllColumns>;
+fn description_fragment() -> description_fragment {
+	description.fields(translation::all_columns)
+}
+
+#[allow(non_camel_case_types)]
+type excerpt_fragment =
+	AliasedFields<ExcerptAlias, <translation::table as Table>::AllColumns>;
+fn excerpt_fragment() -> excerpt_fragment {
+	excerpt.fields(translation::all_columns)
+}
+
+#[allow(non_camel_case_types)]
+type approved_by_fragment = Nullable<
+	AliasedFields<ApproverAlias, <profile::table as Table>::AllColumns>,
+>;
+fn approved_by_fragment() -> approved_by_fragment {
+	approver.fields(profile::all_columns).nullable()
+}
+
+#[allow(non_camel_case_types)]
+type rejected_by_fragment = Nullable<
+	AliasedFields<RejecterAlias, <profile::table as Table>::AllColumns>,
+>;
+fn rejected_by_fragment() -> rejected_by_fragment {
+	rejecter.fields(profile::all_columns).nullable()
+}
+
+#[allow(non_camel_case_types)]
+type created_by_fragment = Nullable<
+	AliasedFields<CreatorAlias, <profile::table as Table>::AllColumns>,
+>;
+fn created_by_fragment() -> created_by_fragment {
+	creator.fields(profile::all_columns).nullable()
+}
+
+#[allow(non_camel_case_types)]
+type updated_by_fragment = Nullable<
+	AliasedFields<UpdaterAlias, <profile::table as Table>::AllColumns>,
+>;
+fn updated_by_fragment() -> updated_by_fragment {
+	updater.fields(profile::all_columns).nullable()
 }
 
 impl Hash for Location {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-		self.location.id.hash(state);
+		self.primitive.id.hash(state);
 	}
 }
 
 impl PartialEq for Location {
-	fn eq(&self, other: &Self) -> bool { self.location.id == other.location.id }
+	fn eq(&self, other: &Self) -> bool {
+		self.primitive.id == other.primitive.id
+	}
 }
 
 impl Eq for Location {}
-
-mod auto_type_helpers {
-	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
-}
 
 impl Location {
 	/// Build a query with all required (dynamic) joins to select a full
 	/// location data tuple
 	#[rustfmt::skip] // rustfmt hates me and i hate rustfmt
-	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
-	fn joined_query(includes: LocationIncludes) -> _ {
+	#[diesel::dsl::auto_type(no_type_alias)]
+	fn query(includes: LocationIncludes) -> _ {
 		let inc_authority: bool = includes.authority;
 		let inc_approved_by: bool = includes.approved_by;
 		let inc_rejected_by: bool = includes.rejected_by;
@@ -134,12 +193,12 @@ impl Location {
 				location::excerpt_id
 					.eq(excerpt.field(translation::id))
 			))
-			.left_outer_join(
+			.left_join(
 				authority::table.on(
 					inc_authority.into_sql::<Bool>()
 					.and(location::authority_id.eq(authority::id.nullable()))
 			))
-			.left_outer_join(
+			.left_join(
 				approver.on(
 					inc_approved_by.into_sql::<Bool>()
 					.and(
@@ -147,7 +206,7 @@ impl Location {
 							eq(approver.field(profile::id).nullable()),
 					)
 			))
-			.left_outer_join(
+			.left_join(
 				rejecter.on(
 					inc_rejected_by.into_sql::<Bool>()
 					.and(
@@ -155,7 +214,7 @@ impl Location {
 							.eq(rejecter.field(profile::id).nullable()),
 					)
 			))
-			.left_outer_join(
+			.left_join(
 				creator.on(
 					inc_created_by.into_sql::<Bool>()
 					.and(
@@ -163,7 +222,7 @@ impl Location {
 							.eq(creator.field(profile::id).nullable())
 					)
 			))
-			.left_outer_join(
+			.left_join(
 				updater.on(
 					inc_updated_by.into_sql::<Bool>()
 					.and(
@@ -171,26 +230,6 @@ impl Location {
 							.eq(updater.field(profile::id).nullable())
 					)
 			))
-	}
-
-	/// Construct a full [`Location`] struct from the data returned by a
-	/// joined query
-	#[allow(clippy::many_single_char_names)]
-	#[allow(clippy::too_many_arguments)]
-	fn from_joined(
-		includes: LocationIncludes,
-		data: JoinedLocationData,
-	) -> Self {
-		Self {
-			location:    data.0,
-			description: data.1,
-			excerpt:     data.2,
-			authority:   if includes.authority { Some(data.3) } else { None },
-			approved_by: if includes.approved_by { Some(data.4) } else { None },
-			rejected_by: if includes.rejected_by { Some(data.5) } else { None },
-			created_by:  if includes.created_by { Some(data.6) } else { None },
-			updated_by:  if includes.updated_by { Some(data.7) } else { None },
-		}
 	}
 
 	/// Group a locations and their related data together
@@ -203,7 +242,7 @@ impl Location {
 	) -> Vec<FullLocationData> {
 		locs.into_par_iter()
 			.map(|l| {
-				let l_id = l.location.id;
+				let l_id = l.primitive.id;
 
 				let times = times
 					.iter()
@@ -233,29 +272,18 @@ impl Location {
 		includes: LocationIncludes,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
-		let location_data = conn
+		let location = conn
 			.interact(move |conn| {
 				use self::location::dsl::*;
 
 				query
 					.filter(id.eq(loc_id))
-					.select((
-						PrimitiveLocation::as_select(),
-						description.fields(translation::all_columns),
-						excerpt.fields(translation::all_columns),
-						authority::all_columns.nullable(),
-						approver.fields(profile::all_columns).nullable(),
-						rejecter.fields(profile::all_columns).nullable(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.get_result(conn)
 			})
 			.await??;
-
-		let location = Self::from_joined(includes, location_data);
 
 		Ok(location)
 	}
@@ -267,30 +295,20 @@ impl Location {
 		includes: LocationIncludes,
 		conn: &DbConn,
 	) -> Result<FullLocationData, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
-		let location_data = conn
+		let location = conn
 			.interact(move |conn| {
 				use self::location::dsl::*;
 
 				query
 					.filter(id.eq(loc_id))
-					.select((
-						PrimitiveLocation::as_select(),
-						description.fields(translation::all_columns),
-						excerpt.fields(translation::all_columns),
-						authority::all_columns.nullable(),
-						approver.fields(profile::all_columns).nullable(),
-						rejecter.fields(profile::all_columns).nullable(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.get_result(conn)
 			})
 			.await??;
 
-		let location = Self::from_joined(includes, location_data);
-		let l_id = location.location.id;
+		let l_id = location.primitive.id;
 
 		let (times, tags, imgs) = tokio::join!(
 			OpeningTime::get_for_location(
@@ -299,8 +317,8 @@ impl Location {
 				OpeningTimeIncludes::default(),
 				conn
 			),
-			Tag::get_for_location(l_id, conn),
-			Image::get_for_location(l_id, conn),
+			Tag::get_for_location(l_id, TagIncludes::default(), conn),
+			Image::get_for_location(l_id, ImageIncludes::default(), conn),
 		);
 
 		let times = times?;
@@ -317,7 +335,7 @@ impl Location {
 		includes: LocationIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<FullLocationData>, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let locations: Vec<Location> = conn
 			.interact(move |conn| {
@@ -325,26 +343,13 @@ impl Location {
 
 				query
 					.filter(id.eq_any(loc_ids))
-					.select((
-						PrimitiveLocation::as_select(),
-						description.fields(translation::all_columns),
-						excerpt.fields(translation::all_columns),
-						authority::all_columns.nullable(),
-						approver.fields(profile::all_columns).nullable(),
-						rejecter.fields(profile::all_columns).nullable(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.get_results(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|(l, d, e, y, a, r, c, u)| {
-				Self::from_joined(includes, (l, d, e, y, a, r, c, u))
-			})
-			.collect();
+			.await??;
 
-		let l_ids: Vec<i32> = locations.iter().map(|l| l.location.id).collect();
+		let l_ids: Vec<i32> =
+			locations.iter().map(|l| l.primitive.id).collect();
 
 		let (times, tags, imgs) = tokio::join!(
 			OpeningTime::get_for_locations(
@@ -352,8 +357,8 @@ impl Location {
 				OpeningTimeIncludes::default(),
 				conn
 			),
-			Tag::get_for_locations(l_ids.clone(), conn),
-			Image::get_for_locations(l_ids, conn),
+			Tag::get_for_locations(l_ids.clone(), TagIncludes::default(), conn),
+			Image::get_for_locations(l_ids, ImageIncludes::default(), conn),
 		);
 
 		let times = times?;
@@ -370,7 +375,7 @@ impl Location {
 		includes: LocationIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<FullLocationData>, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let locations: Vec<_> = conn
 			.interact(move |conn| {
@@ -378,26 +383,13 @@ impl Location {
 
 				query
 					.filter(created_by.eq(profile_id))
-					.select((
-						PrimitiveLocation::as_select(),
-						description.fields(translation::all_columns),
-						excerpt.fields(translation::all_columns),
-						authority::all_columns.nullable(),
-						approver.fields(profile::all_columns).nullable(),
-						rejecter.fields(profile::all_columns).nullable(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.load(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|(l, d, e, y, a, r, c, u)| {
-				Self::from_joined(includes, (l, d, e, y, a, r, c, u))
-			})
-			.collect();
+			.await??;
 
-		let l_ids: Vec<i32> = locations.iter().map(|l| l.location.id).collect();
+		let l_ids: Vec<i32> =
+			locations.iter().map(|l| l.primitive.id).collect();
 
 		let (times, tags, imgs) = tokio::join!(
 			OpeningTime::get_for_locations(
@@ -405,8 +397,8 @@ impl Location {
 				OpeningTimeIncludes::default(),
 				conn
 			),
-			Tag::get_for_locations(l_ids.clone(), conn),
-			Image::get_for_locations(l_ids, conn),
+			Tag::get_for_locations(l_ids.clone(), TagIncludes::default(), conn),
+			Image::get_for_locations(l_ids, ImageIncludes::default(), conn),
 		);
 
 		let times = times?;
@@ -451,7 +443,7 @@ impl Location {
 		includes: LocationIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let locations = conn
 			.interact(move |conn| {
@@ -459,24 +451,10 @@ impl Location {
 
 				query
 					.filter(authority_id.eq(auth_id))
-					.select((
-						PrimitiveLocation::as_select(),
-						description.fields(translation::all_columns),
-						excerpt.fields(translation::all_columns),
-						authority::all_columns.nullable(),
-						approver.fields(profile::all_columns).nullable(),
-						rejecter.fields(profile::all_columns).nullable(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.load(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|(l, d, e, y, a, r, c, u)| {
-				Self::from_joined(includes, (l, d, e, y, a, r, c, u))
-			})
-			.collect();
+			.await??;
 
 		Ok(locations)
 	}
@@ -488,7 +466,7 @@ impl Location {
 		includes: LocationIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<FullLocationData>, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let locations: Vec<_> = conn
 			.interact(move |conn| {
@@ -497,26 +475,13 @@ impl Location {
 				query
 					.filter(authority_id.eq(auth_id))
 					.left_outer_join(opening_time::table)
-					.select((
-						PrimitiveLocation::as_select(),
-						description.fields(translation::all_columns),
-						excerpt.fields(translation::all_columns),
-						authority::all_columns.nullable(),
-						approver.fields(profile::all_columns).nullable(),
-						rejecter.fields(profile::all_columns).nullable(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.load(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|(l, d, e, y, a, r, c, u)| {
-				Self::from_joined(includes, (l, d, e, y, a, r, c, u))
-			})
-			.collect();
+			.await??;
 
-		let l_ids: Vec<i32> = locations.iter().map(|l| l.location.id).collect();
+		let l_ids: Vec<i32> =
+			locations.iter().map(|l| l.primitive.id).collect();
 
 		let (times, tags, imgs) = tokio::join!(
 			OpeningTime::get_for_locations(
@@ -524,8 +489,8 @@ impl Location {
 				OpeningTimeIncludes::default(),
 				conn
 			),
-			Tag::get_for_locations(l_ids.clone(), conn),
-			Image::get_for_locations(l_ids, conn),
+			Tag::get_for_locations(l_ids.clone(), TagIncludes::default(), conn),
+			Image::get_for_locations(l_ids, ImageIncludes::default(), conn),
 		);
 
 		let times = times?;
@@ -562,8 +527,8 @@ impl Location {
 				.set((
 					approved_by.eq(profile_id),
 					approved_at.eq(Utc::now().naive_utc()),
-					rejected_at.eq(None::<NaiveDateTime>),
 					rejected_by.eq(None::<i32>),
+					rejected_at.eq(None::<NaiveDateTime>),
 					rejected_reason.eq(None::<String>),
 				))
 				.execute(conn)
@@ -588,8 +553,8 @@ impl Location {
 				.set((
 					approved_by.eq(None::<i32>),
 					approved_at.eq(None::<NaiveDateTime>),
-					rejected_at.eq(Utc::now().naive_utc()),
 					rejected_by.eq(profile_id),
+					rejected_at.eq(Utc::now().naive_utc()),
 					rejected_reason.eq(reason),
 				))
 				.execute(conn)

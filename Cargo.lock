@@ -247,6 +247,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 name = "authority"
 version = "0.1.0"
 dependencies = [
+ "base",
  "chrono",
  "common",
  "db",
@@ -4281,7 +4282,6 @@ dependencies = [
  "fast_image_resize",
  "image 0.1.0",
  "image 0.25.6",
- "primitives",
  "uuid",
 ]
 

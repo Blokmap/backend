@@ -4,7 +4,9 @@ extern crate tracing;
 use base::{BoxedCondition, ToFilter};
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Utc, Weekday};
 use common::{DbConn, Error};
-use db::{creator, opening_time, profile, updater};
+use db::{CreatorAlias, UpdaterAlias, creator, opening_time, profile, updater};
+use diesel::dsl::{AliasedFields, Nullable};
+use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Date, Time};
 use primitives::{PrimitiveOpeningTime, PrimitiveProfile};
@@ -94,63 +96,54 @@ pub struct OpeningTimeIncludes {
 	pub updated_by: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, Queryable, Serialize)]
-#[diesel(table_name = opening_time)]
+#[derive(Clone, Debug, Deserialize, Queryable, Selectable, Serialize)]
 #[diesel(check_for_backend(Pg))]
 pub struct OpeningTime {
-	pub opening_time:   PrimitiveOpeningTime,
-	pub seat_occupancy: Option<i32>,
-	pub created_by:     Option<Option<PrimitiveProfile>>,
-	pub updated_by:     Option<Option<PrimitiveProfile>>,
+	#[diesel(embed)]
+	pub primitive:  PrimitiveOpeningTime,
+	#[diesel(select_expression = created_by_fragment())]
+	pub created_by: Option<PrimitiveProfile>,
+	#[diesel(select_expression = updated_by_fragment())]
+	pub updated_by: Option<PrimitiveProfile>,
 }
 
-mod auto_type_helpers {
-	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
+#[allow(non_camel_case_types)]
+type created_by_fragment = Nullable<
+	AliasedFields<CreatorAlias, <profile::table as Table>::AllColumns>,
+>;
+fn created_by_fragment() -> created_by_fragment {
+	creator.fields(profile::all_columns).nullable()
+}
+
+#[allow(non_camel_case_types)]
+type updated_by_fragment = Nullable<
+	AliasedFields<UpdaterAlias, <profile::table as Table>::AllColumns>,
+>;
+fn updated_by_fragment() -> updated_by_fragment {
+	updater.fields(profile::all_columns).nullable()
 }
 
 impl OpeningTime {
 	/// Build a query with all required (dynamic) joins to select a full
 	/// location data tuple
-	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
-	fn joined_query(includes: OpeningTimeIncludes) -> _ {
+	#[diesel::dsl::auto_type(no_type_alias)]
+	fn query(includes: OpeningTimeIncludes) -> _ {
 		let inc_created_by: bool = includes.created_by;
 		let inc_updated_by: bool = includes.updated_by;
 
 		opening_time::table
-			.left_outer_join(
+			.left_join(
 				creator.on(inc_created_by.into_sql::<Bool>().and(
 					opening_time::created_by
 						.eq(creator.field(profile::id).nullable()),
 				)),
 			)
-			.left_outer_join(
+			.left_join(
 				updater.on(inc_updated_by.into_sql::<Bool>().and(
 					opening_time::updated_by
 						.eq(updater.field(profile::id).nullable()),
 				)),
 			)
-	}
-
-	/// Construct a full [`OpeningTime`] struct from the data returned by a
-	/// joined query
-	fn from_joined(
-		includes: OpeningTimeIncludes,
-		data: JoinedOpeningTimeData,
-	) -> Self {
-		Self {
-			opening_time:   data.0,
-			seat_occupancy: None,
-			created_by:     if includes.created_by {
-				Some(data.1)
-			} else {
-				None
-			},
-			updated_by:     if includes.updated_by {
-				Some(data.2)
-			} else {
-				None
-			},
-		}
 	}
 
 	/// Get an [`OpeningTime`] by its id
@@ -160,22 +153,16 @@ impl OpeningTime {
 		includes: OpeningTimeIncludes,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let time = conn
 			.interact(move |conn| {
 				query
 					.filter(opening_time::id.eq(t_id))
-					.select((
-						PrimitiveOpeningTime::as_select(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.get_result(conn)
 			})
 			.await??;
-
-		let time = Self::from_joined(includes, time);
 
 		Ok(time)
 	}
@@ -189,7 +176,7 @@ impl OpeningTime {
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
 		let filter = time_filter.to_filter();
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let times = conn
 			.interact(move |conn| {
@@ -198,17 +185,10 @@ impl OpeningTime {
 				query
 					.filter(location_id.eq(loc_id))
 					.filter(filter)
-					.select((
-						PrimitiveOpeningTime::as_select(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.get_results(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|data| Self::from_joined(includes, data))
-			.collect();
+			.await??;
 
 		Ok(times)
 	}
@@ -220,7 +200,7 @@ impl OpeningTime {
 		includes: OpeningTimeIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<(i32, Self)>, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let times = conn
 			.interact(move |conn| {
@@ -228,18 +208,10 @@ impl OpeningTime {
 
 				query
 					.filter(location_id.eq_any(l_ids))
-					.select((
-						location_id,
-						PrimitiveOpeningTime::as_select(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-					))
+					.select((location_id, Self::as_select()))
 					.get_results(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|(id, t, c, u)| (id, Self::from_joined(includes, (t, c, u))))
-			.collect();
+			.await??;
 
 		Ok(times)
 	}

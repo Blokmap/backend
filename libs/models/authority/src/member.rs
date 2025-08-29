@@ -1,18 +1,12 @@
 use ::profile::Profile;
 use common::{DbConn, Error};
-use db::{
-	authority,
-	authority_member,
-	creator,
-	image,
-	institution,
-	profile,
-	updater,
-};
+use db::{authority, authority_member, image, profile};
 use diesel::prelude::*;
-use primitives::PrimitiveAuthority;
 use serde::{Deserialize, Serialize};
 
+// use base::JoinParts;
+
+// use crate::{Authority, AuthorityIncludes, AuthorityParts};
 use crate::{Authority, AuthorityIncludes};
 
 impl Authority {
@@ -74,7 +68,7 @@ impl Authority {
 		includes: AuthorityIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let authorities = conn
 			.interact(move |conn| {
@@ -83,18 +77,10 @@ impl Authority {
 				authority_member
 					.filter(profile_id.eq(p_id))
 					.inner_join(query.on(authority_id.eq(authority::id)))
-					.select((
-						PrimitiveAuthority::as_select(),
-						creator.fields(profile::all_columns).nullable(),
-						updater.fields(profile::all_columns).nullable(),
-						institution::all_columns.nullable(),
-					))
+					.select(Self::as_select())
 					.get_results(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|data| Self::from_joined(includes, data))
-			.collect();
+			.await??;
 
 		Ok(authorities)
 	}

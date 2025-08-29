@@ -1,10 +1,15 @@
 use chrono::NaiveDateTime;
 use primitives::PrimitiveTranslation;
 use serde::{Deserialize, Serialize};
-use translation::{NewTranslation, Translation, TranslationUpdate};
+use translation::{
+	NewTranslation,
+	Translation,
+	TranslationIncludes,
+	TranslationUpdate,
+};
 
 use crate::schemas::profile::ProfileResponse;
-use crate::schemas::ser_includes;
+use crate::schemas::{BuildResponse, ser_includes};
 
 /// The data returned when making a new [`Translation`]
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -23,19 +28,36 @@ pub struct TranslationResponse {
 	pub updated_by: Option<Option<ProfileResponse>>,
 }
 
-impl From<Translation> for TranslationResponse {
-	fn from(value: Translation) -> Self {
-		Self {
-			id:         value.translation.id,
-			nl:         value.translation.nl,
-			en:         value.translation.en,
-			fr:         value.translation.fr,
-			de:         value.translation.de,
-			created_at: value.translation.created_at,
-			created_by: value.created_by.map(|p| p.map(Into::into)),
-			updated_at: value.translation.updated_at,
-			updated_by: value.updated_by.map(|p| p.map(Into::into)),
-		}
+impl BuildResponse<TranslationResponse> for Translation {
+	type Includes = TranslationIncludes;
+
+	fn build_response(
+		self,
+		includes: Self::Includes,
+		_config: &crate::Config,
+	) -> Result<TranslationResponse, common::Error> {
+		let created_by = self.created_by.map(Into::into);
+		let updated_by = self.updated_by.map(Into::into);
+
+		Ok(TranslationResponse {
+			id:         self.primitive.id,
+			nl:         self.primitive.nl,
+			en:         self.primitive.en,
+			fr:         self.primitive.fr,
+			de:         self.primitive.de,
+			created_at: self.primitive.created_at,
+			created_by: if includes.created_by {
+				Some(created_by)
+			} else {
+				None
+			},
+			updated_at: self.primitive.updated_at,
+			updated_by: if includes.updated_by {
+				Some(updated_by)
+			} else {
+				None
+			},
+		})
 	}
 }
 

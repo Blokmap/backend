@@ -4,7 +4,18 @@ extern crate tracing;
 use base::{BoxedCondition, ToFilter};
 use chrono::NaiveDate;
 use common::{DbConn, Error};
-use db::{confirmer, creator, location, opening_time, profile, reservation};
+use db::{
+	ConfirmerAlias,
+	CreatorAlias,
+	confirmer,
+	creator,
+	location,
+	opening_time,
+	profile,
+	reservation,
+};
+use diesel::dsl::{AliasedFields, Nullable};
+use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Date};
 use primitives::{
@@ -14,14 +25,6 @@ use primitives::{
 	PrimitiveReservation,
 };
 use serde::{Deserialize, Serialize};
-
-pub type JoinedReservationData = (
-	PrimitiveReservation,
-	PrimitiveOpeningTime,
-	PrimitiveLocation,
-	Option<PrimitiveProfile>,
-	Option<PrimitiveProfile>,
-);
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -71,67 +74,64 @@ pub struct ReservationIncludes {
 	pub confirmed_by: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, Queryable, Serialize)]
-#[diesel(table_name = reservation)]
+#[derive(Clone, Debug, Deserialize, Queryable, Selectable, Serialize)]
 #[diesel(check_for_backend(Pg))]
 pub struct Reservation {
-	pub reservation:  PrimitiveReservation,
+	#[diesel(embed)]
+	pub primitive:    PrimitiveReservation,
+	#[diesel(embed)]
 	pub opening_time: PrimitiveOpeningTime,
+	#[diesel(embed)]
 	pub location:     PrimitiveLocation,
+	#[diesel(select_expression = profile_fragment())]
 	pub profile:      Option<PrimitiveProfile>,
-	pub confirmed_by: Option<Option<PrimitiveProfile>>,
+	#[diesel(select_expression = confirmed_by_fragment())]
+	pub confirmed_by: Option<PrimitiveProfile>,
 }
 
-mod auto_type_helpers {
-	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
+#[allow(non_camel_case_types)]
+type profile_fragment = Nullable<
+	AliasedFields<CreatorAlias, <profile::table as Table>::AllColumns>,
+>;
+fn profile_fragment() -> profile_fragment {
+	creator.fields(profile::all_columns).nullable()
+}
+
+#[allow(non_camel_case_types)]
+type confirmed_by_fragment = Nullable<
+	AliasedFields<ConfirmerAlias, <profile::table as Table>::AllColumns>,
+>;
+fn confirmed_by_fragment() -> confirmed_by_fragment {
+	confirmer.fields(profile::all_columns).nullable()
 }
 
 impl Reservation {
 	/// Build a query with all required (dynamic) joins to select a full
 	/// reservation data tuple
-	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
-	fn joined_query(includes: ReservationIncludes) -> _ {
+	#[diesel::dsl::auto_type(no_type_alias)]
+	fn query(includes: ReservationIncludes) -> _ {
 		let inc_profile: bool = includes.profile;
 		let inc_confirmed: bool = includes.confirmed_by;
 
-		let opening_time_join = opening_time::table
-			.on(reservation::opening_time_id.eq(opening_time::id));
-
-		let location_join =
-			location::table.on(opening_time::location_id.eq(location::id));
-
-		let profile_join = creator.on(reservation::profile_id
-			.eq(creator.field(profile::id))
-			.and(inc_profile.into_sql::<Bool>()));
-
-		let confirmed_join = confirmer.on(reservation::confirmed_by
-			.eq(confirmer.field(profile::id).nullable())
-			.and(inc_confirmed.into_sql::<Bool>()));
-
 		reservation::table
-			.inner_join(opening_time_join)
-			.inner_join(location_join)
-			.left_outer_join(profile_join)
-			.left_outer_join(confirmed_join)
-	}
-
-	/// Construct a full [`Reservation`] struct from the data returned by a
-	/// joined query
-	fn from_joined(
-		includes: ReservationIncludes,
-		data: JoinedReservationData,
-	) -> Self {
-		Self {
-			reservation:  data.0,
-			opening_time: data.1,
-			location:     data.2,
-			profile:      if includes.profile { data.3 } else { None },
-			confirmed_by: if includes.confirmed_by {
-				Some(data.4)
-			} else {
-				None
-			},
-		}
+			.inner_join(
+				opening_time::table
+					.on(reservation::opening_time_id.eq(opening_time::id)),
+			)
+			.inner_join(
+				location::table.on(opening_time::location_id.eq(location::id)),
+			)
+			.left_join(creator.on(
+				inc_profile.into_sql::<Bool>().and(
+					reservation::profile_id.eq(creator.field(profile::id)),
+				),
+			))
+			.left_join(
+				confirmer.on(inc_confirmed.into_sql::<Bool>().and(
+					reservation::confirmed_by
+						.eq(confirmer.field(profile::id).nullable()),
+				)),
+			)
 	}
 
 	/// Get a [`Reservation`] given its id
@@ -141,7 +141,7 @@ impl Reservation {
 		includes: ReservationIncludes,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let reservation = conn
 			.interact(move |conn| {
@@ -149,18 +149,10 @@ impl Reservation {
 
 				query
 					.filter(id.eq(r_id))
-					.select((
-						PrimitiveReservation::as_select(),
-						PrimitiveOpeningTime::as_select(),
-						PrimitiveLocation::as_select(),
-						creator.fields(profile::all_columns).nullable(),
-						confirmer.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.get_result(conn)
 			})
 			.await??;
-
-		let reservation = Self::from_joined(includes, reservation);
 
 		Ok(reservation)
 	}
@@ -174,27 +166,17 @@ impl Reservation {
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
 		let filter = filter.to_filter();
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let reservations = conn
 			.interact(move |conn| {
 				query
 					.filter(location::id.eq(loc_id))
-					// .filter(date_filter)
 					.filter(filter)
-					.select((
-						PrimitiveReservation::as_select(),
-						PrimitiveOpeningTime::as_select(),
-						PrimitiveLocation::as_select(),
-						creator.fields(profile::all_columns).nullable(),
-						confirmer.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.get_results(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|data| Self::from_joined(includes, data))
-			.collect();
+			.await??;
 
 		Ok(reservations)
 	}
@@ -207,25 +189,16 @@ impl Reservation {
 		includes: ReservationIncludes,
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let reservations = conn
 			.interact(move |conn| {
 				query
 					.filter(opening_time::id.eq(t_id))
-					.select((
-						PrimitiveReservation::as_select(),
-						PrimitiveOpeningTime::as_select(),
-						PrimitiveLocation::as_select(),
-						creator.fields(profile::all_columns).nullable(),
-						confirmer.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.get_results(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|data| Self::from_joined(includes, data))
-			.collect();
+			.await??;
 
 		Ok(reservations)
 	}
@@ -239,30 +212,19 @@ impl Reservation {
 		conn: &DbConn,
 	) -> Result<Vec<Self>, Error> {
 		let filter = filter.to_filter();
-		let query = Self::joined_query(includes);
+		let query = Self::query(includes);
 
 		let reservations = conn
 			.interact(move |conn| {
 				query
 					.filter(reservation::profile_id.eq(p_id))
 					.filter(filter)
-					.select((
-						PrimitiveReservation::as_select(),
-						PrimitiveOpeningTime::as_select(),
-						PrimitiveLocation::as_select(),
-						creator.fields(profile::all_columns).nullable(),
-						confirmer.fields(profile::all_columns).nullable(),
-					))
+					.select(Self::as_select())
 					.get_results(conn)
 			})
 			.await??;
 
-		let result = reservations
-			.into_iter()
-			.map(|data| Self::from_joined(includes, data))
-			.collect();
-
-		Ok(result)
+		Ok(reservations)
 	}
 
 	/// Get all the block (base, count) pairs a given opening time

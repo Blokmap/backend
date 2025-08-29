@@ -239,7 +239,7 @@ impl TestEnv {
 		let conn = self.db_guard.create_pool().get().await.unwrap();
 		let profile =
 			Profile::get_by_username(username.to_string(), &conn).await?;
-		Ok(profile.profile)
+		Ok(profile.primitive)
 	}
 
 	/// Get a test admin profile from the test database
@@ -248,7 +248,7 @@ impl TestEnv {
 		let conn = self.db_guard.create_pool().get().await.unwrap();
 		let profile =
 			Profile::get_by_username("test-admin".to_string(), &conn).await?;
-		Ok(profile.profile)
+		Ok(profile.primitive)
 	}
 
 	/// Get a test translation in the test database

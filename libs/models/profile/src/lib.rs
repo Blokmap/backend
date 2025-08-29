@@ -32,13 +32,11 @@ use rand::Rng;
 use rand::distr::Alphabetic;
 use serde::{Deserialize, Serialize};
 
-pub type JoinedProfileData = (PrimitiveProfile, Option<PrimitiveImage>);
-
 impl TryFrom<&Profile> for Mailbox {
 	type Error = Error;
 
 	fn try_from(value: &Profile) -> Result<Mailbox, Error> {
-		let profile = &value.profile;
+		let profile = &value.primitive;
 
 		if profile.pending_email.is_some() {
 			Ok(Mailbox::new(
@@ -61,40 +59,29 @@ impl TryFrom<&Profile> for Mailbox {
 	}
 }
 
-#[derive(Clone, Debug, Queryable, Selectable, Serialize)]
-#[diesel(table_name = profile)]
+#[derive(Clone, Debug, Deserialize, Queryable, Selectable, Serialize)]
 #[diesel(check_for_backend(Pg))]
 pub struct Profile {
 	#[diesel(embed)]
-	pub profile: PrimitiveProfile,
+	pub primitive: PrimitiveProfile,
 	#[diesel(embed)]
-	pub avatar:  Option<PrimitiveImage>,
-}
-
-mod auto_type_helpers {
-	pub use diesel::dsl::{LeftJoin as LeftOuterJoin, *};
+	pub avatar:    Option<PrimitiveImage>,
 }
 
 impl Profile {
 	/// Build a query with all required (dynamic) joins to select a full
 	/// profile data tuple
-	#[diesel::dsl::auto_type(no_type_alias, dsl_path = "auto_type_helpers")]
-	fn joined_query() -> _ {
-		profile::table.left_outer_join(
+	#[diesel::dsl::auto_type(no_type_alias)]
+	fn query() -> _ {
+		profile::table.left_join(
 			image::table.on(profile::avatar_image_id.eq(image::id.nullable())),
 		)
-	}
-
-	/// Construct a full [`Profile`] struct from the data returned by a
-	/// joined query
-	fn from_joined(data: JoinedProfileData) -> Self {
-		Self { profile: data.0, avatar: data.1 }
 	}
 
 	/// Get a [`Profile`] given its id
 	#[instrument(skip(conn))]
 	pub async fn get(query_id: i32, conn: &DbConn) -> Result<Self, Error> {
-		let query = Self::joined_query();
+		let query = Self::query();
 
 		let profile = conn
 			.interact(move |conn| {
@@ -102,15 +89,10 @@ impl Profile {
 
 				query
 					.filter(id.eq(query_id))
-					.select((
-						PrimitiveProfile::as_select(),
-						image::all_columns.nullable(),
-					))
+					.select(Self::as_select())
 					.get_result(conn)
 			})
 			.await??;
-
-		let profile = Self::from_joined(profile);
 
 		Ok(profile)
 	}
@@ -118,13 +100,13 @@ impl Profile {
 	/// Update a given [`Profile`]
 	#[instrument(skip(conn))]
 	pub async fn update(self, conn: &DbConn) -> Result<Self, Error> {
-		let self_id = self.profile.id;
+		let self_id = self.primitive.id;
 
 		conn.interact(|conn| {
 			use self::profile::dsl::*;
 
-			diesel::update(profile.find(self.profile.id))
-				.set(self.profile)
+			diesel::update(profile.find(self.primitive.id))
+				.set(self.primitive)
 				.execute(conn)
 		})
 		.await??;
@@ -140,7 +122,7 @@ impl Profile {
 		p_cfg: PaginationConfig,
 		conn: &DbConn,
 	) -> Result<PaginatedData<Vec<Self>>, Error> {
-		let query = Self::joined_query();
+		let query = Self::query();
 
 		let profiles = conn
 			.interact(move |conn| {
@@ -149,16 +131,10 @@ impl Profile {
 				query
 					.order_by(id)
 					.limit(QUERY_HARD_LIMIT)
-					.select((
-						PrimitiveProfile::as_select(),
-						image::all_columns.nullable(),
-					))
+					.select(Self::as_select())
 					.get_results(conn)
 			})
-			.await??
-			.into_iter()
-			.map(Self::from_joined)
-			.collect();
+			.await??;
 
 		manual_pagination(profiles, p_cfg)
 	}
@@ -184,7 +160,7 @@ impl Profile {
 		query_username: String,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let query = Self::joined_query();
+		let query = Self::query();
 
 		let profile = conn
 			.interact(move |conn| {
@@ -192,15 +168,10 @@ impl Profile {
 
 				query
 					.filter(username.eq(query_username))
-					.select((
-						PrimitiveProfile::as_select(),
-						image::all_columns.nullable(),
-					))
+					.select(Self::as_select())
 					.first(conn)
 			})
 			.await??;
-
-		let profile = Self::from_joined(profile);
 
 		Ok(profile)
 	}
@@ -211,7 +182,7 @@ impl Profile {
 		search: String,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let query = Self::joined_query();
+		let query = Self::query();
 
 		let profile = conn
 			.interact(move |conn| {
@@ -219,15 +190,10 @@ impl Profile {
 
 				query
 					.filter(email.eq(&search).or(username.eq(&search)))
-					.select((
-						PrimitiveProfile::as_select(),
-						image::all_columns.nullable(),
-					))
+					.select(Self::as_select())
 					.first(conn)
 			})
 			.await??;
-
-		let profile = Self::from_joined(profile);
 
 		Ok(profile)
 	}
@@ -238,7 +204,7 @@ impl Profile {
 		token: String,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let query = Self::joined_query();
+		let query = Self::query();
 
 		let profile = conn
 			.interact(move |conn| {
@@ -246,15 +212,10 @@ impl Profile {
 
 				query
 					.filter(email_confirmation_token.eq(token))
-					.select((
-						PrimitiveProfile::as_select(),
-						image::all_columns.nullable(),
-					))
+					.select(Self::as_select())
 					.first(conn)
 			})
 			.await??;
-
-		let profile = Self::from_joined(profile);
 
 		Ok(profile)
 	}
@@ -265,7 +226,7 @@ impl Profile {
 		token: String,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let query = Self::joined_query();
+		let query = Self::query();
 
 		let profile = conn
 			.interact(move |conn| {
@@ -273,15 +234,10 @@ impl Profile {
 
 				query
 					.filter(password_reset_token.eq(token))
-					.select((
-						PrimitiveProfile::as_select(),
-						image::all_columns.nullable(),
-					))
+					.select(Self::as_select())
 					.first(conn)
 			})
 			.await??;
-
-		let profile = Self::from_joined(profile);
 
 		Ok(profile)
 	}
@@ -292,8 +248,8 @@ impl Profile {
 	/// Panics if called on a [`Profile`] with no pending email
 	#[instrument(skip(conn))]
 	pub async fn confirm_email(&self, conn: &DbConn) -> Result<Self, Error> {
-		let self_id = self.profile.id;
-		let pending = self.profile.pending_email.clone().unwrap();
+		let self_id = self.primitive.id;
+		let pending = self.primitive.pending_email.clone().unwrap();
 
 		conn.interact(move |conn| {
 			use self::profile::dsl::*;
@@ -325,8 +281,8 @@ impl Profile {
 	) -> Result<Self, Error> {
 		let email_confirmation_token_expiry = Utc::now().naive_utc() + lifetime;
 
-		self.profile.email_confirmation_token = Some(token.to_string());
-		self.profile.email_confirmation_token_expiry =
+		self.primitive.email_confirmation_token = Some(token.to_string());
+		self.primitive.email_confirmation_token_expiry =
 			Some(email_confirmation_token_expiry);
 
 		self.update(conn).await
@@ -342,8 +298,8 @@ impl Profile {
 	) -> Result<Self, Error> {
 		let password_reset_token_expiry = Utc::now().naive_utc() + lifetime;
 
-		self.profile.password_reset_token = Some(token.to_string());
-		self.profile.password_reset_token_expiry =
+		self.primitive.password_reset_token = Some(token.to_string());
+		self.primitive.password_reset_token_expiry =
 			Some(password_reset_token_expiry);
 
 		self.update(conn).await
@@ -366,7 +322,7 @@ impl Profile {
 		new_password: &str,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let self_id = self.profile.id;
+		let self_id = self.primitive.id;
 		let new_password_hash = Self::hash_password(new_password)?;
 
 		conn.interact(move |conn| {
@@ -394,7 +350,7 @@ impl Profile {
 		mut self,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		self.profile.last_login_at = Utc::now().naive_utc();
+		self.primitive.last_login_at = Utc::now().naive_utc();
 		self.update(conn).await
 	}
 
@@ -427,7 +383,7 @@ impl Profile {
 
 		let user_email_ = user_email.clone();
 
-		let query = Self::joined_query();
+		let query = Self::query();
 
 		let profile: Option<Self> = conn
 			.interact(move |conn| {
@@ -435,15 +391,11 @@ impl Profile {
 
 				query
 					.filter(email.eq(user_email_))
-					.select((
-						PrimitiveProfile::as_select(),
-						image::all_columns.nullable(),
-					))
+					.select(Self::as_select())
 					.first(conn)
 					.optional()
 			})
-			.await??
-			.map(Self::from_joined);
+			.await??;
 
 		if let Some(profile) = profile {
 			return Ok(profile);
@@ -463,11 +415,11 @@ impl Profile {
 		{
 			let avatar = NewImage {
 				file_path:   None,
-				uploaded_by: profile.profile.id,
+				uploaded_by: profile.primitive.id,
 				image_url:   Some(avatar_url.to_string()),
 			};
 
-			avatar.insert_for_profile(profile.profile.id, conn).await?;
+			avatar.insert_for_profile(profile.primitive.id, conn).await?;
 		}
 
 		Ok(profile)
@@ -561,7 +513,7 @@ impl NewProfileDirect {
 
 		let profile = Profile::get(profile.id, conn).await?;
 
-		info!("direct-inserted new profile with id {}", profile.profile.id);
+		info!("direct-inserted new profile with id {}", profile.primitive.id);
 
 		Ok(profile)
 	}

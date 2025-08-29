@@ -1,10 +1,15 @@
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-use opening_time::{NewOpeningTime, OpeningTime, OpeningTimeUpdate};
+use opening_time::{
+	NewOpeningTime,
+	OpeningTime,
+	OpeningTimeIncludes,
+	OpeningTimeUpdate,
+};
 use primitives::PrimitiveOpeningTime;
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::profile::ProfileResponse;
-use crate::schemas::ser_includes;
+use crate::schemas::{BuildResponse, ser_includes};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,22 +31,39 @@ pub struct OpeningTimeResponse {
 	pub updated_by:       Option<Option<ProfileResponse>>,
 }
 
-impl From<OpeningTime> for OpeningTimeResponse {
-	fn from(value: OpeningTime) -> Self {
-		Self {
-			id:               value.opening_time.id,
-			day:              value.opening_time.day,
-			start_time:       value.opening_time.start_time,
-			end_time:         value.opening_time.end_time,
-			seat_occupancy:   value.seat_occupancy,
-			seat_count:       value.opening_time.seat_count,
-			reservable_from:  value.opening_time.reservable_from,
-			reservable_until: value.opening_time.reservable_until,
-			created_at:       value.opening_time.created_at,
-			created_by:       value.created_by.map(|p| p.map(Into::into)),
-			updated_at:       value.opening_time.updated_at,
-			updated_by:       value.updated_by.map(|p| p.map(Into::into)),
-		}
+impl BuildResponse<OpeningTimeResponse> for OpeningTime {
+	type Includes = OpeningTimeIncludes;
+
+	fn build_response(
+		self,
+		includes: Self::Includes,
+		_config: &crate::Config,
+	) -> Result<OpeningTimeResponse, common::Error> {
+		let created_by = self.created_by.map(Into::into);
+		let updated_by = self.updated_by.map(Into::into);
+
+		Ok(OpeningTimeResponse {
+			id:               self.primitive.id,
+			day:              self.primitive.day,
+			start_time:       self.primitive.start_time,
+			end_time:         self.primitive.end_time,
+			seat_occupancy:   None,
+			seat_count:       self.primitive.seat_count,
+			reservable_from:  self.primitive.reservable_from,
+			reservable_until: self.primitive.reservable_until,
+			created_at:       self.primitive.created_at,
+			created_by:       if includes.created_by {
+				Some(created_by)
+			} else {
+				None
+			},
+			updated_at:       self.primitive.updated_at,
+			updated_by:       if includes.updated_by {
+				Some(updated_by)
+			} else {
+				None
+			},
+		})
 	}
 }
 

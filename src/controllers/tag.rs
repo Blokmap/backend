@@ -5,24 +5,30 @@ use axum::response::IntoResponse;
 use common::{DbPool, Error};
 use tag::{Tag, TagIncludes};
 
-use crate::AdminSession;
+use crate::schemas::BuildResponse;
 use crate::schemas::tag::{CreateTagRequest, TagResponse, UpdateTagRequest};
+use crate::{AdminSession, Config};
 
 #[instrument(skip(pool))]
 pub async fn get_all_tags(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	Query(includes): Query<TagIncludes>,
 ) -> Result<impl IntoResponse, Error> {
 	let conn = pool.get().await?;
 
 	let tags = Tag::get_all(includes, &conn).await?;
-	let response: Vec<TagResponse> = tags.into_iter().map(Into::into).collect();
+	let response: Vec<TagResponse> = tags
+		.into_iter()
+		.map(|t| t.build_response(includes, &config))
+		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
 
 #[instrument(skip(pool))]
 pub async fn create_tag(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	session: AdminSession,
 	Query(includes): Query<TagIncludes>,
@@ -32,13 +38,14 @@ pub async fn create_tag(
 
 	let new_tag = request.to_insertable(session.data.profile_id);
 	let tag = new_tag.insert(includes, &conn).await?;
-	let response: TagResponse = tag.into();
+	let response: TagResponse = tag.build_response(includes, &config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
 
 #[instrument(skip(pool))]
 pub async fn update_tag(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	session: AdminSession,
 	Query(includes): Query<TagIncludes>,
@@ -49,7 +56,8 @@ pub async fn update_tag(
 
 	let tag_update = request.to_insertable(session.data.profile_id);
 	let updated_tag = tag_update.apply_to(id, includes, &conn).await?;
-	let response: TagResponse = updated_tag.into();
+	let response: TagResponse =
+		updated_tag.build_response(includes, &config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }

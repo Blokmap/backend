@@ -29,7 +29,7 @@ async fn get_reservations_for_location() {
 
 	let response = env
 		.app
-		.get(&format!("/locations/{}/reservations", location.location.id))
+		.get(&format!("/locations/{}/reservations", location.primitive.id))
 		.await;
 
 	assert_eq!(response.status_code(), StatusCode::OK);
@@ -50,7 +50,7 @@ async fn get_reservations_for_opening_time() {
 		.app
 		.get(&format!(
 			"/locations/{}/opening-times/{}/reservations",
-			location.location.id, time.opening_time.id
+			location.primitive.id, time.primitive.id
 		))
 		.await;
 
@@ -77,7 +77,7 @@ async fn create_reservation() {
 		.app
 		.post(&format!(
 			"/locations/{}/opening-times/{}/reservations",
-			location.location.id, time.opening_time.id
+			location.primitive.id, time.primitive.id
 		))
 		.json(&create_req)
 		.await;
@@ -105,7 +105,7 @@ async fn delete_reservation() {
 		.app
 		.post(&format!(
 			"/locations/{}/opening-times/{}/reservations",
-			location.location.id, time.opening_time.id
+			location.primitive.id, time.primitive.id
 		))
 		.json(&create_req)
 		.await;
@@ -117,7 +117,7 @@ async fn delete_reservation() {
 		.app
 		.delete(&format!(
 			"/locations/{}/opening-times/{}/reservations/{}",
-			location.location.id, time.opening_time.id, created.id,
+			location.primitive.id, time.primitive.id, created.id,
 		))
 		.await;
 

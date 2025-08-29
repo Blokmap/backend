@@ -1,13 +1,13 @@
 use base::RESERVATION_BLOCK_SIZE_MINUTES;
 use chrono::{Duration, NaiveDateTime, NaiveTime};
 use db::ReservationState;
-use reservation::Reservation;
+use reservation::{Reservation, ReservationIncludes};
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::location::LocationResponse;
 use crate::schemas::opening_time::OpeningTimeResponse;
 use crate::schemas::profile::ProfileResponse;
-use crate::schemas::ser_includes;
+use crate::schemas::{BuildResponse, ser_includes};
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -31,12 +31,18 @@ pub struct ReservationResponse {
 	pub location:     LocationResponse,
 }
 
-impl From<Reservation> for ReservationResponse {
-	fn from(value: Reservation) -> Self {
-		let location = value.location;
-		let opening_time = value.opening_time;
+impl BuildResponse<ReservationResponse> for Reservation {
+	type Includes = ReservationIncludes;
 
-		let reservation = value.reservation;
+	fn build_response(
+		self,
+		includes: Self::Includes,
+		_config: &crate::Config,
+	) -> Result<ReservationResponse, common::Error> {
+		let location = self.location;
+		let opening_time = self.opening_time;
+
+		let reservation = self.primitive;
 
 		let block_day = opening_time.day;
 		let block_start_time = opening_time.start_time;
@@ -54,22 +60,29 @@ impl From<Reservation> for ReservationResponse {
 		);
 		let end_time = start_time + end_offset;
 
-		Self {
+		let profile = self.profile.map(Into::into);
+		let confirmed_by = self.confirmed_by.map(Into::into);
+
+		Ok(ReservationResponse {
 			id: reservation.id,
 			state: reservation.state,
 			opening_time_id: reservation.opening_time_id,
 			base_block_index: reservation.base_block_index,
 			block_count: reservation.block_count,
 			created_at: reservation.created_at,
-			created_by: value.profile.map(Into::into),
+			created_by: if includes.profile { profile } else { None },
 			updated_at: reservation.updated_at,
 			confirmed_at: reservation.confirmed_at,
-			confirmed_by: value.confirmed_by.map(|p| p.map(Into::into)),
+			confirmed_by: if includes.confirmed_by {
+				Some(confirmed_by)
+			} else {
+				None
+			},
 			opening_time: opening_time.into(),
 			location: location.into(),
 			start_time,
 			end_time,
-		}
+		})
 	}
 }
 

@@ -207,7 +207,7 @@ pub async fn sso_callback(
 
 	let profile = profile.update_last_login(&conn).await?;
 
-	info!("logged in profile {} from google SSO", profile.profile.id);
+	info!("logged in profile {} from google SSO", profile.primitive.id);
 
 	let redirect_url = config.frontend_url.join("auth/sso")?;
 

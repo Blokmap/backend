@@ -4,7 +4,6 @@ extern crate tracing;
 use std::default::Default;
 
 use base::{
-	JoinParts,
 	PaginatedData,
 	PaginationConfig,
 	QUERY_HARD_LIMIT,
@@ -18,44 +17,21 @@ use diesel::sql_types::Bool;
 use primitives::{PrimitiveLocation, PrimitiveProfile, PrimitiveReview};
 use serde::{Deserialize, Serialize};
 
-pub type JoinedReviewData =
-	(PrimitiveReview, PrimitiveProfile, Option<PrimitiveLocation>);
-
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct ReviewIncludes {
 	#[serde(default)]
 	pub location: bool,
 }
 
-#[derive(Clone, Debug, Queryable, Selectable)]
+#[derive(Clone, Debug, Deserialize, Queryable, Selectable, Serialize)]
 #[diesel(table_name = review)]
 #[diesel(check_for_backend(Pg))]
-pub struct ReviewParts {
-	#[diesel(embed)]
-	pub primitive:  PrimitiveReview,
-	#[diesel(embed)]
-	pub created_by: PrimitiveProfile,
-	#[diesel(embed)]
-	pub location:   Option<PrimitiveLocation>,
-}
-
-impl JoinParts for ReviewParts {
-	type Includes = ReviewIncludes;
-	type Target = Review;
-
-	fn join(self, includes: Self::Includes) -> Self::Target {
-		Review {
-			primitive:  self.primitive,
-			created_by: self.created_by,
-			location:   if includes.location { self.location } else { None },
-		}
-	}
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Review {
+	#[diesel(embed)]
 	pub primitive:  PrimitiveReview,
+	#[diesel(embed)]
 	pub created_by: PrimitiveProfile,
+	#[diesel(embed)]
 	pub location:   Option<PrimitiveLocation>,
 }
 
@@ -87,14 +63,11 @@ impl Review {
 			.interact(move |conn| {
 				Self::query(includes)
 					.filter(review::location_id.eq(l_id))
-					.select(ReviewParts::as_select())
+					.select(Self::as_select())
 					.limit(QUERY_HARD_LIMIT)
 					.get_results(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|parts| parts.join(includes))
-			.collect();
+			.await??;
 
 		manual_pagination(reviews, p_cfg)
 	}
@@ -110,13 +83,10 @@ impl Review {
 			.interact(move |conn| {
 				Self::query(includes)
 					.filter(review::profile_id.eq(p_id))
-					.select(ReviewParts::as_select())
+					.select(Self::as_select())
 					.get_results(conn)
 			})
-			.await??
-			.into_iter()
-			.map(|parts| parts.join(includes))
-			.collect();
+			.await??;
 
 		Ok(reviews)
 	}
@@ -148,12 +118,11 @@ impl NewReview {
 
 					Review::query(ReviewIncludes::default())
 						.filter(id.eq(r_id))
-						.select(ReviewParts::as_select())
+						.select(Review::as_select())
 						.get_result(conn)
 				})
 			})
-			.await??
-			.join(ReviewIncludes::default());
+			.await??;
 
 		Ok(review)
 	}
@@ -187,12 +156,11 @@ impl ReviewUpdate {
 
 					Review::query(ReviewIncludes::default())
 						.filter(id.eq(r_id))
-						.select(ReviewParts::as_select())
+						.select(Review::as_select())
 						.get_result(conn)
 				})
 			})
-			.await??
-			.join(ReviewIncludes::default());
+			.await??;
 
 		Ok(review)
 	}

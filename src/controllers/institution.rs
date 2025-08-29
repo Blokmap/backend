@@ -9,7 +9,7 @@ use institution::{Institution, InstitutionIncludes};
 use permissions::Permissions;
 
 use crate::schemas::BuildResponse;
-use crate::schemas::authority::{AuthorityResponse, CreateAuthorityRequest};
+use crate::schemas::authority::CreateAuthorityRequest;
 use crate::schemas::institution::{
 	CreateInstitutionMemberRequest,
 	CreateInstitutionRequest,
@@ -21,6 +21,7 @@ use crate::{Config, Session};
 
 #[instrument(skip(pool))]
 pub async fn create_institution(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	session: Session,
 	Query(includes): Query<InstitutionIncludes>,
@@ -31,7 +32,7 @@ pub async fn create_institution(
 	let (new_institution, authority_request) =
 		request.to_insertable(session.data.profile_id);
 	let institution = new_institution.insert(includes, &conn).await?;
-	let mut response: InstitutionResponse = institution.into();
+	let mut response = institution.build_response(includes, &config)?;
 
 	if let Some(authority_request) = authority_request {
 		let mut new_authority =
@@ -42,7 +43,7 @@ pub async fn create_institution(
 			new_authority
 				.insert(AuthorityIncludes::default(), &conn)
 				.await?
-				.into(),
+				.build_response(AuthorityIncludes::default(), &config)?,
 		);
 	}
 
@@ -51,6 +52,7 @@ pub async fn create_institution(
 
 #[instrument(skip(pool))]
 pub async fn create_institution_authority(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	session: Session,
 	Path(i_id): Path<i32>,
@@ -70,13 +72,14 @@ pub async fn create_institution_authority(
 	let mut new_authority = request.to_insertable(session.data.profile_id);
 	new_authority.institution_id = Some(i_id);
 	let new_authority = new_authority.insert(includes, &conn).await?;
-	let response: AuthorityResponse = new_authority.into();
+	let response = new_authority.build_response(includes, &config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
 
 #[instrument(skip(pool))]
 pub async fn link_authority(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	session: Session,
 	Path((i_id, a_id)): Path<(i32, i32)>,
@@ -99,13 +102,14 @@ pub async fn link_authority(
 		institution_id: Some(i_id),
 	};
 	let authority = update.apply_to(a_id, includes, &conn).await?;
-	let response: AuthorityResponse = authority.into();
+	let response = authority.build_response(includes, &config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
 
 #[instrument(skip(pool))]
 pub async fn get_all_institutions(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	Query(includes): Query<InstitutionIncludes>,
 	Query(p_opts): Query<PaginationOptions>,
@@ -114,8 +118,10 @@ pub async fn get_all_institutions(
 
 	let (total, truncated, institutions) =
 		Institution::get_all(includes, p_opts.into(), &conn).await?;
-	let institutions: Vec<InstitutionResponse> =
-		institutions.into_iter().map(Into::into).collect();
+	let institutions: Vec<InstitutionResponse> = institutions
+		.into_iter()
+		.map(|i| i.build_response(includes, &config))
+		.collect::<Result<_, _>>()?;
 
 	let response = p_opts.paginate(total, truncated, institutions);
 
@@ -124,6 +130,7 @@ pub async fn get_all_institutions(
 
 #[instrument(skip(pool))]
 pub async fn get_institution(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	Query(includes): Query<InstitutionIncludes>,
 	Path(id): Path<i32>,
@@ -131,7 +138,7 @@ pub async fn get_institution(
 	let conn = pool.get().await?;
 
 	let authority = Institution::get_by_id(id, includes, &conn).await?;
-	let response = InstitutionResponse::from(authority);
+	let response = authority.build_response(includes, &config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -161,7 +168,7 @@ pub async fn get_institution_members(
 	let members = Institution::get_members(id, &conn).await?;
 	let response: Vec<ProfileResponse> = members
 		.into_iter()
-		.map(|data| data.build_response(&config))
+		.map(|data| data.build_response((), &config))
 		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
@@ -187,7 +194,7 @@ pub(crate) async fn add_institution_member(
 
 	let new_inst_profile = request.to_insertable(id, session.data.profile_id);
 	let member = new_inst_profile.insert(&conn).await?;
-	let response: ProfileResponse = member.build_response(&config)?;
+	let response = member.build_response((), &config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }

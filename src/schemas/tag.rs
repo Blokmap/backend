@@ -1,7 +1,8 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use tag::{NewTag, Tag, TagUpdate};
+use tag::{NewTag, Tag, TagIncludes, TagUpdate};
 
+use crate::schemas::BuildResponse;
 use crate::schemas::profile::ProfileResponse;
 use crate::schemas::translation::{
 	CreateTranslationRequest,
@@ -20,16 +21,33 @@ pub struct TagResponse {
 	pub updated_by: Option<Option<ProfileResponse>>,
 }
 
-impl From<Tag> for TagResponse {
-	fn from(value: Tag) -> Self {
-		Self {
-			id:         value.tag.id,
-			name:       value.name.into(),
-			created_at: value.tag.created_at,
-			created_by: value.created_by.map(|p| p.map(Into::into)),
-			updated_at: value.tag.updated_at,
-			updated_by: value.updated_by.map(|p| p.map(Into::into)),
-		}
+impl BuildResponse<TagResponse> for Tag {
+	type Includes = TagIncludes;
+
+	fn build_response(
+		self,
+		includes: Self::Includes,
+		_config: &crate::Config,
+	) -> Result<TagResponse, common::Error> {
+		let created_by = self.created_by.map(Into::into);
+		let updated_by = self.updated_by.map(Into::into);
+
+		Ok(TagResponse {
+			id:         self.primitive.id,
+			name:       self.name.into(),
+			created_at: self.primitive.created_at,
+			created_by: if includes.created_by {
+				Some(created_by)
+			} else {
+				None
+			},
+			updated_at: self.primitive.updated_at,
+			updated_by: if includes.updated_by {
+				Some(updated_by)
+			} else {
+				None
+			},
+		})
 	}
 }
 

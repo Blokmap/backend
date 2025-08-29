@@ -1,15 +1,20 @@
 use chrono::NaiveDateTime;
 use db::InstitutionCategory;
-use institution::{Institution, NewInstitution, NewInstitutionMember};
+use institution::{
+	Institution,
+	InstitutionIncludes,
+	NewInstitution,
+	NewInstitutionMember,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::schemas::authority::{AuthorityResponse, CreateAuthorityRequest};
 use crate::schemas::profile::ProfileResponse;
-use crate::schemas::ser_includes;
 use crate::schemas::translation::{
 	CreateTranslationRequest,
 	TranslationResponse,
 };
+use crate::schemas::{BuildResponse, ser_includes};
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -35,27 +40,44 @@ pub struct InstitutionResponse {
 	pub authority:        Option<AuthorityResponse>,
 }
 
-impl From<Institution> for InstitutionResponse {
-	fn from(value: Institution) -> Self {
-		Self {
-			id:               value.institution.id,
-			name_translation: value.name.into(),
-			email:            value.institution.email,
-			phone_number:     value.institution.phone_number,
-			street:           value.institution.street,
-			number:           value.institution.number,
-			zip:              value.institution.zip,
-			city:             value.institution.city,
-			province:         value.institution.province,
-			country:          value.institution.country,
-			created_at:       value.institution.created_at,
-			created_by:       value.created_by.map(Into::into),
-			updated_at:       value.institution.updated_at,
-			updated_by:       value.updated_by.map(|p| p.map(Into::into)),
-			category:         value.institution.category,
-			slug:             value.institution.slug,
+impl BuildResponse<InstitutionResponse> for Institution {
+	type Includes = InstitutionIncludes;
+
+	fn build_response(
+		self,
+		includes: Self::Includes,
+		_config: &crate::Config,
+	) -> Result<InstitutionResponse, common::Error> {
+		let created_by = self.created_by.map(Into::into);
+		let updated_by = self.updated_by.map(Into::into);
+
+		Ok(InstitutionResponse {
+			id:               self.primitive.id,
+			name_translation: self.name.into(),
+			email:            self.primitive.email,
+			phone_number:     self.primitive.phone_number,
+			street:           self.primitive.street,
+			number:           self.primitive.number,
+			zip:              self.primitive.zip,
+			city:             self.primitive.city,
+			province:         self.primitive.province,
+			country:          self.primitive.country,
+			created_at:       self.primitive.created_at,
+			created_by:       if includes.created_by {
+				created_by
+			} else {
+				None
+			},
+			updated_at:       self.primitive.updated_at,
+			updated_by:       if includes.updated_by {
+				Some(updated_by)
+			} else {
+				None
+			},
+			category:         self.primitive.category,
+			slug:             self.primitive.slug,
 			authority:        None,
-		}
+		})
 	}
 }
 

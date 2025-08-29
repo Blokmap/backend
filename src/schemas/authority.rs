@@ -1,8 +1,15 @@
-use authority::{Authority, AuthorityUpdate, NewAuthority, NewAuthorityMember};
+use authority::{
+	Authority,
+	AuthorityIncludes,
+	AuthorityUpdate,
+	NewAuthority,
+	NewAuthorityMember,
+};
 use chrono::NaiveDateTime;
 use primitives::PrimitiveAuthority;
 use serde::{Deserialize, Serialize};
 
+use crate::schemas::BuildResponse;
 use crate::schemas::profile::ProfileResponse;
 
 #[skip_serializing_none]
@@ -18,17 +25,34 @@ pub struct AuthorityResponse {
 	pub updated_by:  Option<Option<ProfileResponse>>,
 }
 
-impl From<Authority> for AuthorityResponse {
-	fn from(value: Authority) -> Self {
-		Self {
-			id:          value.authority.id,
-			name:        value.authority.name,
-			description: value.authority.description,
-			created_at:  value.authority.created_at,
-			created_by:  value.created_by.map(|p| p.map(Into::into)),
-			updated_at:  value.authority.updated_at,
-			updated_by:  value.updated_by.map(|p| p.map(Into::into)),
-		}
+impl BuildResponse<AuthorityResponse> for Authority {
+	type Includes = AuthorityIncludes;
+
+	fn build_response(
+		self,
+		includes: Self::Includes,
+		_config: &crate::Config,
+	) -> Result<AuthorityResponse, common::Error> {
+		let created_by = self.created_by.map(Into::into);
+		let updated_by = self.updated_by.map(Into::into);
+
+		Ok(AuthorityResponse {
+			id:          self.primitive.id,
+			name:        self.primitive.name,
+			description: self.primitive.description,
+			created_at:  self.primitive.created_at,
+			created_by:  if includes.created_by {
+				Some(created_by)
+			} else {
+				None
+			},
+			updated_at:  self.primitive.updated_at,
+			updated_by:  if includes.updated_by {
+				Some(updated_by)
+			} else {
+				None
+			},
+		})
 	}
 }
 

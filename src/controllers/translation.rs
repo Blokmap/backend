@@ -7,16 +7,17 @@ use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
 use translation::{Translation, TranslationIncludes};
 
-use crate::Session;
+use crate::schemas::BuildResponse;
 use crate::schemas::translation::{
 	CreateTranslationRequest,
-	TranslationResponse,
 	UpdateTranslationRequest,
 };
+use crate::{Config, Session};
 
 /// Create and store a single translation in the database.
 #[instrument(skip(pool))]
 pub(crate) async fn create_translation(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	session: Session,
 	Query(includes): Query<TranslationIncludes>,
@@ -26,7 +27,7 @@ pub(crate) async fn create_translation(
 
 	let new_tr = request.to_insertable(session.data.profile_id);
 	let translation = new_tr.insert(includes, &conn).await?;
-	let response = TranslationResponse::from(translation);
+	let response = translation.build_response(includes, &config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
 }
@@ -34,6 +35,7 @@ pub(crate) async fn create_translation(
 /// Get a specific translation with a given key and language
 #[instrument(skip(pool))]
 pub(crate) async fn get_translation(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	Path(id): Path<i32>,
 	Query(includes): Query<TranslationIncludes>,
@@ -41,7 +43,7 @@ pub(crate) async fn get_translation(
 	let conn = pool.get().await?;
 
 	let translation = Translation::get_by_id(id, includes, &conn).await?;
-	let response = TranslationResponse::from(translation);
+	let response = translation.build_response(includes, &config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
@@ -49,6 +51,7 @@ pub(crate) async fn get_translation(
 /// Update the translation with the given id.
 #[instrument(skip(pool))]
 pub(crate) async fn update_translation(
+	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	session: Session,
 	Path(id): Path<i32>,
@@ -60,7 +63,7 @@ pub(crate) async fn update_translation(
 
 	let tr_update = request.to_insertable(session.data.profile_id);
 	let updated_tr = tr_update.apply_to(id, includes, &conn).await?;
-	let response = TranslationResponse::from(updated_tr);
+	let response = updated_tr.build_response(includes, &config)?;
 
 	Ok((StatusCode::OK, Json(response)))
 }
