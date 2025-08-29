@@ -1,7 +1,3 @@
-DROP VIEW location_member_permissions;
-DROP VIEW authority_member_permissions;
-DROP VIEW institution_member_permissions;
-
 DROP TABLE location_member_role;
 DROP TABLE authority_member_role;
 DROP TABLE institution_member_role;

@@ -635,34 +635,3 @@ CREATE TABLE location_member_role (
 	FOREIGN KEY (added_by) REFERENCES profile(id)
 	ON DELETE SET NULL
 );
-
-CREATE VIEW institution_member_permissions AS
-	SELECT m.*, bit_or(r.permissions) as permissions
-	FROM institution_member m
-	LEFT JOIN institution_member_role mr
-		ON mr.institution_member_id = m.id
-	INNER JOIN institution_role r
-		ON r.id = mr.institution_role_id
-	GROUP BY m.id;
-
-
-
-CREATE VIEW authority_member_permissions AS
-	SELECT m.*, bit_or(r.permissions) as permissions
-	FROM authority_member m
-	LEFT JOIN authority_member_role mr
-		ON mr.authority_member_id = m.id
-	INNER JOIN authority_role r
-		ON r.id = mr.authority_role_id
-	GROUP BY m.id;
-
-
-
-CREATE VIEW location_member_permissions AS
-	SELECT m.*, bit_or(r.permissions) as permissions
-	FROM location_member m
-	LEFT JOIN location_member_role mr
-		ON mr.location_member_id = m.id
-	INNER JOIN location_role r
-		ON r.id = mr.location_role_id
-	GROUP BY m.id;
