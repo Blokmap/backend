@@ -10,80 +10,11 @@ use common::{CreateReservationError, DbPool, Error};
 use location::{Location, LocationIncludes};
 use opening_time::{OpeningTime, OpeningTimeIncludes};
 use permissions::Permissions;
-use reservation::{
-	NewReservation,
-	Reservation,
-	ReservationFilter,
-	ReservationIncludes,
-};
+use reservation::{NewReservation, Reservation, ReservationIncludes};
 
 use crate::schemas::BuildResponse;
-use crate::schemas::reservation::{
-	CreateReservationRequest,
-	ReservationResponse,
-};
+use crate::schemas::reservation::CreateReservationRequest;
 use crate::{Config, Session};
-
-#[instrument(skip(pool))]
-pub async fn get_reservations_for_location(
-	State(config): State<Config>,
-	State(pool): State<DbPool>,
-	session: Session,
-	Path(loc_id): Path<i32>,
-	Query(filter): Query<ReservationFilter>,
-	Query(includes): Query<ReservationIncludes>,
-) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
-		loc_id,
-		session.data.profile_id,
-		Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
-		&pool,
-	)
-	.await?;
-
-	let conn = pool.get().await?;
-
-	let reservations =
-		Reservation::for_location(loc_id, filter, includes, &conn).await?;
-	let response: Vec<ReservationResponse> = reservations
-		.into_iter()
-		.map(|r| r.build_response(includes, &config))
-		.collect::<Result<_, _>>()?;
-
-	Ok((StatusCode::OK, Json(response)))
-}
-
-#[instrument(skip(pool))]
-pub async fn get_reservations_for_opening_time(
-	State(config): State<Config>,
-	State(pool): State<DbPool>,
-	session: Session,
-	Path((l_id, t_id)): Path<(i32, i32)>,
-	Query(includes): Query<ReservationIncludes>,
-) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
-		l_id,
-		session.data.profile_id,
-		Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
-		&pool,
-	)
-	.await?;
-
-	let conn = pool.get().await?;
-
-	let reservations =
-		Reservation::for_opening_time(t_id, includes, &conn).await?;
-	let response: Vec<ReservationResponse> = reservations
-		.into_iter()
-		.map(|r| r.build_response(includes, &config))
-		.collect::<Result<_, _>>()?;
-
-	Ok((StatusCode::OK, Json(response)))
-}
 
 #[instrument(skip(pool))]
 pub async fn create_reservation(

@@ -54,6 +54,7 @@ use crate::controllers::location::{
 	add_location_member,
 	approve_location,
 	create_location,
+	create_location_review,
 	create_location_role,
 	delete_location,
 	delete_location_image,
@@ -61,6 +62,10 @@ use crate::controllers::location::{
 	delete_location_role,
 	get_location,
 	get_location_members,
+	get_location_opening_time_reservations,
+	get_location_opening_times,
+	get_location_reservations,
+	get_location_reviews,
 	get_location_roles,
 	get_nearest_location,
 	reject_location,
@@ -68,14 +73,14 @@ use crate::controllers::location::{
 	search_locations,
 	set_location_tags,
 	update_location,
+	update_location_review,
 	update_location_role,
 	upload_location_image,
 };
 use crate::controllers::opening_time::{
-	create_location_times,
-	delete_location_time,
-	get_location_times,
-	update_location_time,
+	create_location_opening_times,
+	delete_location_opening_time,
+	update_location_opening_time,
 };
 use crate::controllers::profile::{
 	activate_profile,
@@ -93,17 +98,7 @@ use crate::controllers::profile::{
 	update_profile,
 	upload_profile_avatar,
 };
-use crate::controllers::reservation::{
-	create_reservation,
-	delete_reservation,
-	get_reservations_for_location,
-	get_reservations_for_opening_time,
-};
-use crate::controllers::review::{
-	create_location_review,
-	get_location_reviews,
-	update_location_review,
-};
+use crate::controllers::reservation::{create_reservation, delete_reservation};
 use crate::controllers::tag::{
 	create_tag,
 	delete_tag,
@@ -210,16 +205,18 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 		.route("/{id}/images/reorder", post(reorder_location_images))
 		.route(
 			"/{id}/opening-times",
-			get(get_location_times).post(create_location_times),
+			get(get_location_opening_times).post(create_location_opening_times),
 		)
 		.route(
 			"/{id}/opening-times/{time_id}",
-			patch(update_location_time).delete(delete_location_time),
+			patch(update_location_opening_time)
+				.delete(delete_location_opening_time),
 		)
-		.route("/{l_id}/reservations", get(get_reservations_for_location))
+		.route("/{l_id}/reservations", get(get_location_reservations))
 		.route(
 			"/{l_id}/opening-times/{t_id}/reservations",
-			get(get_reservations_for_opening_time).post(create_reservation),
+			get(get_location_opening_time_reservations)
+				.post(create_reservation),
 		)
 		.route(
 			"/{l_id}/opening-times/{t_id}/reservations/{r_id}",

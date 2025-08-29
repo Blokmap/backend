@@ -7,8 +7,14 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
 use location::{Location, LocationFilter, LocationIncludes, Point};
-use opening_time::{OpeningTime, OpeningTimeIncludes, TimeFilter};
+use opening_time::{
+	OpeningTime,
+	OpeningTimeIncludes,
+	TimeBoundsFilter,
+	TimeFilter,
+};
 use permissions::Permissions;
+use reservation::{Reservation, ReservationFilter, ReservationIncludes};
 use tag::{Tag, TagIncludes};
 use validator::Validate;
 
@@ -20,16 +26,20 @@ use crate::schemas::location::{
 	RejectLocationRequest,
 	UpdateLocationRequest,
 };
+use crate::schemas::opening_time::OpeningTimeResponse;
 use crate::schemas::pagination::PaginationOptions;
+use crate::schemas::reservation::ReservationResponse;
 use crate::schemas::tag::SetLocationTagsRequest;
 use crate::{Config, Session};
 
 mod image;
 mod member;
+mod review;
 mod role;
 
 pub(crate) use image::*;
 pub(crate) use member::*;
+pub(crate) use review::*;
 pub(crate) use role::*;
 
 /// Create a new location in the database.
@@ -64,6 +74,87 @@ pub(crate) async fn get_location(
 
 	let result = Location::get_by_id(id, includes, &conn).await?;
 	let response = result.build_response(includes, &config)?;
+
+	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn get_location_opening_times(
+	State(config): State<Config>,
+	State(pool): State<DbPool>,
+	Path(id): Path<i32>,
+	Query(filter): Query<TimeBoundsFilter>,
+	Query(includes): Query<OpeningTimeIncludes>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let times =
+		OpeningTime::get_for_location(id, filter, includes, &conn).await?;
+	let times: Vec<OpeningTimeResponse> = times
+		.into_iter()
+		.map(|t| t.build_response(includes, &config))
+		.collect::<Result<_, _>>()?;
+
+	Ok((StatusCode::OK, Json(times)))
+}
+
+#[instrument(skip(pool))]
+pub async fn get_location_reservations(
+	State(config): State<Config>,
+	State(pool): State<DbPool>,
+	session: Session,
+	Path(loc_id): Path<i32>,
+	Query(filter): Query<ReservationFilter>,
+	Query(includes): Query<ReservationIncludes>,
+) -> Result<impl IntoResponse, Error> {
+	Permissions::check_for_location(
+		loc_id,
+		session.data.profile_id,
+		Permissions::LocAdministrator
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
+	)
+	.await?;
+
+	let conn = pool.get().await?;
+
+	let reservations =
+		Reservation::for_location(loc_id, filter, includes, &conn).await?;
+	let response: Vec<ReservationResponse> = reservations
+		.into_iter()
+		.map(|r| r.build_response(includes, &config))
+		.collect::<Result<_, _>>()?;
+
+	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn get_location_opening_time_reservations(
+	State(config): State<Config>,
+	State(pool): State<DbPool>,
+	session: Session,
+	Path((l_id, t_id)): Path<(i32, i32)>,
+	Query(includes): Query<ReservationIncludes>,
+) -> Result<impl IntoResponse, Error> {
+	Permissions::check_for_location(
+		l_id,
+		session.data.profile_id,
+		Permissions::LocAdministrator
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
+	)
+	.await?;
+
+	let conn = pool.get().await?;
+
+	let reservations =
+		Reservation::for_opening_time(t_id, includes, &conn).await?;
+	let response: Vec<ReservationResponse> = reservations
+		.into_iter()
+		.map(|r| r.build_response(includes, &config))
+		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
 }

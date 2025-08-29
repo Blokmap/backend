@@ -10,23 +10,6 @@ use crate::schemas::tag::{CreateTagRequest, TagResponse, UpdateTagRequest};
 use crate::{AdminSession, Config};
 
 #[instrument(skip(pool))]
-pub async fn get_all_tags(
-	State(config): State<Config>,
-	State(pool): State<DbPool>,
-	Query(includes): Query<TagIncludes>,
-) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let tags = Tag::get_all(includes, &conn).await?;
-	let response: Vec<TagResponse> = tags
-		.into_iter()
-		.map(|t| t.build_response(includes, &config))
-		.collect::<Result<_, _>>()?;
-
-	Ok((StatusCode::OK, Json(response)))
-}
-
-#[instrument(skip(pool))]
 pub async fn create_tag(
 	State(config): State<Config>,
 	State(pool): State<DbPool>,
@@ -41,6 +24,23 @@ pub async fn create_tag(
 	let response: TagResponse = tag.build_response(includes, &config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn get_all_tags(
+	State(config): State<Config>,
+	State(pool): State<DbPool>,
+	Query(includes): Query<TagIncludes>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let tags = Tag::get_all(includes, &conn).await?;
+	let response: Vec<TagResponse> = tags
+		.into_iter()
+		.map(|t| t.build_response(includes, &config))
+		.collect::<Result<_, _>>()?;
+
+	Ok((StatusCode::OK, Json(response)))
 }
 
 #[instrument(skip(pool))]

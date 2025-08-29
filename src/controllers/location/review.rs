@@ -14,6 +14,22 @@ use crate::schemas::review::{
 };
 
 #[instrument(skip(pool))]
+pub async fn create_location_review(
+	State(pool): State<DbPool>,
+	session: Session,
+	Path(id): Path<i32>,
+	Json(request): Json<CreateReviewRequest>,
+) -> Result<impl IntoResponse, Error> {
+	let conn = pool.get().await?;
+
+	let new_review = request.to_insertable(session.data.profile_id, id)?;
+	let review = new_review.insert(&conn).await?;
+	let response: ReviewResponse = review.into();
+
+	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
 pub async fn get_location_reviews(
 	State(pool): State<DbPool>,
 	Path(id): Path<i32>,
@@ -28,22 +44,6 @@ pub async fn get_location_reviews(
 		reviews.into_iter().map(ReviewResponse::from).collect();
 
 	let response = p_opts.paginate(total, truncated, response);
-
-	Ok((StatusCode::OK, Json(response)))
-}
-
-#[instrument(skip(pool))]
-pub async fn create_location_review(
-	State(pool): State<DbPool>,
-	session: Session,
-	Path(id): Path<i32>,
-	Json(request): Json<CreateReviewRequest>,
-) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let new_review = request.to_insertable(session.data.profile_id, id)?;
-	let review = new_review.insert(&conn).await?;
-	let response: ReviewResponse = review.into();
 
 	Ok((StatusCode::OK, Json(response)))
 }

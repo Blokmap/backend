@@ -3,12 +3,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
-use opening_time::{
-	NewOpeningTime,
-	OpeningTime,
-	OpeningTimeIncludes,
-	TimeBoundsFilter,
-};
+use opening_time::{NewOpeningTime, OpeningTime, OpeningTimeIncludes};
 
 use crate::schemas::BuildResponse;
 use crate::schemas::opening_time::{
@@ -19,27 +14,7 @@ use crate::schemas::opening_time::{
 use crate::{Config, Session};
 
 #[instrument(skip(pool))]
-pub async fn get_location_times(
-	State(config): State<Config>,
-	State(pool): State<DbPool>,
-	Path(id): Path<i32>,
-	Query(filter): Query<TimeBoundsFilter>,
-	Query(includes): Query<OpeningTimeIncludes>,
-) -> Result<impl IntoResponse, Error> {
-	let conn = pool.get().await?;
-
-	let times =
-		OpeningTime::get_for_location(id, filter, includes, &conn).await?;
-	let times: Vec<OpeningTimeResponse> = times
-		.into_iter()
-		.map(|t| t.build_response(includes, &config))
-		.collect::<Result<_, _>>()?;
-
-	Ok((StatusCode::OK, Json(times)))
-}
-
-#[instrument(skip(pool))]
-pub async fn create_location_times(
+pub async fn create_location_opening_times(
 	State(pool): State<DbPool>,
 	session: Session,
 	Path(id): Path<i32>,
@@ -61,7 +36,7 @@ pub async fn create_location_times(
 }
 
 #[instrument(skip(pool))]
-pub async fn update_location_time(
+pub async fn update_location_opening_time(
 	State(config): State<Config>,
 	State(pool): State<DbPool>,
 	session: Session,
@@ -79,7 +54,7 @@ pub async fn update_location_time(
 }
 
 #[instrument(skip(pool))]
-pub async fn delete_location_time(
+pub async fn delete_location_opening_time(
 	State(pool): State<DbPool>,
 	Path((id, time_id)): Path<(i32, i32)>,
 ) -> Result<impl IntoResponse, Error> {
