@@ -9,7 +9,9 @@ db = { path = "../../db" }
 
 primitives = { path = "../../primitives" }
 
+permissions = { path = "../permissions" }
 profile = { path = "../profile" }
+role = { path = "../role" }
 
 diesel = { workspace = true }
 serde = { workspace = true }

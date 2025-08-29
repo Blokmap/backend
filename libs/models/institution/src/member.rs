@@ -88,6 +88,7 @@ impl Institution {
 pub struct NewInstitutionMember {
 	pub institution_id: i32,
 	pub profile_id:     i32,
+	pub role_id:        Option<i32>,
 	pub added_by:       i32,
 }
 
@@ -132,6 +133,42 @@ impl NewInstitutionMember {
 			"added profile {} to institution {}",
 			self.profile_id, self.institution_id
 		);
+
+		Ok(profile)
+	}
+}
+
+#[derive(AsChangeset, Clone, Copy, Debug, Deserialize)]
+#[diesel(table_name = institution_member)]
+#[diesel(check_for_backend(Pg))]
+pub struct InstitutionMemberUpdate {
+	pub role_id:    Option<i32>,
+	pub updated_by: i32,
+}
+
+impl InstitutionMemberUpdate {
+	/// Update this [`InstitutionMember`] in the database.
+	#[instrument(skip(conn))]
+	pub async fn apply_to(
+		self,
+		inst_id: i32,
+		prof_id: i32,
+		conn: &DbConn,
+	) -> Result<Profile, Error> {
+		conn.interact(move |conn| {
+			use self::institution_member::dsl::*;
+
+			diesel::update(
+				institution_member.filter(
+					institution_id.eq(inst_id).and(profile_id.eq(prof_id)),
+				),
+			)
+			.set(self)
+			.execute(conn)
+		})
+		.await??;
+
+		let profile = Profile::get(prof_id, conn).await?;
 
 		Ok(profile)
 	}

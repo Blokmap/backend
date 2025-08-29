@@ -4,6 +4,7 @@ use image::{ImageIncludes, NewLocationImage};
 use location::{
 	FullLocationData,
 	LocationIncludes,
+	LocationMemberUpdate,
 	LocationUpdate,
 	NewLocation,
 	NewLocationMember,
@@ -296,6 +297,7 @@ impl CreateLocationRequest {
 #[serde(rename_all = "camelCase")]
 pub struct CreateLocationMemberRequest {
 	pub profile_id: i32,
+	pub role_id:    Option<i32>,
 }
 
 impl CreateLocationMemberRequest {
@@ -305,7 +307,25 @@ impl CreateLocationMemberRequest {
 		location_id: i32,
 		added_by: i32,
 	) -> NewLocationMember {
-		NewLocationMember { location_id, profile_id: self.profile_id, added_by }
+		NewLocationMember {
+			location_id,
+			profile_id: self.profile_id,
+			role_id: self.role_id,
+			added_by,
+		}
+	}
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocationMemberUpdateRequest {
+	pub role_id: Option<i32>,
+}
+
+impl LocationMemberUpdateRequest {
+	#[must_use]
+	pub fn to_insertable(self, updated_by: i32) -> LocationMemberUpdate {
+		LocationMemberUpdate { role_id: self.role_id, updated_by }
 	}
 }
 

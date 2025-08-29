@@ -89,6 +89,7 @@ impl Authority {
 pub struct NewAuthorityMember {
 	pub authority_id: i32,
 	pub profile_id:   i32,
+	pub role_id:      Option<i32>,
 	pub added_by:     i32,
 }
 
@@ -132,6 +133,42 @@ impl NewAuthorityMember {
 			"added profile {} to authority {}",
 			self.profile_id, self.authority_id
 		);
+
+		Ok(profile)
+	}
+}
+
+#[derive(AsChangeset, Clone, Copy, Debug, Deserialize)]
+#[diesel(table_name = authority_member)]
+#[diesel(check_for_backend(Pg))]
+pub struct AuthorityMemberUpdate {
+	pub role_id:    Option<i32>,
+	pub updated_by: i32,
+}
+
+impl AuthorityMemberUpdate {
+	/// Update this [`AuthorityMember`] in the database.
+	#[instrument(skip(conn))]
+	pub async fn apply_to(
+		self,
+		auth_id: i32,
+		prof_id: i32,
+		conn: &DbConn,
+	) -> Result<Profile, Error> {
+		conn.interact(move |conn| {
+			use self::authority_member::dsl::*;
+
+			diesel::update(
+				authority_member.filter(
+					authority_id.eq(auth_id).and(profile_id.eq(prof_id)),
+				),
+			)
+			.set(self)
+			.execute(conn)
+		})
+		.await??;
+
+		let profile = Profile::get(prof_id, conn).await?;
 
 		Ok(profile)
 	}

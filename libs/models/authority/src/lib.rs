@@ -2,20 +2,24 @@
 extern crate tracing;
 
 // use base::JoinParts;
+use ::role::NewRole;
 use common::{DbConn, Error};
 use db::{
 	CreatorAlias,
 	UpdaterAlias,
 	authority,
+	authority_member,
 	creator,
 	institution,
 	profile,
+	role,
 	updater,
 };
 use diesel::dsl::{AliasedFields, Nullable};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
+use permissions::Permissions;
 use primitives::{PrimitiveAuthority, PrimitiveInstitution, PrimitiveProfile};
 use serde::{Deserialize, Serialize};
 
@@ -161,12 +165,41 @@ impl NewAuthority {
 	) -> Result<Authority, Error> {
 		let authority = conn
 			.interact(|conn| {
-				use self::authority::dsl::*;
+				conn.transaction::<_, Error, _>(|conn| {
+					use self::authority::dsl::*;
 
-				diesel::insert_into(authority)
-					.values(self)
-					.returning(PrimitiveAuthority::as_returning())
-					.get_result(conn)
+					let creator_id = self.created_by;
+
+					let auth = diesel::insert_into(authority)
+						.values(self)
+						.returning(PrimitiveAuthority::as_returning())
+						.get_result(conn)?;
+
+					let new_role = NewRole {
+						name:        "owner".into(),
+						colour:      None,
+						permissions: Permissions::AuthAdministrator.bits(),
+						created_by:  creator_id,
+					};
+
+					let role_id = diesel::insert_into(role::table)
+						.values(new_role)
+						.returning(role::id)
+						.get_result(conn)?;
+
+					let member = NewAuthorityMember {
+						authority_id: auth.id,
+						profile_id:   creator_id,
+						role_id:      Some(role_id),
+						added_by:     creator_id,
+					};
+
+					diesel::insert_into(authority_member::table)
+						.values(member)
+						.execute(conn)?;
+
+					Ok(auth)
+				})
 			})
 			.await??;
 

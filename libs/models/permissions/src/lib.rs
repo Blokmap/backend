@@ -90,8 +90,9 @@ impl Permissions {
 					.inner_join(role::table.on(
 						institution_member::role_id.eq(role::id.nullable()),
 					))
-					.select(role::permissions.nullable())
+					.select(role::permissions)
 					.get_result(conn)
+					.optional()
 			})
 			.await??;
 
@@ -123,8 +124,9 @@ impl Permissions {
 							.on(authority_member::role_id
 								.eq(role::id.nullable())),
 					)
-					.select(role::permissions.nullable())
+					.select(role::permissions)
 					.get_result(conn)
+					.optional()
 			})
 			.await??;
 
@@ -189,8 +191,9 @@ impl Permissions {
 							.on(location_member::role_id
 								.eq(role::id.nullable())),
 					)
-					.select(role::permissions.nullable())
+					.select(role::permissions)
 					.get_result(conn)
+					.optional()
 			})
 			.await??;
 

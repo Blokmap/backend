@@ -7,7 +7,10 @@ use location::Location;
 use permissions::Permissions;
 
 use crate::schemas::BuildResponse;
-use crate::schemas::location::CreateLocationMemberRequest;
+use crate::schemas::location::{
+	CreateLocationMemberRequest,
+	LocationMemberUpdateRequest,
+};
 use crate::schemas::profile::ProfileResponse;
 use crate::{Config, Session};
 
@@ -66,6 +69,34 @@ pub async fn get_location_members(
 		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn update_location_member(
+	State(pool): State<DbPool>,
+	State(config): State<Config>,
+	session: Session,
+	Path((loc_id, prof_id)): Path<(i32, i32)>,
+	Json(request): Json<LocationMemberUpdateRequest>,
+) -> Result<impl IntoResponse, Error> {
+	Permissions::check_for_location(
+		loc_id,
+		session.data.profile_id,
+		Permissions::LocManageMembers
+			| Permissions::LocAdministrator
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
+	)
+	.await?;
+
+	let conn = pool.get().await?;
+
+	let member_update = request.to_insertable(session.data.profile_id);
+	let updated_member = member_update.apply_to(loc_id, prof_id, &conn).await?;
+	let response = updated_member.build_response((), &config)?;
+
+	Ok((StatusCode::CREATED, Json(response)))
 }
 
 #[instrument(skip(pool))]

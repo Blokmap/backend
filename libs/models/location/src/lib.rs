@@ -7,6 +7,7 @@ use std::hash::Hash;
 
 use ::image::{Image, OrderedImage};
 use ::opening_time::{OpeningTime, OpeningTimeIncludes, TimeBoundsFilter};
+use ::role::NewRole;
 use ::tag::Tag;
 use ::translation::NewTranslation;
 use chrono::{NaiveDateTime, Utc};
@@ -24,9 +25,11 @@ use db::{
 	description,
 	excerpt,
 	location,
+	location_member,
 	opening_time,
 	profile,
 	rejecter,
+	role,
 	translation,
 	updater,
 };
@@ -35,6 +38,7 @@ use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Double};
 use image::ImageIncludes;
+use permissions::Permissions;
 use primitives::{
 	PrimitiveAuthority,
 	PrimitiveLocation,
@@ -656,6 +660,29 @@ impl NewLocation {
 						.values(new_location)
 						.returning(PrimitiveLocation::as_returning())
 						.get_result(conn)?;
+
+					let new_role = NewRole {
+						name:        "owner".into(),
+						colour:      None,
+						permissions: Permissions::LocAdministrator.bits(),
+						created_by:  self.created_by,
+					};
+
+					let role_id = diesel::insert_into(role::table)
+						.values(new_role)
+						.returning(role::id)
+						.get_result(conn)?;
+
+					let member = NewLocationMember {
+						location_id: loc.id,
+						profile_id:  self.created_by,
+						role_id:     Some(role_id),
+						added_by:    self.created_by,
+					};
+
+					diesel::insert_into(location_member::table)
+						.values(member)
+						.execute(conn)?;
 
 					Ok(loc)
 				})

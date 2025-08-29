@@ -8,7 +8,10 @@ use location::LocationIncludes;
 use permissions::Permissions;
 
 use crate::schemas::BuildResponse;
-use crate::schemas::authority::CreateAuthorityMemberRequest;
+use crate::schemas::authority::{
+	AuthorityMemberUpdateRequest,
+	CreateAuthorityMemberRequest,
+};
 use crate::schemas::profile::ProfileResponse;
 use crate::{Config, Session};
 
@@ -66,6 +69,34 @@ pub(crate) async fn get_authority_members(
 		.collect::<Result<_, _>>()?;
 
 	Ok((StatusCode::OK, Json(response)))
+}
+
+#[instrument(skip(pool))]
+pub async fn update_authority_member(
+	State(pool): State<DbPool>,
+	State(config): State<Config>,
+	session: Session,
+	Path((auth_id, prof_id)): Path<(i32, i32)>,
+	Json(request): Json<AuthorityMemberUpdateRequest>,
+) -> Result<impl IntoResponse, Error> {
+	Permissions::check_for_authority(
+		auth_id,
+		session.data.profile_id,
+		Permissions::AuthManageMembers
+			| Permissions::AuthAdministrator
+			| Permissions::InstAdministrator,
+		&pool,
+	)
+	.await?;
+
+	let conn = pool.get().await?;
+
+	let member_update = request.to_insertable(session.data.profile_id);
+	let updated_member =
+		member_update.apply_to(auth_id, prof_id, &conn).await?;
+	let response = updated_member.build_response((), &config)?;
+
+	Ok((StatusCode::CREATED, Json(response)))
 }
 
 #[instrument(skip(pool))]

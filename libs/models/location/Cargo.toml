@@ -12,7 +12,9 @@ primitives = { path = "../../primitives" }
 
 image = { path = "../image" }
 opening_time = { path = "../opening_time" }
+permissions = { path = "../permissions" }
 profile = { path = "../profile" }
+role = { path = "../role" }
 tag = { path = "../tag" }
 translation = { path = "../translation" }
 

@@ -32,6 +32,7 @@ use crate::controllers::authority::{
 	get_authority_members,
 	get_authority_roles,
 	update_authority,
+	update_authority_member,
 	update_authority_role,
 };
 use crate::controllers::healthcheck;
@@ -48,6 +49,7 @@ use crate::controllers::institution::{
 	get_institution_members,
 	get_institution_roles,
 	link_authority,
+	update_insitution_member,
 	update_institution_role,
 };
 use crate::controllers::location::{
@@ -73,6 +75,7 @@ use crate::controllers::location::{
 	search_locations,
 	set_location_tags,
 	update_location,
+	update_location_member,
 	update_location_review,
 	update_location_role,
 	upload_location_image,
@@ -191,7 +194,10 @@ fn location_routes(state: &AppState) -> Router<AppState> {
 			"/{id}/members",
 			get(get_location_members).post(add_location_member),
 		)
-		.route("/{id}/members/{profile_id}", delete(delete_location_member))
+		.route(
+			"/{id}/members/{profile_id}",
+			patch(update_location_member).delete(delete_location_member),
+		)
 		.route(
 			"/{id}/roles",
 			get(get_location_roles).post(create_location_role),
@@ -248,7 +254,10 @@ fn authority_routes(state: &AppState) -> Router<AppState> {
 			"/{id}/members",
 			get(get_authority_members).post(add_authority_member),
 		)
-		.route("/{a_id}/members/{p_id}", delete(delete_authority_member))
+		.route(
+			"/{a_id}/members/{p_id}",
+			patch(update_authority_member).delete(delete_authority_member),
+		)
 		.route(
 			"/{id}/roles",
 			get(get_authority_roles).post(create_authority_role),
@@ -293,7 +302,10 @@ fn institution_routes(state: &AppState) -> Router<AppState> {
 			"/{id}/members",
 			get(get_institution_members).post(add_institution_member),
 		)
-		.route("/{i_id}/members/{p_id}", delete(delete_institution_member))
+		.route(
+			"/{i_id}/members/{p_id}",
+			patch(update_insitution_member).delete(delete_institution_member),
+		)
 		.route(
 			"/{id}/roles",
 			get(get_institution_roles).post(create_institution_role),
