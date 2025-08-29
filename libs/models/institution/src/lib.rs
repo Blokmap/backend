@@ -26,10 +26,8 @@ use primitives::{
 use serde::{Deserialize, Serialize};
 
 mod member;
-mod role;
 
 pub use member::*;
-pub use role::*;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[allow(clippy::struct_excessive_bools)]

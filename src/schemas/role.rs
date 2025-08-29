@@ -1,10 +1,5 @@
 use chrono::NaiveDateTime;
-use location::{
-	LocationRole,
-	LocationRoleIncludes,
-	LocationRoleUpdate,
-	NewLocationRole,
-};
+use role::{NewRole, Role, RoleIncludes, RoleUpdate};
 use serde::{Deserialize, Serialize};
 
 use crate::Config;
@@ -16,6 +11,7 @@ use crate::schemas::{BuildResponse, ser_includes};
 pub struct RoleResponse {
 	pub id:          i32,
 	pub name:        String,
+	pub colour:      String,
 	pub permissions: i64,
 	pub created_at:  NaiveDateTime,
 	#[serde(serialize_with = "ser_includes")]
@@ -25,8 +21,8 @@ pub struct RoleResponse {
 	pub updated_by:  Option<Option<ProfileResponse>>,
 }
 
-impl BuildResponse<RoleResponse> for LocationRole {
-	type Includes = LocationRoleIncludes;
+impl BuildResponse<RoleResponse> for Role {
+	type Includes = RoleIncludes;
 
 	fn build_response(
 		self,
@@ -39,6 +35,7 @@ impl BuildResponse<RoleResponse> for LocationRole {
 		Ok(RoleResponse {
 			id:          self.primitive.id,
 			name:        self.primitive.name,
+			colour:      self.primitive.colour,
 			permissions: self.primitive.permissions,
 			created_at:  self.primitive.created_at,
 			created_by:  if includes.created_by {
@@ -58,21 +55,18 @@ impl BuildResponse<RoleResponse> for LocationRole {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CreateLocationRoleRequest {
+pub struct CreateRoleRequest {
 	pub name:        String,
+	pub colour:      Option<String>,
 	pub permissions: i64,
 }
 
-impl CreateLocationRoleRequest {
+impl CreateRoleRequest {
 	#[must_use]
-	pub fn to_insertable(
-		self,
-		location_id: i32,
-		created_by: i32,
-	) -> NewLocationRole {
-		NewLocationRole {
-			location_id,
+	pub fn to_insertable(self, created_by: i32) -> NewRole {
+		NewRole {
 			name: self.name,
+			colour: self.colour,
 			permissions: self.permissions,
 			created_by,
 		}
@@ -81,16 +75,18 @@ impl CreateLocationRoleRequest {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct UpdateLocationRoleRequest {
+pub struct UpdateRoleRequest {
 	pub name:        Option<String>,
+	pub colour:      Option<String>,
 	pub permissions: Option<i64>,
 }
 
-impl UpdateLocationRoleRequest {
+impl UpdateRoleRequest {
 	#[must_use]
-	pub fn to_insertable(self, updated_by: i32) -> LocationRoleUpdate {
-		LocationRoleUpdate {
+	pub fn to_insertable(self, updated_by: i32) -> RoleUpdate {
+		RoleUpdate {
 			name: self.name,
+			colour: self.colour,
 			permissions: self.permissions,
 			updated_by,
 		}

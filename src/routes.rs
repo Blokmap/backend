@@ -23,24 +23,32 @@ use crate::controllers::authority::{
 	add_authority_location,
 	add_authority_member,
 	create_authority,
+	create_authority_role,
 	delete_authority_member,
+	delete_authority_role,
 	get_all_authorities,
 	get_authority,
 	get_authority_locations,
 	get_authority_members,
+	get_authority_roles,
 	update_authority,
+	update_authority_role,
 };
 use crate::controllers::healthcheck;
 use crate::controllers::institution::{
 	add_institution_member,
 	create_institution,
 	create_institution_authority,
+	create_institution_role,
 	delete_institution_member,
+	delete_institution_role,
 	get_all_institutions,
 	get_categories,
 	get_institution,
 	get_institution_members,
+	get_institution_roles,
 	link_authority,
+	update_institution_role,
 };
 use crate::controllers::location::{
 	add_location_member,
@@ -244,6 +252,14 @@ fn authority_routes(state: &AppState) -> Router<AppState> {
 			get(get_authority_members).post(add_authority_member),
 		)
 		.route("/{a_id}/members/{p_id}", delete(delete_authority_member))
+		.route(
+			"/{id}/roles",
+			get(get_authority_roles).post(create_authority_role),
+		)
+		.route(
+			"/{auth_id}/roles/{role_id}",
+			patch(update_authority_role).delete(delete_authority_role),
+		)
 		.route_layer(AuthLayer::new(state.clone()))
 }
 
@@ -281,5 +297,13 @@ fn institution_routes(state: &AppState) -> Router<AppState> {
 			get(get_institution_members).post(add_institution_member),
 		)
 		.route("/{i_id}/members/{p_id}", delete(delete_institution_member))
+		.route(
+			"/{id}/roles",
+			get(get_institution_roles).post(create_institution_role),
+		)
+		.route(
+			"/{inst_id}/roles/{role_id}",
+			patch(update_institution_role).delete(delete_institution_role),
+		)
 		.route_layer(AuthLayer::new(state.clone()))
 }

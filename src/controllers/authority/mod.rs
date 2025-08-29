@@ -16,9 +16,11 @@ use crate::{Config, Session};
 
 mod location;
 mod member;
+mod role;
 
 pub(crate) use location::*;
 pub(crate) use member::*;
+pub(crate) use role::*;
 
 #[instrument(skip(pool))]
 pub async fn create_authority(

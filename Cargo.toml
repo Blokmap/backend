@@ -91,6 +91,7 @@ permissions = { path = "./libs/models/permissions" }
 profile = { path = "./libs/models/profile" }
 reservation = { path = "./libs/models/reservation" }
 review = { path = "./libs/models/review" }
+role = { path = "./libs/models/role" }
 tag = { path = "./libs/models/tag" }
 translation = { path = "./libs/models/translation" }
 

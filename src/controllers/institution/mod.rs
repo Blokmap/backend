@@ -17,9 +17,11 @@ use crate::{Config, Session};
 
 mod authority;
 mod member;
+mod role;
 
 pub(crate) use authority::*;
 pub(crate) use member::*;
+pub(crate) use role::*;
 
 #[instrument(skip(pool))]
 pub async fn create_institution(

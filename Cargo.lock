@@ -536,6 +536,7 @@ dependencies = [
  "regex",
  "reservation",
  "review",
+ "role",
  "serde",
  "serde_json",
  "serde_with",
@@ -3287,6 +3288,21 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "role"
+version = "0.1.0"
+dependencies = [
+ "base",
+ "chrono",
+ "common",
+ "db",
+ "diesel",
+ "primitives",
+ "serde",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

@@ -7,14 +7,12 @@ use common::{DbConn, DbPool, Error, InternalServerError};
 use db::{
 	authority,
 	authority_member,
-	authority_role,
 	institution,
 	institution_member,
-	institution_role,
 	location,
 	location_member,
-	location_role,
 	profile,
+	role,
 };
 use diesel::prelude::*;
 use serde::Serialize;
@@ -89,12 +87,10 @@ impl Permissions {
 							),
 						),
 					)
-					.inner_join(
-						institution_role::table
-							.on(institution_member::institution_role_id
-								.eq(institution_role::id.nullable())),
-					)
-					.select(institution_role::permissions.nullable())
+					.inner_join(role::table.on(
+						institution_member::role_id.eq(role::id.nullable()),
+					))
+					.select(role::permissions.nullable())
 					.get_result(conn)
 			})
 			.await??;
@@ -123,11 +119,11 @@ impl Permissions {
 						),
 					)
 					.inner_join(
-						authority_role::table
-							.on(authority_member::authority_role_id
-								.eq(authority_role::id.nullable())),
+						role::table
+							.on(authority_member::role_id
+								.eq(role::id.nullable())),
 					)
-					.select(authority_role::permissions.nullable())
+					.select(role::permissions.nullable())
 					.get_result(conn)
 			})
 			.await??;
@@ -189,11 +185,11 @@ impl Permissions {
 							.and(location_member::profile_id.eq(prof_id))),
 					)
 					.inner_join(
-						location_role::table
-							.on(location_member::location_role_id
-								.eq(location_role::id.nullable())),
+						role::table
+							.on(location_member::role_id
+								.eq(role::id.nullable())),
 					)
-					.select(location_role::permissions.nullable())
+					.select(role::permissions.nullable())
 					.get_result(conn)
 			})
 			.await??;

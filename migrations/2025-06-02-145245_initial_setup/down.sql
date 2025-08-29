@@ -28,6 +28,8 @@ DROP TABLE location_role;
 DROP TABLE authority_role;
 DROP TABLE institution_role;
 
+DROP TABLE role;
+
 DROP TABLE location;
 
 DROP TABLE authority;

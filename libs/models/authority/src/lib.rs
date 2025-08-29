@@ -20,10 +20,8 @@ use primitives::{PrimitiveAuthority, PrimitiveInstitution, PrimitiveProfile};
 use serde::{Deserialize, Serialize};
 
 mod member;
-mod role;
 
 pub use member::*;
-pub use role::*;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct AuthorityIncludes {

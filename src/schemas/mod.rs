@@ -12,7 +12,7 @@ pub mod pagination;
 pub mod profile;
 pub mod reservation;
 pub mod review;
-pub mod roles;
+pub mod role;
 pub mod tag;
 pub mod translation;
 
