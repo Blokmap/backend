@@ -33,6 +33,12 @@ bitflags! {
 		/// - remove members
 		const InstManageMembers = 1 << 3;
 
+		/// All valid institution permissions
+		const InstitutionPermissions = 1 << 0
+			| 1 << 1
+			| 1 << 2
+			| 1 << 3;
+
 		/// Admin privileges, member can do everything
 		const AuthAdministrator = 1 << 4;
 		/// Member can submit new locations
@@ -46,6 +52,13 @@ bitflags! {
 		/// - update member roles
 		/// - remove members
 		const AuthManageMembers = 1 << 8;
+
+		/// All valid authority permissions
+		const AuthorityPermissions = 1 << 4
+			| 1 << 5
+			| 1 << 6
+			| 1 << 7
+			| 1 << 8;
 
 		/// Admin privileges, member can do everything
 		const LocAdministrator = 1 << 9;
@@ -66,6 +79,14 @@ bitflags! {
 		const LocManageMembers = 1 << 12;
 		/// Member can confirm reservations for this location:
 		const LocConfirmReservations = 1 << 13;
+
+		/// All valid location permissions
+		const LocationPermissions = 1 << 9
+			| 1 << 10
+			| 1 << 11
+			| 1 << 12
+			| 1 << 13
+			| 1 << 12;
 	}
 }
 

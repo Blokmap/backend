@@ -33,6 +33,10 @@ pub(crate) async fn create_authority_role(
 	)
 	.await?;
 
+	if request.permissions ^ Permissions::AuthorityPermissions.bits() != 0 {
+		return Err(Error::InvalidRolePermissions);
+	}
+
 	let conn = pool.get().await?;
 
 	let new_role_req = request.to_insertable(session.data.profile_id);
@@ -90,6 +94,12 @@ pub(crate) async fn update_authority_role(
 		&pool,
 	)
 	.await?;
+
+	if let Some(permissions) = request.permissions
+		&& (permissions ^ Permissions::AuthorityPermissions.bits() != 0)
+	{
+		return Err(Error::InvalidRolePermissions);
+	}
 
 	let conn = pool.get().await?;
 

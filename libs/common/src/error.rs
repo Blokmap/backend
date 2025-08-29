@@ -29,6 +29,9 @@ pub enum Error {
 	/// Decoding an image failed somehow
 	#[error("{0}")]
 	InvalidImage(String),
+	/// The request attempted to set invalid permissions
+	#[error("invalid permissions")]
+	InvalidRolePermissions,
 	/// Resource not found
 	#[error("not found - {0}")]
 	NotFound(String),
@@ -73,6 +76,7 @@ impl Error {
 			Self::Infallible(_) => "infallible",
 			Self::InternalServerError => "internal_server_error",
 			Self::InvalidImage(_) => "invalid_image",
+			Self::InvalidRolePermissions => "invalid_role_permissions",
 			Self::NotFound(_) => "not_found",
 			Self::LoginError(e) => {
 				match e {
@@ -263,7 +267,10 @@ impl IntoResponse for Error {
 				| OAuthError::MissingNonceCookie
 				| OAuthError::UnknownProvider(_),
 			) => StatusCode::BAD_REQUEST,
-			Self::ValidationError(_) | Self::MissingRequestData(_) | Self::MultipartParseError(_) => {
+			Self::InvalidRolePermissions
+			| Self::ValidationError(_)
+			| Self::MissingRequestData(_)
+			| Self::MultipartParseError(_) => {
 				StatusCode::UNPROCESSABLE_ENTITY
 			},
 		};
