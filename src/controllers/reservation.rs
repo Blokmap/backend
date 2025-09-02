@@ -9,7 +9,12 @@ use chrono::{NaiveDateTime, NaiveTime, Utc};
 use common::{CreateReservationError, DbPool, Error};
 use location::{Location, LocationIncludes};
 use opening_time::{OpeningTime, OpeningTimeIncludes};
-use permissions::Permissions;
+use permissions::{
+	AuthorityPermissions,
+	InstitutionPermissions,
+	LocationPermissions,
+	check_location_perms,
+};
 use reservation::{NewReservation, Reservation, ReservationIncludes};
 
 use crate::schemas::BuildResponse;
@@ -186,12 +191,12 @@ pub async fn delete_reservation(
 			.primitive;
 
 	if reservation.profile_id != session.data.profile_id {
-		Permissions::check_for_location(
+		check_location_perms(
 			l_id,
 			session.data.profile_id,
-			Permissions::LocAdministrator
-				| Permissions::AuthAdministrator
-				| Permissions::InstAdministrator,
+			LocationPermissions::Administrator,
+			AuthorityPermissions::Administrator,
+			InstitutionPermissions::Administrator,
 			&pool,
 		)
 		.await?;

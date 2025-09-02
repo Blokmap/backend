@@ -13,7 +13,13 @@ use opening_time::{
 	TimeBoundsFilter,
 	TimeFilter,
 };
-use permissions::Permissions;
+use permissions::{
+	AuthorityPermissions,
+	InstitutionPermissions,
+	LocationPermissions,
+	check_authority_perms,
+	check_location_perms,
+};
 use reservation::{Reservation, ReservationFilter, ReservationIncludes};
 use tag::{Tag, TagIncludes};
 use validator::Validate;
@@ -107,12 +113,12 @@ pub async fn get_location_reservations(
 	Query(filter): Query<ReservationFilter>,
 	Query(includes): Query<ReservationIncludes>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
+	check_location_perms(
 		loc_id,
 		session.data.profile_id,
-		Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		LocationPermissions::Administrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;
@@ -137,12 +143,12 @@ pub async fn get_location_opening_time_reservations(
 	Path((l_id, t_id)): Path<(i32, i32)>,
 	Query(includes): Query<ReservationIncludes>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
+	check_location_perms(
 		l_id,
 		session.data.profile_id,
-		Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		LocationPermissions::Administrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;
@@ -234,12 +240,12 @@ pub(crate) async fn update_location(
 	Query(includes): Query<LocationIncludes>,
 	Json(request): Json<UpdateLocationRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
+	check_location_perms(
 		id,
 		session.data.profile_id,
-		Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		LocationPermissions::Administrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;
@@ -267,12 +273,12 @@ pub(crate) async fn approve_location(
 	let location = location.0.primitive;
 
 	if let Some(auth_id) = location.authority_id {
-		Permissions::check_for_authority(
+		check_authority_perms(
 			auth_id,
 			session.data.profile_id,
-			Permissions::AuthApproveLocations
-				| Permissions::AuthAdministrator
-				| Permissions::InstAdministrator,
+			AuthorityPermissions::ApproveLocations
+				| AuthorityPermissions::Administrator,
+			InstitutionPermissions::Administrator,
 			&pool,
 		)
 		.await?;
@@ -300,12 +306,12 @@ pub(crate) async fn reject_location(
 	let location = location.0.primitive;
 
 	if let Some(auth_id) = location.authority_id {
-		Permissions::check_for_authority(
+		check_authority_perms(
 			auth_id,
 			session.data.profile_id,
-			Permissions::AuthApproveLocations
-				| Permissions::AuthAdministrator
-				| Permissions::InstAdministrator,
+			AuthorityPermissions::ApproveLocations
+				| AuthorityPermissions::Administrator,
+			InstitutionPermissions::Administrator,
 			&pool,
 		)
 		.await?;
@@ -334,20 +340,22 @@ pub(crate) async fn delete_location(
 	let location = location.primitive;
 
 	if let Some(auth_id) = location.authority_id {
-		Permissions::check_for_authority(
+		check_authority_perms(
 			auth_id,
 			session.data.profile_id,
-			Permissions::AuthDeleteLocations
-				| Permissions::AuthAdministrator
-				| Permissions::InstAdministrator,
+			AuthorityPermissions::DeleteLocations
+				| AuthorityPermissions::Administrator,
+			InstitutionPermissions::Administrator,
 			&pool,
 		)
 		.await?;
 	} else if location.created_by != Some(session.data.profile_id) {
-		Permissions::check_for_location(
+		check_location_perms(
 			id,
 			session.data.profile_id,
-			Permissions::LocAdministrator,
+			LocationPermissions::Administrator,
+			AuthorityPermissions::empty(),
+			InstitutionPermissions::empty(),
 			&pool,
 		)
 		.await?;
@@ -365,12 +373,12 @@ pub async fn set_location_tags(
 	Path(id): Path<i32>,
 	Json(data): Json<SetLocationTagsRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
+	check_location_perms(
 		id,
 		session.data.profile_id,
-		Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		LocationPermissions::Administrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;

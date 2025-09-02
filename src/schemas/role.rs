@@ -1,5 +1,17 @@
 use chrono::NaiveDateTime;
-use role::{NewRole, Role, RoleIncludes, RoleUpdate};
+use role::{
+	AuthorityRole,
+	AuthorityRoleUpdate,
+	InstitutionRole,
+	InstitutionRoleUpdate,
+	LocationRole,
+	LocationRoleUpdate,
+	NewAuthorityRole,
+	NewInstitutionRole,
+	NewLocationRole,
+	OpaqueRole,
+	RoleIncludes,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::Config;
@@ -21,7 +33,7 @@ pub struct RoleResponse {
 	pub updated_by:  Option<Option<ProfileResponse>>,
 }
 
-impl BuildResponse<RoleResponse> for Role {
+impl BuildResponse<RoleResponse> for OpaqueRole {
 	type Includes = RoleIncludes;
 
 	fn build_response(
@@ -33,23 +45,59 @@ impl BuildResponse<RoleResponse> for Role {
 		let updated_by = self.updated_by.map(Into::into);
 
 		Ok(RoleResponse {
-			id:          self.primitive.id,
-			name:        self.primitive.name,
-			colour:      self.primitive.colour,
-			permissions: self.primitive.permissions,
-			created_at:  self.primitive.created_at,
+			id:          self.id,
+			name:        self.name,
+			colour:      self.colour,
+			permissions: self.permissions,
+			created_at:  self.created_at,
 			created_by:  if includes.created_by {
 				Some(created_by)
 			} else {
 				None
 			},
-			updated_at:  self.primitive.updated_at,
+			updated_at:  self.updated_at,
 			updated_by:  if includes.updated_by {
 				Some(updated_by)
 			} else {
 				None
 			},
 		})
+	}
+}
+
+impl BuildResponse<RoleResponse> for LocationRole {
+	type Includes = RoleIncludes;
+
+	fn build_response(
+		self,
+		includes: Self::Includes,
+		config: &Config,
+	) -> Result<RoleResponse, common::Error> {
+		OpaqueRole::from(self).build_response(includes, config)
+	}
+}
+
+impl BuildResponse<RoleResponse> for AuthorityRole {
+	type Includes = RoleIncludes;
+
+	fn build_response(
+		self,
+		includes: Self::Includes,
+		config: &Config,
+	) -> Result<RoleResponse, common::Error> {
+		OpaqueRole::from(self).build_response(includes, config)
+	}
+}
+
+impl BuildResponse<RoleResponse> for InstitutionRole {
+	type Includes = RoleIncludes;
+
+	fn build_response(
+		self,
+		includes: Self::Includes,
+		config: &Config,
+	) -> Result<RoleResponse, common::Error> {
+		OpaqueRole::from(self).build_response(includes, config)
 	}
 }
 
@@ -63,8 +111,43 @@ pub struct CreateRoleRequest {
 
 impl CreateRoleRequest {
 	#[must_use]
-	pub fn to_insertable(self, created_by: i32) -> NewRole {
-		NewRole {
+	pub fn to_insertable_for_location(
+		self,
+		location_id: i32,
+		created_by: i32,
+	) -> NewLocationRole {
+		NewLocationRole {
+			location_id,
+			name: self.name,
+			colour: self.colour,
+			permissions: self.permissions,
+			created_by,
+		}
+	}
+
+	#[must_use]
+	pub fn to_insertable_for_authority(
+		self,
+		authority_id: i32,
+		created_by: i32,
+	) -> NewAuthorityRole {
+		NewAuthorityRole {
+			authority_id,
+			name: self.name,
+			colour: self.colour,
+			permissions: self.permissions,
+			created_by,
+		}
+	}
+
+	#[must_use]
+	pub fn to_insertable_for_institution(
+		self,
+		institution_id: i32,
+		created_by: i32,
+	) -> NewInstitutionRole {
+		NewInstitutionRole {
+			institution_id,
 			name: self.name,
 			colour: self.colour,
 			permissions: self.permissions,
@@ -83,8 +166,37 @@ pub struct UpdateRoleRequest {
 
 impl UpdateRoleRequest {
 	#[must_use]
-	pub fn to_insertable(self, updated_by: i32) -> RoleUpdate {
-		RoleUpdate {
+	pub fn to_insertable_for_location(
+		self,
+		updated_by: i32,
+	) -> LocationRoleUpdate {
+		LocationRoleUpdate {
+			name: self.name,
+			colour: self.colour,
+			permissions: self.permissions,
+			updated_by,
+		}
+	}
+
+	#[must_use]
+	pub fn to_insertable_for_authority(
+		self,
+		updated_by: i32,
+	) -> AuthorityRoleUpdate {
+		AuthorityRoleUpdate {
+			name: self.name,
+			colour: self.colour,
+			permissions: self.permissions,
+			updated_by,
+		}
+	}
+
+	#[must_use]
+	pub fn to_insertable_for_institution(
+		self,
+		updated_by: i32,
+	) -> InstitutionRoleUpdate {
+		InstitutionRoleUpdate {
 			name: self.name,
 			colour: self.colour,
 			permissions: self.permissions,

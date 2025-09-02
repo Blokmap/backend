@@ -1,25 +1,24 @@
 #[macro_use]
 extern crate tracing;
 
-// use base::JoinParts;
-use ::role::NewRole;
+use ::role::NewAuthorityRole;
 use common::{DbConn, Error};
 use db::{
 	CreatorAlias,
 	UpdaterAlias,
 	authority,
 	authority_member,
+	authority_role,
 	creator,
 	institution,
 	profile,
-	role,
 	updater,
 };
 use diesel::dsl::{AliasedFields, Nullable};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
-use permissions::Permissions;
+use permissions::AuthorityPermissions;
 use primitives::{PrimitiveAuthority, PrimitiveInstitution, PrimitiveProfile};
 use serde::{Deserialize, Serialize};
 
@@ -175,23 +174,25 @@ impl NewAuthority {
 						.returning(PrimitiveAuthority::as_returning())
 						.get_result(conn)?;
 
-					let new_role = NewRole {
-						name:        "owner".into(),
-						colour:      None,
-						permissions: Permissions::AuthAdministrator.bits(),
-						created_by:  creator_id,
+					let new_role = NewAuthorityRole {
+						authority_id: auth.id,
+						name:         "owner".into(),
+						colour:       None,
+						permissions:  AuthorityPermissions::Administrator
+							.bits(),
+						created_by:   creator_id,
 					};
 
-					let role_id = diesel::insert_into(role::table)
+					let role_id = diesel::insert_into(authority_role::table)
 						.values(new_role)
-						.returning(role::id)
+						.returning(authority_role::id)
 						.get_result(conn)?;
 
 					let member = NewAuthorityMember {
-						authority_id: auth.id,
-						profile_id:   creator_id,
-						role_id:      Some(role_id),
-						added_by:     creator_id,
+						authority_id:      auth.id,
+						profile_id:        creator_id,
+						authority_role_id: Some(role_id),
+						added_by:          creator_id,
 					};
 
 					diesel::insert_into(authority_member::table)

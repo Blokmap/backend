@@ -87,10 +87,10 @@ impl Authority {
 #[diesel(table_name = authority_member)]
 #[diesel(check_for_backend(Pg))]
 pub struct NewAuthorityMember {
-	pub authority_id: i32,
-	pub profile_id:   i32,
-	pub role_id:      Option<i32>,
-	pub added_by:     i32,
+	pub authority_id:      i32,
+	pub profile_id:        i32,
+	pub authority_role_id: Option<i32>,
+	pub added_by:          i32,
 }
 
 impl NewAuthorityMember {
@@ -142,8 +142,8 @@ impl NewAuthorityMember {
 #[diesel(table_name = authority_member)]
 #[diesel(check_for_backend(Pg))]
 pub struct AuthorityMemberUpdate {
-	pub role_id:    Option<i32>,
-	pub updated_by: i32,
+	pub authority_role_id: Option<i32>,
+	pub updated_by:        i32,
 }
 
 impl AuthorityMemberUpdate {

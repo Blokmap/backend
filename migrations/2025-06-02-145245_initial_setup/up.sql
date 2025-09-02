@@ -191,15 +191,20 @@ SELECT diesel_manage_updated_at('location');
 
 
 
-CREATE TABLE role (
-	id          SERIAL    PRIMARY KEY,
-	name        TEXT      NOT NULL,
-	colour      TEXT      NOT NULL DEFAULT '#000000',
-	permissions BIGINT    NOT NULL DEFAULT 0,
-	created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-	created_by  INTEGER,
-	updated_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-	updated_by  INTEGER,
+CREATE TABLE institution_role (
+	id             SERIAL    PRIMARY KEY,
+	institution_id INTEGER   NOT NULL,
+	name           TEXT      NOT NULL,
+	colour         TEXT      NOT NULL DEFAULT '#000000',
+	permissions    BIGINT    NOT NULL DEFAULT 0,
+	created_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+	created_by     INTEGER,
+	updated_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+	updated_by     INTEGER,
+
+	CONSTRAINT fk__institution_role__institution_id
+	FOREIGN KEY (institution_id) REFERENCES institution(id)
+	ON DELETE CASCADE,
 
 	CONSTRAINT fk__institution_role__created_by
 	FOREIGN KEY (created_by) REFERENCES profile(id)
@@ -210,72 +215,74 @@ CREATE TABLE role (
 	ON DELETE SET NULL
 );
 
-SELECT diesel_manage_updated_at('role');
-
-
-
-CREATE TABLE institution_role (
-	institution_id INTEGER NOT NULL,
-	role_id        INTEGER NOT NULL,
-
-	CONSTRAINT pk__institution_role
-	PRIMARY KEY (institution_id, role_id),
-
-	CONSTRAINT fk__institution_role__institution_id
-	FOREIGN KEY (institution_id) REFERENCES institution(id)
-	ON DELETE CASCADE,
-
-	CONSTRAINT fk__institution_role__role_id
-	FOREIGN KEY (role_id) REFERENCES role(id)
-	ON DELETE CASCADE
-);
+SELECT diesel_manage_updated_at('institution_role');
 
 
 
 CREATE TABLE authority_role (
-	authority_id INTEGER NOT NULL,
-	role_id      INTEGER NOT NULL,
-
-	CONSTRAINT pk__authority_role
-	PRIMARY KEY (authority_id, role_id),
+	id           SERIAL    PRIMARY KEY,
+	authority_id INTEGER   NOT NULL,
+	name         TEXT      NOT NULL,
+	colour       TEXT      NOT NULL DEFAULT '#000000',
+	permissions  BIGINT    NOT NULL DEFAULT 0,
+	created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+	created_by   INTEGER,
+	updated_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+	updated_by   INTEGER,
 
 	CONSTRAINT fk__authority_role__authority_id
 	FOREIGN KEY (authority_id) REFERENCES authority(id)
 	ON DELETE CASCADE,
 
-	CONSTRAINT fk__authority_role__role_id
-	FOREIGN KEY (role_id) REFERENCES role(id)
-	ON DELETE CASCADE
+	CONSTRAINT fk__authority_role__created_by
+	FOREIGN KEY (created_by) REFERENCES profile(id)
+	ON DELETE SET NULL,
+
+	CONSTRAINT fk__authority_role__updated_by
+	FOREIGN KEY (updated_by) REFERENCES profile(id)
+	ON DELETE SET NULL
 );
+
+SELECT diesel_manage_updated_at('authority_role');
 
 
 
 CREATE TABLE location_role (
-	location_id INTEGER NOT NULL,
-	role_id        INTEGER NOT NULL,
-
-	CONSTRAINT pk__location_role
-	PRIMARY KEY (location_id, role_id),
+	id          SERIAL    PRIMARY KEY,
+	location_id INTEGER   NOT NULL,
+	name        TEXT      NOT NULL,
+	colour      TEXT      NOT NULL DEFAULT '#000000',
+	permissions BIGINT    NOT NULL DEFAULT 0,
+	created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+	created_by  INTEGER,
+	updated_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+	updated_by  INTEGER,
 
 	CONSTRAINT fk__location_role__location_id
 	FOREIGN KEY (location_id) REFERENCES location(id)
 	ON DELETE CASCADE,
 
-	CONSTRAINT fk__location_role__role_id
-	FOREIGN KEY (role_id) REFERENCES role(id)
-	ON DELETE CASCADE
+	CONSTRAINT fk__location_role__created_by
+	FOREIGN KEY (created_by) REFERENCES profile(id)
+	ON DELETE SET NULL,
+
+	CONSTRAINT fk__location_role__updated_by
+	FOREIGN KEY (updated_by) REFERENCES profile(id)
+	ON DELETE SET NULL
 );
+
+SELECT diesel_manage_updated_at('location_role');
 
 
 
 CREATE TABLE institution_member (
-	institution_id INTEGER   NOT NULL,
-	profile_id     INTEGER   NOT NULL,
-	role_id        INTEGER,
-	added_at       TIMESTAMP NOT NULL DEFAULT NOW(),
-	added_by       INTEGER,
-	updated_at     TIMESTAMP NOT NULL DEFAULT NOW(),
-	updated_by     INTEGER,
+	institution_id      INTEGER   NOT NULL,
+	profile_id          INTEGER   NOT NULL,
+	institution_role_id INTEGER,
+	added_at            TIMESTAMP NOT NULL DEFAULT NOW(),
+	added_by            INTEGER,
+	updated_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+	updated_by          INTEGER,
 
 	CONSTRAINT pk__institution_member
 	PRIMARY KEY (institution_id, profile_id),
@@ -288,8 +295,8 @@ CREATE TABLE institution_member (
 	FOREIGN KEY (profile_id) REFERENCES profile(id)
 	ON DELETE CASCADE,
 
-	CONSTRAINT fk__institution_member__role_id
-	FOREIGN KEY (role_id) REFERENCES role(id)
+	CONSTRAINT fk__institution_member__institution_role_id
+	FOREIGN KEY (institution_role_id) REFERENCES institution_role(id)
 	ON DELETE SET NULL,
 
 	CONSTRAINT fk__institution_member__added_by
@@ -306,13 +313,13 @@ SELECT diesel_manage_updated_at('institution_member');
 
 
 CREATE TABLE authority_member (
-	authority_id INTEGER   NOT NULL,
-	profile_id   INTEGER   NOT NULL,
-	role_id      INTEGER,
-	added_at     TIMESTAMP NOT NULL DEFAULT NOW(),
-	added_by     INTEGER,
-	updated_at   TIMESTAMP NOT NULL DEFAULT NOW(),
-	updated_by   INTEGER,
+	authority_id      INTEGER   NOT NULL,
+	profile_id        INTEGER   NOT NULL,
+	authority_role_id INTEGER,
+	added_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+	added_by          INTEGER,
+	updated_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+	updated_by        INTEGER,
 
 	CONSTRAINT pk__authority_member
 	PRIMARY KEY (authority_id, profile_id),
@@ -325,8 +332,8 @@ CREATE TABLE authority_member (
 	FOREIGN KEY (profile_id) REFERENCES profile(id)
 	ON DELETE CASCADE,
 
-	CONSTRAINT fk__authority_member__role_id
-	FOREIGN KEY (role_id) REFERENCES role(id)
+	CONSTRAINT fk__authority_member__authority_role_id
+	FOREIGN KEY (authority_role_id) REFERENCES authority_role(id)
 	ON DELETE SET NULL,
 
 	CONSTRAINT fk__authority_member__added_by
@@ -345,7 +352,7 @@ SELECT diesel_manage_updated_at('authority_member');
 CREATE TABLE location_member (
 	location_id      INTEGER   NOT NULL,
 	profile_id       INTEGER   NOT NULL,
-	role_id          INTEGER,
+	location_role_id INTEGER,
 	added_at         TIMESTAMP NOT NULL DEFAULT NOW(),
 	added_by         INTEGER,
 	updated_at       TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -362,8 +369,8 @@ CREATE TABLE location_member (
 	FOREIGN KEY (profile_id) REFERENCES profile(id)
 	ON DELETE CASCADE,
 
-	CONSTRAINT fk__location_member__role_id
-	FOREIGN KEY (role_id) REFERENCES role(id)
+	CONSTRAINT fk__location_member__location_role_id
+	FOREIGN KEY (location_role_id) REFERENCES location_role(id)
 	ON DELETE SET NULL,
 
     CONSTRAINT fk__location_member__added_by

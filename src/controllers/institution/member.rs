@@ -4,7 +4,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
 use institution::Institution;
-use permissions::Permissions;
+use permissions::{InstitutionPermissions, check_institution_perms};
 
 use crate::schemas::BuildResponse;
 use crate::schemas::institution::{
@@ -22,15 +22,16 @@ pub(crate) async fn add_institution_member(
 	Path(id): Path<i32>,
 	Json(request): Json<CreateInstitutionMemberRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_institution(
+	let conn = pool.get().await?;
+
+	check_institution_perms(
 		id,
 		session.data.profile_id,
-		Permissions::InstManageMembers | Permissions::InstAdministrator,
-		&pool,
+		InstitutionPermissions::ManageMembers
+			| InstitutionPermissions::Administrator,
+		&conn,
 	)
 	.await?;
-
-	let conn = pool.get().await?;
 
 	let new_inst_profile = request.to_insertable(id, session.data.profile_id);
 	let member = new_inst_profile.insert(&conn).await?;
@@ -46,15 +47,16 @@ pub async fn get_institution_members(
 	session: Session,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_institution(
+	let conn = pool.get().await?;
+
+	check_institution_perms(
 		id,
 		session.data.profile_id,
-		Permissions::InstManageMembers | Permissions::InstAdministrator,
-		&pool,
+		InstitutionPermissions::ManageMembers
+			| InstitutionPermissions::Administrator,
+		&conn,
 	)
 	.await?;
-
-	let conn = pool.get().await?;
 
 	let members = Institution::get_members(id, &conn).await?;
 	let response: Vec<ProfileResponse> = members
@@ -73,15 +75,16 @@ pub async fn update_insitution_member(
 	Path((inst_id, prof_id)): Path<(i32, i32)>,
 	Json(request): Json<InstitutionMemberUpdateRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_institution(
+	let conn = pool.get().await?;
+
+	check_institution_perms(
 		inst_id,
 		session.data.profile_id,
-		Permissions::InstManageMembers | Permissions::InstAdministrator,
-		&pool,
+		InstitutionPermissions::ManageMembers
+			| InstitutionPermissions::Administrator,
+		&conn,
 	)
 	.await?;
-
-	let conn = pool.get().await?;
 
 	let member_update = request.to_insertable(session.data.profile_id);
 	let updated_member =
@@ -97,11 +100,14 @@ pub async fn delete_institution_member(
 	session: Session,
 	Path((i_id, p_id)): Path<(i32, i32)>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_institution(
+	let conn = pool.get().await?;
+
+	check_institution_perms(
 		i_id,
 		session.data.profile_id,
-		Permissions::InstManageMembers | Permissions::InstAdministrator,
-		&pool,
+		InstitutionPermissions::ManageMembers
+			| InstitutionPermissions::Administrator,
+		&conn,
 	)
 	.await?;
 

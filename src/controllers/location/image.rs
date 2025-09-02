@@ -4,7 +4,12 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
 use image::{Image, ImageIncludes};
-use permissions::Permissions;
+use permissions::{
+	AuthorityPermissions,
+	InstitutionPermissions,
+	LocationPermissions,
+	check_location_perms,
+};
 use utils::image::{delete_image, store_location_image};
 
 use crate::schemas::BuildResponse;
@@ -20,13 +25,12 @@ pub async fn upload_location_image(
 	Path(id): Path<i32>,
 	mut data: Multipart,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
+	check_location_perms(
 		id,
 		session.data.profile_id,
-		Permissions::LocManageImages
-			| Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		LocationPermissions::ManageImages | LocationPermissions::Administrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;
@@ -54,13 +58,12 @@ pub async fn reorder_location_images(
 	// TODO: only allow reordering if {current_image_ids} =
 	// {reordered_image_ids}
 
-	Permissions::check_for_location(
+	check_location_perms(
 		id,
 		session.data.profile_id,
-		Permissions::LocManageImages
-			| Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		LocationPermissions::ManageImages | LocationPermissions::Administrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;
@@ -85,13 +88,12 @@ pub async fn delete_location_image(
 	session: Session,
 	Path((l_id, img_id)): Path<(i32, i32)>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
+	check_location_perms(
 		l_id,
 		session.data.profile_id,
-		Permissions::LocManageImages
-			| Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		LocationPermissions::ManageImages | LocationPermissions::Administrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;

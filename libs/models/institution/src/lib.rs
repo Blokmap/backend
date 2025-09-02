@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate tracing;
 
-use ::role::NewRole;
+use ::role::NewInstitutionRole;
 use ::translation::NewTranslation;
 use base::{PaginatedData, PaginationConfig, manual_pagination};
 use common::{DbConn, Error};
@@ -12,8 +12,8 @@ use db::{
 	creator,
 	institution,
 	institution_member,
+	institution_role,
 	profile,
-	role,
 	translation,
 	updater,
 };
@@ -21,7 +21,7 @@ use diesel::dsl::{AliasedFields, Nullable};
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::Bool;
-use permissions::Permissions;
+use permissions::InstitutionPermissions;
 use primitives::{
 	PrimitiveInstitution,
 	PrimitiveProfile,
@@ -212,23 +212,25 @@ impl NewInstitution {
 						.returning(PrimitiveInstitution::as_returning())
 						.get_result(conn)?;
 
-					let new_role = NewRole {
-						name:        "owner".into(),
-						colour:      None,
-						permissions: Permissions::InstAdministrator.bits(),
-						created_by:  self.created_by,
+					let new_role = NewInstitutionRole {
+						institution_id: inst.id,
+						name:           "owner".into(),
+						colour:         None,
+						permissions:    InstitutionPermissions::Administrator
+							.bits(),
+						created_by:     self.created_by,
 					};
 
-					let role_id = diesel::insert_into(role::table)
+					let role_id = diesel::insert_into(institution_role::table)
 						.values(new_role)
-						.returning(role::id)
+						.returning(institution_role::id)
 						.get_result(conn)?;
 
 					let member = NewInstitutionMember {
-						institution_id: inst.id,
-						profile_id:     self.created_by,
-						role_id:        Some(role_id),
-						added_by:       self.created_by,
+						institution_id:      inst.id,
+						profile_id:          self.created_by,
+						institution_role_id: Some(role_id),
+						added_by:            self.created_by,
 					};
 
 					diesel::insert_into(institution_member::table)

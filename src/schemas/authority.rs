@@ -112,8 +112,8 @@ impl UpdateAuthorityRequest {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateAuthorityMemberRequest {
-	pub profile_id: i32,
-	pub role_id:    Option<i32>,
+	pub profile_id:        i32,
+	pub authority_role_id: Option<i32>,
 }
 
 impl CreateAuthorityMemberRequest {
@@ -126,7 +126,7 @@ impl CreateAuthorityMemberRequest {
 		NewAuthorityMember {
 			authority_id,
 			profile_id: self.profile_id,
-			role_id: self.role_id,
+			authority_role_id: self.authority_role_id,
 			added_by,
 		}
 	}
@@ -135,12 +135,15 @@ impl CreateAuthorityMemberRequest {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthorityMemberUpdateRequest {
-	pub role_id: Option<i32>,
+	pub authority_role_id: Option<i32>,
 }
 
 impl AuthorityMemberUpdateRequest {
 	#[must_use]
 	pub fn to_insertable(self, updated_by: i32) -> AuthorityMemberUpdate {
-		AuthorityMemberUpdate { role_id: self.role_id, updated_by }
+		AuthorityMemberUpdate {
+			authority_role_id: self.authority_role_id,
+			updated_by,
+		}
 	}
 }
