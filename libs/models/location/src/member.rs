@@ -62,10 +62,10 @@ impl Location {
 #[diesel(table_name = location_member)]
 #[diesel(check_for_backend(Pg))]
 pub struct NewLocationMember {
-	pub location_id: i32,
-	pub profile_id:  i32,
-	pub role_id:     Option<i32>,
-	pub added_by:    i32,
+	pub location_id:      i32,
+	pub profile_id:       i32,
+	pub location_role_id: Option<i32>,
+	pub added_by:         i32,
 }
 
 impl NewLocationMember {
@@ -94,8 +94,8 @@ impl NewLocationMember {
 #[diesel(table_name = location_member)]
 #[diesel(check_for_backend(Pg))]
 pub struct LocationMemberUpdate {
-	pub role_id:    Option<i32>,
-	pub updated_by: i32,
+	pub location_role_id: Option<i32>,
+	pub updated_by:       i32,
 }
 
 impl LocationMemberUpdate {

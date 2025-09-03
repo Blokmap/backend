@@ -4,7 +4,11 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
-use permissions::Permissions;
+use permissions::{
+	AuthorityPermissions,
+	InstitutionPermissions,
+	check_authority_perms,
+};
 
 use crate::schemas::BuildResponse;
 use crate::schemas::authority::{
@@ -80,10 +84,11 @@ pub async fn update_authority(
 	Path(id): Path<i32>,
 	Json(request): Json<UpdateAuthorityRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_authority(
+	check_authority_perms(
 		id,
 		session.data.profile_id,
-		Permissions::AuthAdministrator | Permissions::InstAdministrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;

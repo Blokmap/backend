@@ -7,7 +7,7 @@ use std::hash::Hash;
 
 use ::image::{Image, OrderedImage};
 use ::opening_time::{OpeningTime, OpeningTimeIncludes, TimeBoundsFilter};
-use ::role::NewRole;
+use ::role::NewLocationRole;
 use ::tag::Tag;
 use ::translation::NewTranslation;
 use chrono::{NaiveDateTime, Utc};
@@ -26,10 +26,10 @@ use db::{
 	excerpt,
 	location,
 	location_member,
+	location_role,
 	opening_time,
 	profile,
 	rejecter,
-	role,
 	translation,
 	updater,
 };
@@ -38,7 +38,7 @@ use diesel::pg::Pg;
 use diesel::prelude::*;
 use diesel::sql_types::{Bool, Double};
 use image::ImageIncludes;
-use permissions::Permissions;
+use permissions::LocationPermissions;
 use primitives::{
 	PrimitiveAuthority,
 	PrimitiveLocation,
@@ -661,23 +661,24 @@ impl NewLocation {
 						.returning(PrimitiveLocation::as_returning())
 						.get_result(conn)?;
 
-					let new_role = NewRole {
+					let new_role = NewLocationRole {
+						location_id: loc.id,
 						name:        "owner".into(),
 						colour:      None,
-						permissions: Permissions::LocAdministrator.bits(),
+						permissions: LocationPermissions::Administrator.bits(),
 						created_by:  self.created_by,
 					};
 
-					let role_id = diesel::insert_into(role::table)
+					let role_id = diesel::insert_into(location_role::table)
 						.values(new_role)
-						.returning(role::id)
+						.returning(location_role::id)
 						.get_result(conn)?;
 
 					let member = NewLocationMember {
-						location_id: loc.id,
-						profile_id:  self.created_by,
-						role_id:     Some(role_id),
-						added_by:    self.created_by,
+						location_id:      loc.id,
+						profile_id:       self.created_by,
+						location_role_id: Some(role_id),
+						added_by:         self.created_by,
 					};
 
 					diesel::insert_into(location_member::table)

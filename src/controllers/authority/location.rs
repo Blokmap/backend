@@ -4,7 +4,11 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
-use permissions::Permissions;
+use permissions::{
+	AuthorityPermissions,
+	InstitutionPermissions,
+	check_authority_perms,
+};
 
 use crate::schemas::BuildResponse;
 use crate::schemas::location::{CreateLocationRequest, LocationResponse};
@@ -19,12 +23,12 @@ pub(crate) async fn add_authority_location(
 	Path(id): Path<i32>,
 	Json(request): Json<CreateLocationRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_authority(
+	check_authority_perms(
 		id,
 		session.data.profile_id,
-		Permissions::AuthAddLocations
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		AuthorityPermissions::AddLocations
+			| AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;

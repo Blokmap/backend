@@ -5,7 +5,11 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
 use location::LocationIncludes;
-use permissions::Permissions;
+use permissions::{
+	AuthorityPermissions,
+	InstitutionPermissions,
+	check_authority_perms,
+};
 
 use crate::schemas::BuildResponse;
 use crate::schemas::authority::{
@@ -24,12 +28,12 @@ pub(crate) async fn add_authority_member(
 	Path(id): Path<i32>,
 	Json(request): Json<CreateAuthorityMemberRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_authority(
+	check_authority_perms(
 		id,
 		session.data.profile_id,
-		Permissions::AuthManageMembers
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		AuthorityPermissions::Administrator
+			| AuthorityPermissions::ManageMembers,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;
@@ -50,12 +54,12 @@ pub(crate) async fn get_authority_members(
 	session: Session,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_authority(
+	check_authority_perms(
 		id,
 		session.data.profile_id,
-		Permissions::AuthManageMembers
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		AuthorityPermissions::Administrator
+			| AuthorityPermissions::ManageMembers,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;
@@ -79,12 +83,12 @@ pub async fn update_authority_member(
 	Path((auth_id, prof_id)): Path<(i32, i32)>,
 	Json(request): Json<AuthorityMemberUpdateRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_authority(
+	check_authority_perms(
 		auth_id,
 		session.data.profile_id,
-		Permissions::AuthManageMembers
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		AuthorityPermissions::Administrator
+			| AuthorityPermissions::ManageMembers,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;
@@ -105,12 +109,12 @@ pub(crate) async fn delete_authority_member(
 	session: Session,
 	Path((a_id, p_id)): Path<(i32, i32)>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_authority(
+	check_authority_perms(
 		a_id,
 		session.data.profile_id,
-		Permissions::AuthManageMembers
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		AuthorityPermissions::Administrator
+			| AuthorityPermissions::ManageMembers,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;

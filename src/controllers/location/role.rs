@@ -3,8 +3,13 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
-use permissions::Permissions;
-use role::{Role, RoleIncludes};
+use permissions::{
+	AuthorityPermissions,
+	InstitutionPermissions,
+	LocationPermissions,
+	check_location_perms,
+};
+use role::{LocationRole, RoleIncludes};
 
 use crate::schemas::BuildResponse;
 use crate::schemas::role::{
@@ -23,26 +28,21 @@ pub(crate) async fn create_location_role(
 	Query(includes): Query<RoleIncludes>,
 	Json(request): Json<CreateRoleRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
+	check_location_perms(
 		loc_id,
 		session.data.profile_id,
-		Permissions::LocManageMembers
-			| Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		LocationPermissions::ManageMembers | LocationPermissions::Administrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;
 
-	if request.permissions ^ Permissions::LocationPermissions.bits() != 0 {
-		return Err(Error::InvalidRolePermissions);
-	}
-
 	let conn = pool.get().await?;
 
-	let new_role_req = request.to_insertable(session.data.profile_id);
-	let new_role =
-		new_role_req.insert_for_location(loc_id, includes, &conn).await?;
+	let new_role_req =
+		request.to_insertable_for_location(loc_id, session.data.profile_id);
+	let new_role = new_role_req.insert(loc_id, includes, &conn).await?;
 	let response = new_role.build_response(includes, &config)?;
 
 	Ok((StatusCode::CREATED, Json(response)))
@@ -56,20 +56,19 @@ pub(crate) async fn get_location_roles(
 	Path(loc_id): Path<i32>,
 	Query(includes): Query<RoleIncludes>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
+	check_location_perms(
 		loc_id,
 		session.data.profile_id,
-		Permissions::LocManageMembers
-			| Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		LocationPermissions::ManageMembers | LocationPermissions::Administrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;
 
 	let conn = pool.get().await?;
 
-	let roles = Role::get_for_location(loc_id, includes, &conn).await?;
+	let roles = LocationRole::get_for_location(loc_id, includes, &conn).await?;
 	let response: Vec<RoleResponse> = roles
 		.into_iter()
 		.map(|r| r.build_response(includes, &config))
@@ -87,29 +86,24 @@ pub(crate) async fn update_location_role(
 	Query(includes): Query<RoleIncludes>,
 	Json(request): Json<UpdateRoleRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
+	check_location_perms(
 		loc_id,
 		session.data.profile_id,
-		Permissions::LocManageMembers
-			| Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		LocationPermissions::ManageMembers | LocationPermissions::Administrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;
 
-	if let Some(permissions) = request.permissions
-		&& (permissions ^ Permissions::LocationPermissions.bits() != 0)
-	{
-		return Err(Error::InvalidRolePermissions);
-	}
-
 	let conn = pool.get().await?;
 
 	// Return not found if the role doesn't belong to this location
-	Role::get_for_location(loc_id, RoleIncludes::default(), &conn).await?;
+	LocationRole::get_for_location(loc_id, RoleIncludes::default(), &conn)
+		.await?;
 
-	let role_update = request.to_insertable(session.data.profile_id);
+	let role_update =
+		request.to_insertable_for_location(session.data.profile_id);
 	let updated_role = role_update.apply_to(role_id, includes, &conn).await?;
 	let response = updated_role.build_response(includes, &config)?;
 
@@ -123,13 +117,12 @@ pub(crate) async fn delete_location_role(
 	session: Session,
 	Path((loc_id, role_id)): Path<(i32, i32)>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
+	check_location_perms(
 		loc_id,
 		session.data.profile_id,
-		Permissions::LocManageMembers
-			| Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		LocationPermissions::ManageMembers | LocationPermissions::Administrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;
@@ -137,9 +130,10 @@ pub(crate) async fn delete_location_role(
 	let conn = pool.get().await?;
 
 	// Return not found if the role doesn't belong to this location
-	Role::get_for_location(loc_id, RoleIncludes::default(), &conn).await?;
+	LocationRole::get_for_location(loc_id, RoleIncludes::default(), &conn)
+		.await?;
 
-	Role::delete_by_id(role_id, &conn).await?;
+	LocationRole::delete_by_id(role_id, &conn).await?;
 
 	Ok((StatusCode::NO_CONTENT, NoContent))
 }

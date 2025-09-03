@@ -130,8 +130,8 @@ impl CreateInstitutionRequest {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateInstitutionMemberRequest {
-	pub profile_id: i32,
-	pub role_id:    Option<i32>,
+	pub profile_id:          i32,
+	pub institution_role_id: Option<i32>,
 }
 
 impl CreateInstitutionMemberRequest {
@@ -144,7 +144,7 @@ impl CreateInstitutionMemberRequest {
 		NewInstitutionMember {
 			institution_id,
 			profile_id: self.profile_id,
-			role_id: self.role_id,
+			institution_role_id: self.institution_role_id,
 			added_by,
 		}
 	}
@@ -153,12 +153,15 @@ impl CreateInstitutionMemberRequest {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstitutionMemberUpdateRequest {
-	pub role_id: Option<i32>,
+	pub institution_role_id: Option<i32>,
 }
 
 impl InstitutionMemberUpdateRequest {
 	#[must_use]
 	pub fn to_insertable(self, updated_by: i32) -> InstitutionMemberUpdate {
-		InstitutionMemberUpdate { role_id: self.role_id, updated_by }
+		InstitutionMemberUpdate {
+			institution_role_id: self.institution_role_id,
+			updated_by,
+		}
 	}
 }

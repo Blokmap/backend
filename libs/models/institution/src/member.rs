@@ -86,10 +86,10 @@ impl Institution {
 #[diesel(table_name = institution_member)]
 #[diesel(check_for_backend(Pg))]
 pub struct NewInstitutionMember {
-	pub institution_id: i32,
-	pub profile_id:     i32,
-	pub role_id:        Option<i32>,
-	pub added_by:       i32,
+	pub institution_id:      i32,
+	pub profile_id:          i32,
+	pub institution_role_id: Option<i32>,
+	pub added_by:            i32,
 }
 
 #[rustfmt::skip]
@@ -142,8 +142,8 @@ impl NewInstitutionMember {
 #[diesel(table_name = institution_member)]
 #[diesel(check_for_backend(Pg))]
 pub struct InstitutionMemberUpdate {
-	pub role_id:    Option<i32>,
-	pub updated_by: i32,
+	pub institution_role_id: Option<i32>,
+	pub updated_by:          i32,
 }
 
 impl InstitutionMemberUpdate {

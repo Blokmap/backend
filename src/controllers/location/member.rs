@@ -4,7 +4,12 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, NoContent};
 use common::{DbPool, Error};
 use location::Location;
-use permissions::Permissions;
+use permissions::{
+	AuthorityPermissions,
+	InstitutionPermissions,
+	LocationPermissions,
+	check_location_perms,
+};
 
 use crate::schemas::BuildResponse;
 use crate::schemas::location::{
@@ -22,13 +27,12 @@ pub async fn add_location_member(
 	Path(id): Path<i32>,
 	Json(request): Json<CreateLocationMemberRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
+	check_location_perms(
 		id,
 		session.data.profile_id,
-		Permissions::LocManageMembers
-			| Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		LocationPermissions::ManageMembers | LocationPermissions::Administrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;
@@ -49,13 +53,12 @@ pub async fn get_location_members(
 	session: Session,
 	Path(id): Path<i32>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
+	check_location_perms(
 		id,
 		session.data.profile_id,
-		Permissions::LocManageMembers
-			| Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		LocationPermissions::ManageMembers | LocationPermissions::Administrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;
@@ -79,13 +82,12 @@ pub async fn update_location_member(
 	Path((loc_id, prof_id)): Path<(i32, i32)>,
 	Json(request): Json<LocationMemberUpdateRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
+	check_location_perms(
 		loc_id,
 		session.data.profile_id,
-		Permissions::LocManageMembers
-			| Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		LocationPermissions::ManageMembers | LocationPermissions::Administrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;
@@ -105,13 +107,12 @@ pub async fn delete_location_member(
 	session: Session,
 	Path((l_id, p_id)): Path<(i32, i32)>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_location(
+	check_location_perms(
 		l_id,
 		session.data.profile_id,
-		Permissions::LocManageMembers
-			| Permissions::LocAdministrator
-			| Permissions::AuthAdministrator
-			| Permissions::InstAdministrator,
+		LocationPermissions::ManageMembers | LocationPermissions::Administrator,
+		AuthorityPermissions::Administrator,
+		InstitutionPermissions::Administrator,
 		&pool,
 	)
 	.await?;

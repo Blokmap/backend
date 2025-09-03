@@ -4,7 +4,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use common::{DbPool, Error};
-use permissions::Permissions;
+use permissions::{InstitutionPermissions, check_institution_perms};
 
 use crate::schemas::BuildResponse;
 use crate::schemas::authority::CreateAuthorityRequest;
@@ -19,15 +19,16 @@ pub async fn create_institution_authority(
 	Query(includes): Query<AuthorityIncludes>,
 	Json(request): Json<CreateAuthorityRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_institution(
+	let conn = pool.get().await?;
+
+	check_institution_perms(
 		i_id,
 		session.data.profile_id,
-		Permissions::InstAddAuthority | Permissions::InstAdministrator,
-		&pool,
+		InstitutionPermissions::AddAuthority
+			| InstitutionPermissions::Administrator,
+		&conn,
 	)
 	.await?;
-
-	let conn = pool.get().await?;
 
 	let mut new_authority = request.to_insertable(session.data.profile_id);
 	new_authority.institution_id = Some(i_id);
@@ -45,15 +46,16 @@ pub async fn link_authority(
 	Path((i_id, a_id)): Path<(i32, i32)>,
 	Query(includes): Query<AuthorityIncludes>,
 ) -> Result<impl IntoResponse, Error> {
-	Permissions::check_for_institution(
+	let conn = pool.get().await?;
+
+	check_institution_perms(
 		i_id,
 		session.data.profile_id,
-		Permissions::InstAddAuthority | Permissions::InstAdministrator,
-		&pool,
+		InstitutionPermissions::AddAuthority
+			| InstitutionPermissions::Administrator,
+		&conn,
 	)
 	.await?;
-
-	let conn = pool.get().await?;
 
 	let update = AuthorityUpdate {
 		name:           None,
