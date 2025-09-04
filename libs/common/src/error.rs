@@ -539,6 +539,12 @@ impl From<lettre::error::Error> for Error {
 	}
 }
 
+impl From<serde_json::Error> for Error {
+	fn from(err: serde_json::Error) -> Self {
+		InternalServerError::SerdeJsonError(err).into()
+	}
+}
+
 impl From<redis::RedisError> for Error {
 	fn from(err: redis::RedisError) -> Self {
 		InternalServerError::RedisError(err).into()

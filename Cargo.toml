@@ -40,7 +40,6 @@ image_processing = {package = "image", version = "0.25.6", default-features = fa
 	"serde",
 ]}
 lettre = { version = "0.11.16", features = ["tracing"] }
-openidconnect = { version = "4.0.0", features = ["reqwest-blocking"] }
 rayon = "1.10.0"
 redis = { version = "0.31.0", features = ["tokio-comp", "uuid"] }
 serde = { version = "1.0.218", features = ["derive"] }
@@ -109,7 +108,6 @@ diesel-dynamic-schema = { workspace = true }
 fast_image_resize = { workspace = true }
 image_processing = { workspace = true }
 lettre = { workspace = true }
-openidconnect = { workspace = true }
 rayon = { workspace = true }
 redis = { workspace = true }
 serde = { workspace = true }

@@ -3,7 +3,6 @@ use std::sync::Arc;
 use chrono::Duration;
 use deadpool_diesel::postgres::{Manager, Pool};
 use lettre::Address;
-use openidconnect::{ClientId, ClientSecret};
 use url::Url;
 
 use crate::RedisConn;
@@ -39,8 +38,9 @@ pub struct Config {
 	pub email_confirmation_token_lifetime: Duration,
 	pub password_reset_token_lifetime:     Duration,
 
-	pub access_token_name:     String,
-	pub access_token_lifetime: time::Duration,
+	pub claims_cookie_name:     String,
+	pub access_cookie_name:     String,
+	pub access_cookie_lifetime: time::Duration,
 
 	pub email_address:       Address,
 	pub email_queue_size:    usize,
@@ -82,11 +82,14 @@ impl Config {
 				.unwrap(),
 		);
 
-		let access_token_name =
-			get_env_default("ACCESS_TOKEN_NAME", "blokmap_access_token");
+		let claims_cookie_name =
+			get_env_default("CLAIMS_COOKIE_NAME", "blokmap_login_claims");
 
-		let access_token_lifetime = time::Duration::minutes(
-			get_env_default("ACCESS_TOKEN_LIFETIME_MINUTES", "120")
+		let access_cookie_name =
+			get_env_default("ACCESS_COOKIE_NAME", "blokmap_access_token");
+
+		let access_cookie_lifetime = time::Duration::minutes(
+			get_env_default("ACCESS_COOKIE_LIFETIME_MINUTES", "120")
 				.parse::<i64>()
 				.unwrap(),
 		);
@@ -120,8 +123,9 @@ impl Config {
 			static_url,
 			email_confirmation_token_lifetime,
 			password_reset_token_lifetime,
-			access_token_name,
-			access_token_lifetime,
+			claims_cookie_name,
+			access_cookie_name,
+			access_cookie_lifetime,
 			email_address,
 			email_queue_size,
 			email_smtp_server,
@@ -165,45 +169,5 @@ impl Config {
 			.get_multiplexed_async_connection()
 			.await
 			.expect("COULD NOT CONNECT TO REDIS")
-	}
-}
-
-#[derive(Debug, Clone)]
-pub struct SsoConfig {
-	pub google_client_id:     ClientId,
-	pub google_client_secret: ClientSecret,
-}
-
-impl SsoConfig {
-	/// Create a new [`SsoConfig`] from environment variables
-	///
-	/// # Panics
-	/// Panics if a required environment variable is missing
-	#[must_use]
-	pub fn from_env() -> Self {
-		let google_oidc_credentials =
-			std::fs::read_to_string("/run/secrets/google-oidc-credentials")
-				.expect("GOOGLE OIDC CREDENTIALS MISSING");
-
-		let google_oidc_credentials =
-			google_oidc_credentials.lines().collect::<Vec<_>>();
-
-		assert_eq!(google_oidc_credentials.len(), 2);
-
-		let google_client_id =
-			ClientId::new(google_oidc_credentials[0].to_owned());
-		let google_client_secret =
-			ClientSecret::new(google_oidc_credentials[1].to_owned());
-
-		Self { google_client_id, google_client_secret }
-	}
-
-	/// Create a new [`SsoConfig`] with all fields empty to be used in tests
-	#[must_use]
-	pub fn stub() -> Self {
-		Self {
-			google_client_id:     ClientId::new(String::new()),
-			google_client_secret: ClientSecret::new(String::new()),
-		}
 	}
 }

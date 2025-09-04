@@ -151,8 +151,10 @@ async fn seed_profiles(conn: &DbConn, count: usize) -> Result<usize, Error> {
 			let password_hash = Password(EN, 1..10).fake::<String>();
 			NewProfileDirect {
 				username,
+				first_name: None,
+				last_name: None,
 				password_hash,
-				email: Some(email),
+				email,
 				state: ProfileState::Active,
 			}
 		})

@@ -72,7 +72,7 @@ pub async fn get_current_profile(
 
 	let mut r_conn = state.redis_connection;
 
-	let Some(access_token) = jar.get(&state.config.access_token_name) else {
+	let Some(access_token) = jar.get(&state.config.access_cookie_name) else {
 		return Ok((StatusCode::OK, Json(None)));
 	};
 

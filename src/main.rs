@@ -3,7 +3,7 @@ extern crate tracing;
 
 use axum_extra::extract::cookie::Key;
 use blokmap::mailer::Mailer;
-use blokmap::{AppState, Config, SsoConfig, routes};
+use blokmap::{AppState, Config, routes};
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::signal::unix::SignalKind;
@@ -25,9 +25,6 @@ async fn main() {
 	let database_pool = config.create_database_pool();
 	let redis_connection = config.create_redis_connection().await;
 
-	// Load the SSO configs
-	let sso_config = SsoConfig::from_env();
-
 	let cookie_jar_key = Key::from(
 		&std::fs::read("/run/secrets/cookie-jar-key")
 			.expect("COULD NOT READ COOKIE JAR KEY"),
@@ -40,7 +37,6 @@ async fn main() {
 	// Create the app router and listener.
 	let router = routes::get_app_router(AppState {
 		config,
-		sso_config,
 		database_pool,
 		redis_connection,
 		cookie_jar_key,

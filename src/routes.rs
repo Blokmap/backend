@@ -9,7 +9,6 @@ use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
 use crate::AppState;
-use crate::controllers::auth::sso::{sso_callback, sso_login};
 use crate::controllers::auth::{
 	confirm_email,
 	login_profile,
@@ -152,8 +151,6 @@ fn auth_routes(state: &AppState) -> Router<AppState> {
 		.route("/request_password_reset", post(request_password_reset))
 		.route("/reset_password", post(reset_password))
 		.route("/login", post(login_profile))
-		.route("/sso/{provider}", get(sso_login))
-		.route("/sso/callback", get(sso_callback))
 		.route(
 			"/logout",
 			post(logout_profile).route_layer(AuthLayer::new(state.clone())),

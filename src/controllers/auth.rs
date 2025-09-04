@@ -26,8 +26,6 @@ use crate::schemas::auth::{
 use crate::schemas::profile::ProfileResponse;
 use crate::{Config, Session};
 
-pub mod sso;
-
 #[instrument(skip(pool, r_conn, config, mailer, jar))]
 pub(crate) async fn register_profile(
 	State(pool): State<DbPool>,
@@ -60,15 +58,15 @@ pub(crate) async fn register_profile(
 		let profile = new_profile.confirm_email(&conn).await?;
 
 		let session = Session::create(
-			config.access_token_lifetime,
+			config.access_cookie_lifetime,
 			&profile,
 			&mut r_conn,
 		)
 		.await?;
 
 		let access_token_cookie = session.to_access_token_cookie(
-			config.access_token_name.clone(),
-			config.access_token_lifetime,
+			config.access_cookie_name.clone(),
+			config.access_cookie_lifetime,
 			config.production,
 		);
 
@@ -161,12 +159,12 @@ pub(crate) async fn confirm_email(
 	profile.confirm_email(&conn).await?;
 
 	let session =
-		Session::create(config.access_token_lifetime, &profile, &mut r_conn)
+		Session::create(config.access_cookie_lifetime, &profile, &mut r_conn)
 			.await?;
 
 	let access_token_cookie = session.to_access_token_cookie(
-		config.access_token_name,
-		config.access_token_lifetime,
+		config.access_cookie_name,
+		config.access_cookie_lifetime,
 		config.production,
 	);
 
@@ -234,12 +232,12 @@ pub(crate) async fn reset_password(
 	let profile = profile.change_password(&request.password, &conn).await?;
 
 	let session =
-		Session::create(config.access_token_lifetime, &profile, &mut r_conn)
+		Session::create(config.access_cookie_lifetime, &profile, &mut r_conn)
 			.await?;
 
 	let access_token_cookie = session.to_access_token_cookie(
-		config.access_token_name,
-		config.access_token_lifetime,
+		config.access_cookie_name,
+		config.access_cookie_lifetime,
 		config.production,
 	);
 
@@ -280,14 +278,14 @@ pub(crate) async fn login_profile(
 	let access_token_lifetime = if login_data.remember {
 		Duration::days(45)
 	} else {
-		config.access_token_lifetime
+		config.access_cookie_lifetime
 	};
 
 	let session =
 		Session::create(access_token_lifetime, &profile, &mut r_conn).await?;
 
 	let access_token_cookie = session.to_access_token_cookie(
-		config.access_token_name,
+		config.access_cookie_name,
 		access_token_lifetime,
 		config.production,
 	);
@@ -308,7 +306,7 @@ pub(crate) async fn logout_profile(
 	jar: PrivateCookieJar,
 	session: Session,
 ) -> Result<(PrivateCookieJar, NoContent), Error> {
-	let access_token = Cookie::build(config.access_token_name).path("/");
+	let access_token = Cookie::build(config.access_cookie_name).path("/");
 	let jar = jar.remove(access_token);
 
 	Session::delete(session.id, &mut r_conn).await?;

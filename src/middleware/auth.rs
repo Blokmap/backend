@@ -10,6 +10,7 @@ use axum::http::Response;
 use axum::response::IntoResponse;
 use axum_extra::extract::PrivateCookieJar;
 use common::{Error, TokenError};
+use profile::{Profile, ProfileClaims};
 use tower::{Layer, Service};
 
 use crate::AppState;
@@ -77,14 +78,63 @@ where
 		let state = self.state.clone();
 
 		Box::pin(async move {
-			let jar = req
+			let mut jar = req
 				.extract_parts_with_state::<PrivateCookieJar, _>(&state)
 				.await
 				.unwrap();
 
 			let mut r_conn = state.redis_connection;
+			let pool = state.database_pool;
+			let conn = match pool.get().await {
+				Ok(c) => c,
+				Err(e) => {
+					return Ok(Error::from(e).into_response());
+				},
+			};
 
-			let Some(access_token) = jar.get(&state.config.access_token_name)
+			if let Some(claims_cookie) =
+				jar.get(&state.config.claims_cookie_name)
+			{
+				let claims = match serde_json::from_str::<ProfileClaims>(
+					claims_cookie.value(),
+				) {
+					Ok(c) => c,
+					Err(e) => {
+						return Ok(Error::from(e).into_response());
+					},
+				};
+
+				let profile = match Profile::from_claims(claims, &conn).await {
+					Ok(p) => p,
+					Err(e) => {
+						return Ok(e.into_response());
+					},
+				};
+
+				let session = Session::create(
+					state.config.access_cookie_lifetime,
+					&profile,
+					&mut r_conn,
+				)
+				.await;
+
+				let session = match session {
+					Ok(s) => s,
+					Err(e) => {
+						return Ok(e.into_response());
+					},
+				};
+
+				let access_token_cookie = session.to_access_token_cookie(
+					state.config.access_cookie_name.clone(),
+					state.config.access_cookie_lifetime,
+					state.config.production,
+				);
+
+				jar = jar.add(access_token_cookie);
+			}
+
+			let Some(access_token) = jar.get(&state.config.access_cookie_name)
 			else {
 				info!("got request without valid access token");
 
@@ -111,7 +161,20 @@ where
 
 			req.extensions_mut().insert(session_id);
 
-			inner.call(req).await
+			let res = inner.call(req).await;
+
+			res.map(|r| {
+				let (head, body) = r.into_parts();
+
+				let mut res = (jar, body).into_response();
+
+				*res.status_mut() = head.status;
+				*res.version_mut() = head.version;
+				*res.headers_mut() = head.headers;
+				*res.extensions_mut() = head.extensions;
+
+				res
+			})
 		})
 	}
 }

@@ -13,7 +13,7 @@ use base::{
 	manual_pagination,
 };
 use chrono::{NaiveDateTime, TimeDelta, Utc};
-use common::{DbConn, Error, OAuthError};
+use common::{DbConn, Error};
 use db::{
 	ProfileState,
 	ReservationState,
@@ -25,12 +25,21 @@ use db::{
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use lettre::message::Mailbox;
-use openidconnect::core::CoreGenderClaim;
-use openidconnect::{EmptyAdditionalClaims, IdTokenClaims};
 use primitives::{PrimitiveImage, PrimitiveProfile};
 use rand::Rng;
 use rand::distr::Alphabetic;
 use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileClaims {
+	pub issuer:     String,
+	pub email:      String,
+	pub username:   Option<String>,
+	pub first_name: Option<String>,
+	pub last_name:  Option<String>,
+	pub avatar_url: Option<String>,
+}
 
 impl TryFrom<&Profile> for Mailbox {
 	type Error = Error;
@@ -354,36 +363,17 @@ impl Profile {
 		self.update(conn).await
 	}
 
-	/// Get or create a [`Profile`] from an external SSO provided email
+	/// Get or create a [`Profile`] from a set of login claims
 	///
 	/// # Panics
 	/// Panics if the user has a *very* weird email
 	#[instrument(skip(conn))]
-	pub async fn from_sso(
-		claims: IdTokenClaims<EmptyAdditionalClaims, CoreGenderClaim>,
+	pub async fn from_claims(
+		claims: ProfileClaims,
 		conn: &DbConn,
 	) -> Result<Self, Error> {
-		let Some(user_email) = claims.email().map(|e| e.to_string()) else {
-			return Err(OAuthError::MissingEmailField.into());
-		};
-
-		let username = if let Some(n) = claims.preferred_username()
-			&& !(**n).is_empty()
-		{
-			n.to_string()
-		} else {
-			let prefix = user_email.split('@').next().unwrap().to_string();
-
-			let mut rng = rand::rng();
-			let suffix: String =
-				(0..5).map(|_| rng.sample(Alphabetic) as char).collect();
-
-			format!("{prefix}.{suffix}")
-		};
-
-		let user_email_ = user_email.clone();
-
 		let query = Self::query();
+		let user_email_ = claims.email.clone();
 
 		let profile: Option<Self> = conn
 			.interact(move |conn| {
@@ -401,22 +391,36 @@ impl Profile {
 			return Ok(profile);
 		}
 
+		let username = if let Some(n) = claims.username
+			&& !n.is_empty()
+		{
+			n
+		} else {
+			let prefix = claims.email.split('@').next().unwrap().to_string();
+
+			let mut rng = rand::rng();
+			let suffix: String =
+				(0..5).map(|_| rng.sample(Alphabetic) as char).collect();
+
+			format!("{prefix}.{suffix}")
+		};
+
 		let new_profile = NewProfileDirect {
 			username,
-			email: Some(user_email),
+			first_name: claims.first_name,
+			last_name: claims.last_name,
+			email: claims.email,
 			password_hash: String::new(),
 			state: ProfileState::Active,
 		};
 
 		let profile = new_profile.insert(conn).await?;
 
-		if let Some(avatar_url) = claims.picture()
-			&& let Some(avatar_url) = avatar_url.get(None)
-		{
+		if let Some(avatar_url) = claims.avatar_url {
 			let avatar = NewImage {
 				file_path:   None,
 				uploaded_by: profile.primitive.id,
-				image_url:   Some(avatar_url.to_string()),
+				image_url:   Some(avatar_url.clone()),
 			};
 
 			avatar.insert_for_profile(profile.primitive.id, conn).await?;
@@ -491,8 +495,10 @@ impl NewProfile {
 #[diesel(table_name = profile)]
 pub struct NewProfileDirect {
 	pub username:      String,
+	pub first_name:    Option<String>,
+	pub last_name:     Option<String>,
 	pub password_hash: String,
-	pub email:         Option<String>,
+	pub email:         String,
 	pub state:         ProfileState,
 }
 

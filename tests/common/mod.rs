@@ -4,7 +4,7 @@ use axum_extra::extract::cookie::Key;
 use axum_test::TestServer;
 use blokmap::mailer::{Mailer, StubMailbox};
 use blokmap::schemas::auth::LoginRequest;
-use blokmap::{AppState, Config, SeedProfile, Seeder, SsoConfig, routes};
+use blokmap::{AppState, Config, SeedProfile, Seeder, routes};
 use common::Error;
 use location::{Location, LocationIncludes, NewLocation};
 use mock_redis::{RedisUrlGuard, RedisUrlProvider};
@@ -38,7 +38,6 @@ impl TestEnv {
 	pub async fn new() -> Self {
 		// Load the configuration from the environment
 		let mut config = Config::from_env();
-		let sso_config = SsoConfig::stub();
 
 		config.production = true;
 		config.skip_verify = false;
@@ -189,7 +188,6 @@ impl TestEnv {
 		// Create the test app.
 		let app = routes::get_app_router(AppState {
 			config,
-			sso_config,
 			database_pool: test_pool.clone(),
 			redis_connection,
 			cookie_jar_key,
