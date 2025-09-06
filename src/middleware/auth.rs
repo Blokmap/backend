@@ -170,8 +170,9 @@ where
 
 				*res.status_mut() = head.status;
 				*res.version_mut() = head.version;
-				*res.headers_mut() = head.headers;
-				*res.extensions_mut() = head.extensions;
+
+				res.headers_mut().extend(head.headers);
+				res.extensions_mut().extend(head.extensions);
 
 				res
 			})
